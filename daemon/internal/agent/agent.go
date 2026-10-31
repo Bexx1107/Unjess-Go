@@ -1785,11 +1785,15 @@ func (hm *HarnessManager) CompactConversation(convID string) (map[string]any, er
 	recentTurns := turns[len(turns)-2:]
 
 	var (
+		primaryIntent string
 		userRequests  []string
+		techConcepts  []string
+		conceptsSeen  = make(map[string]bool)
 		filesModified []string
 		filesSeen     = make(map[string]bool)
 		cmdsRun       []string
 		errorsAndFix  []string
+		pendingTodos  []string
 		agentNotes    []string
 	)
 	for _, t := range oldTurns {
@@ -1803,8 +1807,22 @@ func (hm *HarnessManager) CompactConversation(convID string) (map[string]any, er
 		if ts == "" {
 			ts = "past"
 		}
+		if m, _ := tm["model"].(string); m != "" && !conceptsSeen["model:"+m] {
+			conceptsSeen["model:"+m] = true
+			techConcepts = append(techConcepts, fmt.Sprintf("- Active Model: `%s`", m))
+		}
+		if mode, _ := tm["agent_mode"].(string); mode != "" && !conceptsSeen["mode:"+mode] {
+			conceptsSeen["mode:"+mode] = true
+			techConcepts = append(techConcepts, fmt.Sprintf("- Execution Mode: `%s`", mode))
+		}
 		if role == "user" {
 			clean := strings.TrimSpace(text)
+			if primaryIntent == "" && clean != "" {
+				primaryIntent = clean
+				if len(primaryIntent) > 600 {
+					primaryIntent = primaryIntent[:600] + "..."
+				}
+			}
 			if len(clean) > 1200 {
 				clean = clean[:1200] + "..."
 			}
@@ -1832,65 +1850,85 @@ func (hm *HarnessManager) CompactConversation(convID string) (map[string]any, er
 				}
 			}
 		}
-		if tcs, ok := tm["tool_calls"].([]any); ok {
-			for _, tcRaw := range tcs {
-				tcMap, ok := tcRaw.(map[string]any)
-				if !ok {
-					continue
-				}
-				name, _ := tcMap["name"].(string)
-				status, _ := tcMap["status"].(string)
-				resStr, _ := tcMap["result"].(string)
-				argsMap, _ := tcMap["arguments"].(map[string]any)
-				switch name {
-				case "read_file", "edit_file", "write_file":
-					if p, _ := argsMap["path"].(string); p != "" && !filesSeen[p+":"+name] {
-						filesSeen[p+":"+name] = true
-						filesModified = append(filesModified, fmt.Sprintf("- `%s` (via `%s`)", p, name))
+		tcs, ok := tm["tool_calls"].([]any)
+		if !ok {
+			tcs, _ = tm["toolCalls"].([]any)
+		}
+		for _, tcRaw := range tcs {
+			tcMap, ok := tcRaw.(map[string]any)
+			if !ok {
+				continue
+			}
+			name, _ := tcMap["name"].(string)
+			status, _ := tcMap["status"].(string)
+			resStr, _ := tcMap["result"].(string)
+			argsMap, _ := tcMap["arguments"].(map[string]any)
+			switch name {
+			case "read_file", "edit_file", "write_file":
+				if p, _ := argsMap["path"].(string); p != "" && !filesSeen[p+":"+name] {
+					filesSeen[p+":"+name] = true
+					filesModified = append(filesModified, fmt.Sprintf("- `%s` (via `%s`)", p, name))
+					ext := strings.ToLower(filepath.Ext(p))
+					if ext != "" && !conceptsSeen["ext:"+ext] {
+						conceptsSeen["ext:"+ext] = true
+						techConcepts = append(techConcepts, fmt.Sprintf("- File/Language type: `%s`", ext))
 					}
-				case "run_command":
-					if cmd, _ := argsMap["command"].(string); cmd != "" {
-						if len(cmd) > 160 {
-							cmd = cmd[:160] + "..."
+				}
+			case "run_command":
+				if cmd, _ := argsMap["command"].(string); cmd != "" {
+					if len(cmd) > 160 {
+						cmd = cmd[:160] + "..."
+					}
+					cmdsRun = append(cmdsRun, fmt.Sprintf("- `%s` [%s]", cmd, status))
+				}
+			case "todo_write":
+				if rawTodos, ok := argsMap["todos"].([]any); ok {
+					pendingTodos = nil
+					for _, item := range rawTodos {
+						if im, ok := item.(map[string]any); ok {
+							c := strings.TrimSpace(fmt.Sprint(im["content"]))
+							st := strings.TrimSpace(fmt.Sprint(im["status"]))
+							if c != "" {
+								pendingTodos = append(pendingTodos, fmt.Sprintf("- [%s] %s", st, c))
+							}
 						}
-						cmdsRun = append(cmdsRun, fmt.Sprintf("- `%s` [%s]", cmd, status))
 					}
 				}
-				if status == "error" || strings.HasPrefix(resStr, "Error") {
-					errSnippet := strings.TrimSpace(resStr)
-					if len(errSnippet) > 240 {
-						errSnippet = errSnippet[:240] + "..."
-					}
-					errorsAndFix = append(errorsAndFix, fmt.Sprintf("- `%s`: %s", name, errSnippet))
+			}
+			if status == "error" || strings.HasPrefix(resStr, "Error") {
+				errSnippet := strings.TrimSpace(resStr)
+				if len(errSnippet) > 240 {
+					errSnippet = errSnippet[:240] + "..."
 				}
+				errorsAndFix = append(errorsAndFix, fmt.Sprintf("- `%s`: %s", name, errSnippet))
 			}
 		}
 	}
 
 	var summaryBuilder strings.Builder
 	summaryBuilder.WriteString("<summary>\n")
-	summaryBuilder.WriteString("### 1. Primary Request & All User Messages\n")
-	if len(userRequests) > 0 {
-		summaryBuilder.WriteString(strings.Join(userRequests, "\n") + "\n\n")
+	summaryBuilder.WriteString("### 1. Primary Request and Intent\n")
+	if primaryIntent != "" {
+		summaryBuilder.WriteString("- " + primaryIntent + "\n\n")
 	} else {
-		summaryBuilder.WriteString("- (No prior user messages recorded)\n\n")
+		summaryBuilder.WriteString("- Continue autonomous engineering session in workspace.\n\n")
 	}
-	summaryBuilder.WriteString("### 2. Files and Code Sections Examined or Modified\n")
+
+	summaryBuilder.WriteString("### 2. Key Technical Concepts\n")
+	if len(techConcepts) > 0 {
+		summaryBuilder.WriteString(strings.Join(techConcepts, "\n") + "\n\n")
+	} else {
+		summaryBuilder.WriteString("- Unjess 2.0 autonomous workspace session\n\n")
+	}
+
+	summaryBuilder.WriteString("### 3. Files and Code Sections Examined or Modified\n")
 	if len(filesModified) > 0 {
 		summaryBuilder.WriteString(strings.Join(filesModified, "\n") + "\n\n")
 	} else {
 		summaryBuilder.WriteString("- (No files examined or modified yet)\n\n")
 	}
-	summaryBuilder.WriteString("### 3. Commands & Verifications Executed\n")
-	if len(cmdsRun) > 0 {
-		if len(cmdsRun) > 20 {
-			cmdsRun = cmdsRun[len(cmdsRun)-20:]
-		}
-		summaryBuilder.WriteString(strings.Join(cmdsRun, "\n") + "\n\n")
-	} else {
-		summaryBuilder.WriteString("- (No shell commands executed in compacted turns)\n\n")
-	}
-	summaryBuilder.WriteString("### 4. Errors Encountered & Troubleshooting\n")
+
+	summaryBuilder.WriteString("### 4. Errors and Fixes\n")
 	if len(errorsAndFix) > 0 {
 		if len(errorsAndFix) > 10 {
 			errorsAndFix = errorsAndFix[len(errorsAndFix)-10:]
@@ -1899,12 +1937,39 @@ func (hm *HarnessManager) CompactConversation(convID string) (map[string]any, er
 	} else {
 		summaryBuilder.WriteString("- None\n\n")
 	}
-	summaryBuilder.WriteString("### 5. Previous Work & Technical Context\n")
+
+	summaryBuilder.WriteString("### 5. Problem Solving & Verifications Executed\n")
+	if len(cmdsRun) > 0 {
+		if len(cmdsRun) > 20 {
+			cmdsRun = cmdsRun[len(cmdsRun)-20:]
+		}
+		summaryBuilder.WriteString(strings.Join(cmdsRun, "\n") + "\n\n")
+	} else {
+		summaryBuilder.WriteString("- (No shell commands executed in compacted turns)\n\n")
+	}
+
+	summaryBuilder.WriteString("### 6. All User Messages\n")
+	if len(userRequests) > 0 {
+		summaryBuilder.WriteString(strings.Join(userRequests, "\n") + "\n\n")
+	} else {
+		summaryBuilder.WriteString("- (No prior user messages recorded)\n\n")
+	}
+
+	summaryBuilder.WriteString("### 7. Pending Tasks\n")
+	if len(pendingTodos) > 0 {
+		summaryBuilder.WriteString(strings.Join(pendingTodos, "\n") + "\n\n")
+	} else {
+		summaryBuilder.WriteString("- Refer to recent turns for remaining items.\n\n")
+	}
+
+	summaryBuilder.WriteString("### 8. Current Work & Next Step\n")
 	if len(agentNotes) > 0 {
 		if len(agentNotes) > 8 {
 			agentNotes = agentNotes[len(agentNotes)-8:]
 		}
 		summaryBuilder.WriteString(strings.Join(agentNotes, "\n") + "\n")
+	} else {
+		summaryBuilder.WriteString("- Continue from preserved recent turns.\n")
 	}
 	summaryBuilder.WriteString("</summary>\n")
 
@@ -3500,6 +3565,8 @@ func (hm *HarnessManager) executeSubagentLoop(parentCtx context.Context, sr *Sub
 		provider := sr.Provider
 		sr.mu.Unlock()
 
+		compactMessagesSmartly(messages)
+
 		chatOpts := llm.ChatOptions{
 			Model:                 model,
 			Provider:              provider,
@@ -3792,14 +3859,7 @@ func (hm *HarnessManager) executeSubagentLoop(parentCtx context.Context, sr *Sub
 			}
 			toolDur := time.Since(toolStart).Seconds()
 
-			subCanonicalArgs, _ := json.Marshal(tc.Arguments)
-			subCurrentToolKey := tc.Name + ":" + string(subCanonicalArgs)
-			if subCurrentToolKey == subLastToolKey {
-				subSameToolCount++
-			} else {
-				subLastToolKey = subCurrentToolKey
-				subSameToolCount = 1
-			}
+			updateRepeatToolState(tc.Name, tc.Arguments, &subLastToolKey, &subSameToolCount)
 
 			if !success {
 				subFailStreak++
@@ -3807,8 +3867,8 @@ func (hm *HarnessManager) executeSubagentLoop(parentCtx context.Context, sr *Sub
 				subFailStreak = 0
 			}
 
-			if subSameToolCount >= 3 || subFailStreak >= 3 {
-				out += "\n\n<mentor_analysis>\n[PentAGI Execution Monitor — Loop / Stuck Pattern Detected]\n- Observation: You have repeated the same tool call or encountered consecutive tool failures without advancing toward the objective.\n- Strategic Guidance: Do NOT repeat the exact same command or search. Analyze why the previous attempt failed, pivot to a different tool or attack/coding vector, or synthesize your findings and conclude if the task is complete.\n</mentor_analysis>"
+			if reminder := formatRepeatToolReminder(tc.Name, subSameToolCount, subFailStreak); reminder != "" {
+				out += reminder
 			}
 
 			// Dynamic Subagent Budget Warning (Claude Code Parity Standard)
@@ -6082,14 +6142,7 @@ func (hm *HarnessManager) RunAgentTurn(ctx context.Context, req ChatTurnRequest)
 
 			toolDur := time.Since(toolStart).Seconds()
 
-			canonicalArgs, _ := json.Marshal(tc.Arguments)
-			currentToolKey := tc.Name + ":" + string(canonicalArgs)
-			if currentToolKey == lastToolKey {
-				sameToolCount++
-			} else {
-				lastToolKey = currentToolKey
-				sameToolCount = 1
-			}
+			updateRepeatToolState(tc.Name, tc.Arguments, &lastToolKey, &sameToolCount)
 
 			if !success {
 				failStreak++
@@ -6097,8 +6150,8 @@ func (hm *HarnessManager) RunAgentTurn(ctx context.Context, req ChatTurnRequest)
 				failStreak = 0
 			}
 
-			if sameToolCount >= 3 || failStreak >= 3 {
-				toolResult += "\n\n<mentor_analysis>\n[PentAGI Execution Monitor — Loop / Stuck Pattern Detected]\n- Observation: You have repeated the same tool call or encountered consecutive tool failures without advancing toward the objective.\n- Strategic Guidance: Do NOT repeat the exact same command or search. Analyze why the previous attempt failed, pivot to a different tool or attack/coding vector, or synthesize your findings and conclude if the task is complete.\n</mentor_analysis>"
+			if reminder := formatRepeatToolReminder(tc.Name, sameToolCount, failStreak); reminder != "" {
+				toolResult += reminder
 			}
 			if failStreak >= 4 && len(executor.Snapshots) > 0 {
 				toolResult += "\n\n<trajectory_pivot_recovery>\n[Pass@k Trajectory Pivot Advisory]\nYou have encountered 4+ consecutive tool/verification failures. Stop applying incremental guesses to a failing hypothesis. Re-read the target file around the modified lines, check `git_diff` to see if earlier edits introduced a regression, and pivot to a clean, well-verified implementation strategy.\n</trajectory_pivot_recovery>"
@@ -6452,13 +6505,183 @@ func shouldInjectSubagentModelCatalog(prompt string) bool {
 	return false
 }
 
-// compactMessagesSmartly performs KV-cache-friendly intra-turn context management:
-// 1. Superseded File-Read Micro-Compaction: Only compacts an older read_file output if
-//    the exact same file range header appears in a newer read_file tool output.
-// 2. Token-Threshold Compaction (autoCompactWindow): Only compacts older tool outputs
-//    when total message characters exceed 140,000 (~35k-40k tokens), preserving recent
-//    file reads in full so the model never loses lines it read earlier in the turn.
+// isTransparentBookkeepingTool returns true for status/bookkeeping tools (such as todo_write)
+// that must remain transparent to repeat-tool loop detection so a pattern like
+// grep -> todo_write -> grep -> todo_write -> grep is caught as 3 consecutive identical greps.
+func isTransparentBookkeepingTool(name string) bool {
+	switch strings.ToLower(strings.TrimSpace(name)) {
+	case "todo_write", "todowrite", "todo_read", "mcp_status", "tool_search", "poll_task":
+		return true
+	default:
+		return false
+	}
+}
+
+func normalizeValueForCanonicalKey(v any) any {
+	switch val := v.(type) {
+	case string:
+		return strings.TrimSpace(val)
+	case map[string]any:
+		out := make(map[string]any, len(val))
+		for k, inner := range val {
+			out[strings.TrimSpace(k)] = normalizeValueForCanonicalKey(inner)
+		}
+		return out
+	case []any:
+		out := make([]any, len(val))
+		for i, inner := range val {
+			out[i] = normalizeValueForCanonicalKey(inner)
+		}
+		return out
+	default:
+		return v
+	}
+}
+
+// canonicalizeToolCallKey produces a deterministic key-sorted JSON signature for a tool call
+// with trimmed string arguments (dsh-loop-repeat-tool-guard parity).
+func canonicalizeToolCallKey(name string, args map[string]any) string {
+	cleanName := strings.ToLower(strings.TrimSpace(name))
+	if len(args) == 0 {
+		return cleanName + ":{}"
+	}
+	norm := normalizeValueForCanonicalKey(args)
+	b, err := json.Marshal(norm)
+	if err != nil {
+		return cleanName + ":" + fmt.Sprint(args)
+	}
+	return cleanName + ":" + string(b)
+}
+
+// updateRepeatToolState updates the consecutive identical tool call counter while treating
+// bookkeeping tools (like todo_write) as transparent.
+func updateRepeatToolState(name string, args map[string]any, lastKey *string, sameCount *int) (int, bool) {
+	if isTransparentBookkeepingTool(name) {
+		return *sameCount, false
+	}
+	key := canonicalizeToolCallKey(name, args)
+	if key == *lastKey {
+		*sameCount++
+	} else {
+		*lastKey = key
+		*sameCount = 1
+	}
+	return *sameCount, true
+}
+
+// formatRepeatToolReminder returns an escalating [3, 5, 8] loop-recovery reminder when a tool call
+// is repeated with identical canonical arguments or when consecutive failures occur.
+func formatRepeatToolReminder(toolName string, sameToolCount int, failStreak int) string {
+	if isTransparentBookkeepingTool(toolName) && failStreak < 3 {
+		return ""
+	}
+	if sameToolCount >= 8 {
+		return fmt.Sprintf("\n\n<mentor_analysis>\n[PentAGI Execution Monitor — CRITICAL Loop Escalation (Repeated Identical Call #%d)]\n- Observation: You have executed `%s` with the exact same arguments %d times (including across any intermediate todo_write updates).\n- Mandatory Action: STOP calling `%s` with these arguments immediately. You are in a hard repetition loop. Either modify the target code/parameters, switch to a completely different tool, or synthesize your current results and finish the turn.\n</mentor_analysis>", sameToolCount, toolName, sameToolCount, toolName)
+	}
+	if sameToolCount >= 5 {
+		return fmt.Sprintf("\n\n<mentor_analysis>\n[PentAGI Execution Monitor — High-Severity Loop Warning (Repeated Identical Call #%d)]\n- Observation: You have repeated `%s` with identical arguments %d times without changing state.\n- Strategic Guidance: Repeating this call again will not produce a different outcome. Inspect the previous output carefully and change your approach or parameters now.\n</mentor_analysis>", sameToolCount, toolName, sameToolCount)
+	}
+	if sameToolCount >= 3 || failStreak >= 3 {
+		return "\n\n<mentor_analysis>\n[PentAGI Execution Monitor — Loop / Stuck Pattern Detected]\n- Observation: You have repeated the same tool call or encountered consecutive tool failures without advancing toward the objective.\n- Strategic Guidance: Do NOT repeat the exact same command or search. Analyze why the previous attempt failed, pivot to a different tool or attack/coding vector, or synthesize your findings and conclude if the task is complete.\n</mentor_analysis>"
+	}
+	return ""
+}
+
+// pruneToolResultHeadTail implements Stage-1 model-free head+tail pruning (4096 head + 1024 tail)
+// for tool outputs exceeding threshold (8192 chars), matching dsh-compaction-tool-result-pruner.
+func pruneToolResultHeadTail(content string, threshold, headChars, tailChars int) (string, bool) {
+	if len(content) <= threshold || len(content) <= headChars+tailChars+200 {
+		return content, false
+	}
+	if strings.Contains(content, "[Stage-1 Pruned") || strings.Contains(content, "[Compacted older") {
+		return content, false
+	}
+	omitted := len(content) - (headChars + tailChars)
+	banner := fmt.Sprintf("\n... [Stage-1 Pruned %d middle characters (kept %d head + %d tail chars)] ...\n", omitted, headChars, tailChars)
+	return content[:headChars] + banner + content[len(content)-tailChars:], true
+}
+
+// offloadOlderImages strips binary base64 image payloads from older messages outside the most recent
+// 2 image-bearing messages, replacing them with a lightweight text marker so multimodal turns don't blow up context.
+func offloadOlderImages(messages []llm.Message) int {
+	var imgMsgIndices []int
+	totalImages := 0
+	for i := range messages {
+		if len(messages[i].Images) > 0 {
+			imgMsgIndices = append(imgMsgIndices, i)
+			totalImages += len(messages[i].Images)
+		}
+	}
+	if len(imgMsgIndices) <= 2 && totalImages <= 4 {
+		return 0
+	}
+	keepFrom := len(imgMsgIndices) - 2
+	if keepFrom < 0 {
+		keepFrom = 0
+	}
+	offloadedCount := 0
+	for _, msgIdx := range imgMsgIndices[:keepFrom] {
+		var names []string
+		for _, img := range messages[msgIdx].Images {
+			if img.Name != "" {
+				names = append(names, img.Name)
+			} else {
+				names = append(names, "image")
+			}
+			offloadedCount++
+		}
+		messages[msgIdx].Images = nil
+		marker := fmt.Sprintf("[Offloaded image attachment(s): %s — re-read with read_file/view_image if needed]", strings.Join(names, ", "))
+		if !strings.Contains(messages[msgIdx].Content, "[Offloaded image attachment") {
+			if strings.TrimSpace(messages[msgIdx].Content) == "" {
+				messages[msgIdx].Content = marker
+			} else {
+				messages[msgIdx].Content += "\n" + marker
+			}
+		}
+	}
+	return offloadedCount
+}
+
+const eightSectionCompactionPrompt = `<compaction-request>
+Summarize the conversation so far into a structured <summary> checkpoint with these exact 8 sections:
+### 1. Primary Request and Intent
+### 2. Key Technical Concepts
+### 3. Files and Code Sections Examined or Modified
+### 4. Errors and Fixes
+### 5. Problem Solving & Verifications Executed
+### 6. All User Messages
+### 7. Pending Tasks
+### 8. Current Work & Next Step
+
+Respond ONLY with the <summary>...</summary> block. Do not call any tools.
+</compaction-request>`
+
+// buildWarmPrefixCompactionRequest constructs a KV-cache-aligned summarization request that
+// replays the exact SystemPrompt, Tools, and Messages prefix from the active agent turn
+// and appends only the <compaction-request> user message at the tail (100% KV-cache prefix hit).
+func buildWarmPrefixCompactionRequest(baseOpts llm.ChatOptions) llm.ChatOptions {
+	clonedMsgs := make([]llm.Message, len(baseOpts.Messages), len(baseOpts.Messages)+1)
+	copy(clonedMsgs, baseOpts.Messages)
+	clonedMsgs = append(clonedMsgs, llm.Message{
+		Role:    "user",
+		Content: eightSectionCompactionPrompt,
+	})
+	req := baseOpts
+	req.Messages = clonedMsgs
+	return req
+}
+
+// compactMessagesSmartly performs Two-Stage KV-cache-friendly intra-turn context management:
+// 0. Multimodal Image Offload: Offloads base64 image payloads from older messages beyond the last 2 image turns.
+// 1. Superseded File-Read Micro-Compaction: Compacts an older read_file output only if the exact same file range header appears in a newer read_file.
+// 2. Stage-1 Model-Free Tool-Result Pruner (dsh parity): When total chars > 100,000, prunes older tool outputs > 8192 chars to 4096 head + 1024 tail.
+//    If Stage-1 brings total chars below the Stage-2 threshold (160,000), Stage-2 aggressive compaction is skipped entirely.
+// 3. Stage-2 Fallback Compaction: Only runs if context still exceeds 160,000 chars after Stage-1 pruning.
 func compactMessagesSmartly(messages []llm.Message) {
+	// Rule 0: Offload older image attachments beyond the newest 2 image-bearing messages
+	offloadOlderImages(messages)
+
 	var toolIndices []int
 	readFileHeaderNewestIdx := make(map[string]int)
 
@@ -6492,13 +6715,29 @@ func compactMessagesSmartly(messages []llm.Message) {
 		}
 	}
 
-	// Rule 2: Token-threshold compaction (only when approaching context window limit)
 	totalChars := 0
 	for i := range messages {
 		totalChars += len(messages[i].Content)
 	}
-	const autoCompactCharThreshold = 140000
-	if totalChars <= autoCompactCharThreshold || len(toolIndices) <= 8 {
+
+	// Stage 1: Model-Free Tool-Result Pruner (4096 head + 1024 tail for tool results > 8192 chars older than last 6 tool calls)
+	const stage1CharThreshold = 100000
+	if totalChars > stage1CharThreshold && len(toolIndices) > 6 {
+		stage1Older := toolIndices[:len(toolIndices)-6]
+		for _, idx := range stage1Older {
+			if pruned, changed := pruneToolResultHeadTail(messages[idx].Content, 8192, 4096, 1024); changed {
+				messages[idx].Content = pruned
+			}
+		}
+		totalChars = 0
+		for i := range messages {
+			totalChars += len(messages[i].Content)
+		}
+	}
+
+	// Stage 2: Aggressive compaction (only if Stage 1 did not reclaim enough budget)
+	const stage2CharThreshold = 160000
+	if totalChars <= stage2CharThreshold || len(toolIndices) <= 8 {
 		return
 	}
 

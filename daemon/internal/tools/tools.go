@@ -98,6 +98,27 @@ type TodoItem struct {
 	Status  string `json:"status"` // "pending", "in_progress", "completed"
 }
 
+// FileObservation tracks the observed on-disk state of a file when read or written by the agent (dsh-fs-observation-policy parity).
+type FileObservation struct {
+	ObservedAt      time.Time
+	ModTimeUnixNano int64
+	Size            int64
+	ContentHash     uint64
+	ConfirmedAbsent bool
+}
+
+func hashBytesFNV1a(data []byte) uint64 {
+	var h uint64 = 14695981039346656037
+	for _, b := range data {
+		h ^= uint64(b)
+		h *= 1099511628211
+	}
+	if h == 0 {
+		return 1
+	}
+	return h
+}
+
 // ToolExecutor executes core agent tools safely within a workspace sandbox.
 type ToolExecutor struct {
 	WorkspacePath         string
@@ -110,6 +131,9 @@ type ToolExecutor struct {
 	Diffs                 []FileDiff
 	Snapshots             []FileSnapshot `json:"snapshots"`
 	ReadFiles             map[string]time.Time
+	FileObservations      map[string]FileObservation
+	SessionCwd            string
+	SessionEnv            map[string]string
 	Todos                 []TodoItem
 	UnlockedDeferredTools map[string]bool
 	LatestVisualQAImage   string
@@ -117,28 +141,147 @@ type ToolExecutor struct {
 	mu                    sync.Mutex
 }
 
-// MarkFileRead records that a file has been read or written in this session (Read-Before-Edit ledger).
+// ResetShellSession resets the persistent shell working directory and environment variables (e.g. after a command timeout or abort).
+func (t *ToolExecutor) ResetShellSession() {
+	if t == nil {
+		return
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.SessionCwd = t.WorkspacePath
+	t.SessionEnv = make(map[string]string)
+}
+
+// MarkFileRead records that a file has been read or written in this session (Read-Before-Edit & Version Freshness ledger).
 func (t *ToolExecutor) MarkFileRead(relOrAbsPath string) {
 	if t == nil || strings.TrimSpace(relOrAbsPath) == "" {
 		return
+	}
+	now := time.Now()
+	var obs FileObservation
+	obs.ObservedAt = now
+
+	diskPath := relOrAbsPath
+	if !filepath.IsAbs(diskPath) && t.WorkspacePath != "" {
+		diskPath = filepath.Join(t.WorkspacePath, filepath.FromSlash(relOrAbsPath))
+	}
+	if info, err := os.Stat(diskPath); err == nil && !info.IsDir() {
+		obs.ModTimeUnixNano = info.ModTime().UnixNano()
+		obs.Size = info.Size()
+		if info.Size() <= 4*1024*1024 {
+			if data, errR := os.ReadFile(diskPath); errR == nil {
+				obs.ContentHash = hashBytesFNV1a(data)
+			}
+		}
+	}
+
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.ReadFiles == nil {
+		t.ReadFiles = make(map[string]time.Time)
+	}
+	if t.FileObservations == nil {
+		t.FileObservations = make(map[string]FileObservation)
+	}
+	clean := filepath.ToSlash(filepath.Clean(relOrAbsPath))
+	t.ReadFiles[clean] = now
+	t.ReadFiles[strings.ToLower(clean)] = now
+	t.ReadFiles[filepath.Base(clean)] = now
+	if obs.ContentHash != 0 || obs.ModTimeUnixNano != 0 {
+		t.FileObservations[clean] = obs
+		t.FileObservations[strings.ToLower(clean)] = obs
+		if diskClean := filepath.ToSlash(filepath.Clean(diskPath)); diskClean != "" {
+			t.FileObservations[diskClean] = obs
+			t.FileObservations[strings.ToLower(diskClean)] = obs
+		}
+	}
+	if t.WorkspacePath != "" {
+		if rel, err := filepath.Rel(t.WorkspacePath, diskPath); err == nil && !strings.HasPrefix(rel, "..") {
+			relSlash := filepath.ToSlash(rel)
+			t.ReadFiles[relSlash] = now
+			t.ReadFiles[strings.ToLower(relSlash)] = now
+			if obs.ContentHash != 0 || obs.ModTimeUnixNano != 0 {
+				t.FileObservations[relSlash] = obs
+				t.FileObservations[strings.ToLower(relSlash)] = obs
+			}
+		}
+	}
+}
+
+// MarkFileAbsent records that read_file observed a file did not exist on disk (Confirmed Absence).
+func (t *ToolExecutor) MarkFileAbsent(relOrAbsPath string) {
+	if t == nil || strings.TrimSpace(relOrAbsPath) == "" {
+		return
+	}
+	now := time.Now()
+	obs := FileObservation{
+		ObservedAt:      now,
+		ConfirmedAbsent: true,
 	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	if t.ReadFiles == nil {
 		t.ReadFiles = make(map[string]time.Time)
 	}
-	now := time.Now()
+	if t.FileObservations == nil {
+		t.FileObservations = make(map[string]FileObservation)
+	}
 	clean := filepath.ToSlash(filepath.Clean(relOrAbsPath))
 	t.ReadFiles[clean] = now
 	t.ReadFiles[strings.ToLower(clean)] = now
-	t.ReadFiles[filepath.Base(clean)] = now
+	t.FileObservations[clean] = obs
+	t.FileObservations[strings.ToLower(clean)] = obs
 	if t.WorkspacePath != "" {
-		if rel, err := filepath.Rel(t.WorkspacePath, relOrAbsPath); err == nil && !strings.HasPrefix(rel, "..") {
+		diskPath := relOrAbsPath
+		if !filepath.IsAbs(diskPath) {
+			diskPath = filepath.Join(t.WorkspacePath, filepath.FromSlash(relOrAbsPath))
+		}
+		if rel, err := filepath.Rel(t.WorkspacePath, diskPath); err == nil && !strings.HasPrefix(rel, "..") {
 			relSlash := filepath.ToSlash(rel)
 			t.ReadFiles[relSlash] = now
 			t.ReadFiles[strings.ToLower(relSlash)] = now
+			t.FileObservations[relSlash] = obs
+			t.FileObservations[strings.ToLower(relSlash)] = obs
 		}
 	}
+}
+
+// CheckFileFreshness verifies that the on-disk file has not been modified externally since the agent's last read or write.
+func (t *ToolExecutor) CheckFileFreshness(safePath, displayPath string, currentData []byte) error {
+	if t == nil {
+		return nil
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if len(t.FileObservations) == 0 {
+		return nil
+	}
+	clean := filepath.ToSlash(filepath.Clean(safePath))
+	obs, ok := t.FileObservations[clean]
+	if !ok {
+		obs, ok = t.FileObservations[strings.ToLower(clean)]
+	}
+	if !ok && displayPath != "" {
+		dispClean := filepath.ToSlash(filepath.Clean(displayPath))
+		obs, ok = t.FileObservations[dispClean]
+		if !ok {
+			obs, ok = t.FileObservations[strings.ToLower(dispClean)]
+		}
+	}
+	if !ok {
+		return nil
+	}
+	if obs.ConfirmedAbsent {
+		return fmt.Errorf("Error [FS_STALE_VERSION]: File '%s' was previously observed absent by read_file, but now exists on disk (%d bytes). Re-read the file with read_file to inspect its current contents before modifying it.", displayPath, len(currentData))
+	}
+	if obs.ContentHash == 0 {
+		return nil
+	}
+	currentHash := hashBytesFNV1a(currentData)
+	if currentHash != obs.ContentHash {
+		return fmt.Errorf("Error [FS_STALE_VERSION]: File '%s' has been modified on disk since you last read or edited it (observed %d bytes -> current %d bytes). Re-read the file with read_file to inspect the latest contents before editing so external changes are not overwritten.", displayPath, obs.Size, len(currentData))
+	}
+	return nil
 }
 
 // HasReadFile checks whether a file has been read or modified in this session.
@@ -191,12 +334,16 @@ func (t *ToolExecutor) RevertAllSnapshots() ([]string, error) {
 				lastErr = err
 			} else {
 				reverted = append(reverted, snap.Path)
+				t.MarkFileRead(targetPath)
+				t.MarkFileRead(snap.Path)
 			}
 		} else {
 			if err := os.Remove(targetPath); err != nil && !os.IsNotExist(err) {
 				lastErr = err
 			} else {
 				reverted = append(reverted, snap.Path+" (removed)")
+				t.MarkFileAbsent(targetPath)
+				t.MarkFileAbsent(snap.Path)
 			}
 		}
 	}
@@ -271,6 +418,9 @@ func NewToolExecutor(wsPath string, timeoutSec int) *ToolExecutor {
 		Diffs:                 make([]FileDiff, 0),
 		Snapshots:             make([]FileSnapshot, 0),
 		ReadFiles:             make(map[string]time.Time),
+		FileObservations:      make(map[string]FileObservation),
+		SessionCwd:            wsPath,
+		SessionEnv:            make(map[string]string),
 		Todos:                 make([]TodoItem, 0),
 		UnlockedDeferredTools: make(map[string]bool),
 		PendingVisionImages:   make([]VisionImageItem, 0),
@@ -2988,6 +3138,10 @@ func (t *ToolExecutor) executeReadFile(args map[string]any) (string, bool) {
 
 	info, err := os.Stat(safePath)
 	if err != nil {
+		if os.IsNotExist(err) {
+			t.MarkFileAbsent(safePath)
+			t.MarkFileAbsent(relPath)
+		}
 		return fmt.Sprintf("Error: file not found: %s", relPath), false
 	}
 	if info.IsDir() {
@@ -3146,6 +3300,11 @@ func (t *ToolExecutor) executeWriteFile(ctx context.Context, args map[string]any
 	existed := false
 	action := "created"
 	if existingBytes, err := os.ReadFile(safePath); err == nil {
+		if t.EnforceReadBeforeEdit {
+			if freshErr := t.CheckFileFreshness(safePath, relSlash, existingBytes); freshErr != nil {
+				return freshErr.Error(), false
+			}
+		}
 		oldContent = string(existingBytes)
 		existed = true
 		action = "modified"
@@ -3182,17 +3341,67 @@ func (t *ToolExecutor) executeWriteFile(ctx context.Context, args map[string]any
 	return res, true
 }
 
+type editHunkSpec struct {
+	oldStr     string
+	newStr     string
+	replaceAll bool
+}
+
+func extractEditHunks(args map[string]any) ([]editHunkSpec, error) {
+	if rawEdits, hasEdits := args["edits"]; hasEdits && rawEdits != nil {
+		var items []map[string]any
+		switch typed := rawEdits.(type) {
+		case []any:
+			for _, item := range typed {
+				if m, ok := item.(map[string]any); ok {
+					items = append(items, m)
+				}
+			}
+		case []map[string]any:
+			items = append(items, typed...)
+		}
+		if len(items) > 0 {
+			hunks := make([]editHunkSpec, 0, len(items))
+			for idx, m := range items {
+				oldS := getString(m, "old_string", "old_str", "oldText", "old_text", "target", "old_content", "search", "find")
+				newS := getString(m, "new_string", "new_str", "newText", "new_text", "replacement", "new_content", "replace")
+				if oldS == "" {
+					return nil, fmt.Errorf("Error: edits[%d].old_string is required", idx)
+				}
+				repAll := getBool(m, "replace_all", "replaceAll")
+				hunks = append(hunks, editHunkSpec{
+					oldStr:     oldS,
+					newStr:     newS,
+					replaceAll: repAll,
+				})
+			}
+			return hunks, nil
+		}
+	}
+	oldStr := getString(args, "old_string", "target", "old_content")
+	newStr := getString(args, "new_string", "replacement", "new_content")
+	if oldStr == "" {
+		return nil, fmt.Errorf("Error: old_string is required")
+	}
+	replaceAll := getBool(args, "replace_all", "replaceAll")
+	return []editHunkSpec{
+		{
+			oldStr:     oldStr,
+			newStr:     newStr,
+			replaceAll: replaceAll,
+		},
+	}, nil
+}
+
 func (t *ToolExecutor) executeEditFile(ctx context.Context, args map[string]any) (string, bool) {
 	relPath := getString(args, "path", "file_path", "target_file", "file")
 	if strings.TrimSpace(relPath) == "" {
 		return "Error: path is required", false
 	}
-	oldStr := getString(args, "old_string", "target", "old_content")
-	newStr := getString(args, "new_string", "replacement", "new_content")
-	if oldStr == "" {
-		return "Error: old_string is required", false
+	hunks, hunkErr := extractEditHunks(args)
+	if hunkErr != nil {
+		return hunkErr.Error(), false
 	}
-	replaceAll := getBool(args, "replace_all", "replaceAll")
 
 	safePath, err := resolveWritePath(t.WorkspacePath, relPath)
 	if err != nil {
@@ -3217,12 +3426,26 @@ func (t *ToolExecutor) executeEditFile(ctx context.Context, args map[string]any)
 	if err != nil {
 		return fmt.Sprintf("Error reading file: %v", err), false
 	}
+	if t.EnforceReadBeforeEdit {
+		if freshErr := t.CheckFileFreshness(safePath, relSlash, data); freshErr != nil {
+			return freshErr.Error(), false
+		}
+	}
 	oldContent := string(data)
 
-	newContent, err := applySmartReplacementWithOptions(oldContent, oldStr, newStr, relSlash, replaceAll)
-	if err != nil {
-		return err.Error(), false
+	// In-memory preflight simulation across all hunks (atomic rollback if any hunk fails)
+	simContent := oldContent
+	for idx, h := range hunks {
+		nextContent, applyErr := applySmartReplacementWithOptions(simContent, h.oldStr, h.newStr, relSlash, h.replaceAll)
+		if applyErr != nil {
+			if len(hunks) > 1 {
+				return fmt.Sprintf("Error in edit hunk %d/%d (preflight aborted, 0 bytes modified on disk): %v", idx+1, len(hunks), applyErr), false
+			}
+			return applyErr.Error(), false
+		}
+		simContent = nextContent
 	}
+	newContent := simContent
 
 	// Record snapshot before modifying file
 	t.mu.Lock()
@@ -3651,6 +3874,13 @@ func encodePowerShell(script string) string {
 	return base64.StdEncoding.EncodeToString(buf)
 }
 
+// wrapPosixCommandWithStateSentinel wraps a POSIX sh/bash command with an EXIT trap
+// that emits the post-command working directory and exported environment while preserving exit status.
+func wrapPosixCommandWithStateSentinel(subCmd string) string {
+	trapPrefix := `__unjess_exit() { __ec=$?; printf '\n__UNJESS_STATE_PWD__:%s:__END__\n__UNJESS_STATE_ENV_BEGIN__\n' "$(pwd -P 2>/dev/null || pwd)"; export -p 2>/dev/null || true; printf '\n__UNJESS_STATE_ENV_END__\n'; exit $__ec; }; trap __unjess_exit EXIT; `
+	return trapPrefix + "\n" + subCmd
+}
+
 // buildWindowsCommand returns an exec.Cmd configured for Windows execution.
 // It auto-detects Git Bash for POSIX shell scripts, and uses PowerShell with
 // -EncodedCommand to prevent Windows CLI quote stripping/mangling.
@@ -3683,14 +3913,24 @@ func buildWindowsCommand(ctx context.Context, command string) *exec.Cmd {
 					subCmd = subCmd[1 : len(subCmd)-1]
 				}
 			}
-			return exec.CommandContext(ctx, gitBash, "-c", subCmd)
+			return exec.CommandContext(ctx, gitBash, "-c", wrapPosixCommandWithStateSentinel(subCmd))
 		}
 	}
 
 	// PowerShell execution: Use -EncodedCommand so that internal quotes (single, double, escaped)
 	// arrive 100% intact without PowerShell 5.1 / Windows CommandLineToArgvW stripping them.
-	utf8Prefix := "[Console]::InputEncoding = [Console]::OutputEncoding = $OutputEncoding = [System.Text.UTF8Encoding]::new($false); $PSDefaultParameterValues['*:Encoding'] = 'utf8'; "
-	fullScript := utf8Prefix + cmdStr
+	// Also snapshot initial env and emit post-command PWD + env delta sentinel while preserving exit code.
+	utf8Prefix := "$ProgressPreference = 'SilentlyContinue'; [Console]::InputEncoding = [Console]::OutputEncoding = $OutputEncoding = [System.Text.UTF8Encoding]::new($false); $PSDefaultParameterValues['*:Encoding'] = 'utf8'; " +
+		"$__u_env0 = @{}; foreach ($__e in (Get-ChildItem env:)) { $__u_env0[$__e.Name] = $__e.Value }; $global:LASTEXITCODE = $null;\n"
+	stateSuffix := "\n$__u_ok = $?; $__u_ec = $LASTEXITCODE; " +
+		"[Console]::Out.WriteLine(\"\"); " +
+		"[Console]::Out.WriteLine(\"__UNJESS_STATE_PWD__:\" + (Get-Location).Path + \":__END__\"); " +
+		"[Console]::Out.WriteLine(\"__UNJESS_STATE_ENV_BEGIN__\"); " +
+		"foreach ($__e in (Get-ChildItem env:)) { if (-not $__u_env0.ContainsKey($__e.Name) -or $__u_env0[$__e.Name] -ne $__e.Value) { [Console]::Out.WriteLine($__e.Name + \"=\" + $__e.Value) } }; " +
+		"foreach ($__k in $__u_env0.Keys) { if (-not (Test-Path (\"env:\" + $__k))) { [Console]::Out.WriteLine(\"__UNJESS_UNSET__=\" + $__k) } }; " +
+		"[Console]::Out.WriteLine(\"__UNJESS_STATE_ENV_END__\"); " +
+		"if ($null -ne $__u_ec -and $__u_ec -ne 0) { exit $__u_ec } elseif ($null -eq $__u_ec -and -not $__u_ok) { exit 1 }"
+	fullScript := utf8Prefix + cmdStr + stateSuffix
 	encoded := encodePowerShell(fullScript)
 
 	psExe := "powershell.exe"
@@ -3701,6 +3941,232 @@ func buildWindowsCommand(ctx context.Context, command string) *exec.Cmd {
 	}
 
 	return exec.CommandContext(ctx, psExe, "-NoProfile", "-NonInteractive", "-EncodedCommand", encoded)
+}
+
+var ignoredShellEnvVars = map[string]bool{
+	"_":                            true,
+	"PWD":                          true,
+	"OLDPWD":                       true,
+	"SHLVL":                        true,
+	"RANDOM":                       true,
+	"SECONDS":                      true,
+	"LINENO":                       true,
+	"EPOCHSECONDS":                 true,
+	"EPOCHREALTIME":                true,
+	"BASH_EXECUTION_STRING":        true,
+	"PSExecutionPolicyPreference":  true,
+	"LASTEXITCODE":                 true,
+}
+
+func (t *ToolExecutor) buildCommandEnv() ([]string, map[string]string) {
+	baseSlice := os.Environ()
+	baseline := make(map[string]string, len(baseSlice)+4)
+	merged := make(map[string]string, len(baseSlice)+8)
+	keyCase := make(map[string]string, len(baseSlice)+8)
+
+	normKey := func(k string) string {
+		if runtime.GOOS == "windows" {
+			return strings.ToUpper(k)
+		}
+		return k
+	}
+
+	for _, kv := range baseSlice {
+		idx := strings.IndexByte(kv, '=')
+		if idx <= 0 {
+			continue
+		}
+		k := kv[:idx]
+		v := kv[idx+1:]
+		nk := normKey(k)
+		baseline[nk] = v
+		merged[nk] = v
+		keyCase[nk] = k
+	}
+
+	for _, defKV := range [][2]string{{"CI", "true"}, {"FORCE_COLOR", "0"}} {
+		nk := normKey(defKV[0])
+		baseline[nk] = defKV[1]
+		merged[nk] = defKV[1]
+		if _, ok := keyCase[nk]; !ok {
+			keyCase[nk] = defKV[0]
+		}
+	}
+
+	if t != nil {
+		t.mu.Lock()
+		for k, v := range t.SessionEnv {
+			nk := normKey(k)
+			merged[nk] = v
+			keyCase[nk] = k
+		}
+		t.mu.Unlock()
+	}
+
+	envOut := make([]string, 0, len(merged))
+	for nk, v := range merged {
+		origK := keyCase[nk]
+		if origK == "" {
+			origK = nk
+		}
+		envOut = append(envOut, origK+"="+v)
+	}
+	return envOut, baseline
+}
+
+func parsePosixExportOrEnvLine(line string) (string, string, bool) {
+	trimmed := strings.TrimSpace(line)
+	if trimmed == "" {
+		return "", "", false
+	}
+	if strings.HasPrefix(trimmed, "declare -x ") {
+		trimmed = strings.TrimSpace(strings.TrimPrefix(trimmed, "declare -x "))
+	} else if strings.HasPrefix(trimmed, "export ") {
+		trimmed = strings.TrimSpace(strings.TrimPrefix(trimmed, "export "))
+	}
+	eqIdx := strings.IndexByte(trimmed, '=')
+	if eqIdx <= 0 {
+		return "", "", false
+	}
+	key := strings.TrimSpace(trimmed[:eqIdx])
+	val := trimmed[eqIdx+1:]
+	if len(val) >= 2 {
+		if (val[0] == '"' && val[len(val)-1] == '"') || (val[0] == '\'' && val[len(val)-1] == '\'') {
+			q := val[0]
+			val = val[1 : len(val)-1]
+			if q == '"' {
+				val = strings.ReplaceAll(val, `\"`, `"`)
+				val = strings.ReplaceAll(val, `\\`, `\`)
+				val = strings.ReplaceAll(val, `\$`, `$`)
+			}
+		}
+	}
+	return key, val, true
+}
+
+func normalizeMsysPathOnWindows(p string) string {
+	if runtime.GOOS != "windows" {
+		return p
+	}
+	// Convert Git Bash /c/Users/... to C:\Users\...
+	if len(p) >= 3 && p[0] == '/' && ((p[1] >= 'a' && p[1] <= 'z') || (p[1] >= 'A' && p[1] <= 'Z')) && p[2] == '/' {
+		drive := strings.ToUpper(string(p[1]))
+		return filepath.Clean(drive + `:\` + filepath.FromSlash(p[3:]))
+	}
+	return filepath.Clean(p)
+}
+
+func (t *ToolExecutor) extractAndStripShellState(rawOutput string, baselineEnv map[string]string, explicitCwd bool, initialWorkDir string) string {
+	const pwdStartTag = "__UNJESS_STATE_PWD__:"
+	const pwdEndTag = ":__END__"
+	const envBeginTag = "__UNJESS_STATE_ENV_BEGIN__"
+	const envEndTag = "__UNJESS_STATE_ENV_END__"
+
+	pwdIdx := strings.LastIndex(rawOutput, pwdStartTag)
+	if pwdIdx == -1 {
+		return rawOutput
+	}
+
+	rem := rawOutput[pwdIdx+len(pwdStartTag):]
+	pwdEndIdx := strings.Index(rem, pwdEndTag)
+	if pwdEndIdx == -1 {
+		return rawOutput
+	}
+	capturedPwd := strings.TrimSpace(rem[:pwdEndIdx])
+
+	afterPwd := rem[pwdEndIdx+len(pwdEndTag):]
+	envBeginIdx := strings.Index(afterPwd, envBeginTag)
+	envEndIdx := strings.Index(afterPwd, envEndTag)
+
+	var envLines []string
+	var suffixAfterSentinel string
+	if envBeginIdx != -1 && envEndIdx != -1 && envEndIdx > envBeginIdx {
+		envBlock := afterPwd[envBeginIdx+len(envBeginTag) : envEndIdx]
+		envLines = strings.Split(strings.ReplaceAll(envBlock, "\r\n", "\n"), "\n")
+		suffixAfterSentinel = afterPwd[envEndIdx+len(envEndTag):]
+		suffixAfterSentinel = strings.TrimPrefix(suffixAfterSentinel, "\r\n")
+		suffixAfterSentinel = strings.TrimPrefix(suffixAfterSentinel, "\n")
+	} else {
+		suffixAfterSentinel = strings.TrimPrefix(afterPwd, "\r\n")
+		suffixAfterSentinel = strings.TrimPrefix(suffixAfterSentinel, "\n")
+	}
+
+	// Strip the leading newline right before __UNJESS_STATE_PWD__ that our sentinel emitter wrote
+	cleanPrefix := rawOutput[:pwdIdx]
+	if strings.HasSuffix(cleanPrefix, "\r\n") {
+		cleanPrefix = cleanPrefix[:len(cleanPrefix)-2]
+	} else if strings.HasSuffix(cleanPrefix, "\n") {
+		cleanPrefix = cleanPrefix[:len(cleanPrefix)-1]
+	}
+	cleanedOutput := cleanPrefix + suffixAfterSentinel
+
+	if t == nil {
+		return cleanedOutput
+	}
+
+	// 1. Update SessionCwd if valid and within sandbox
+	if capturedPwd != "" {
+		normPwd := normalizeMsysPathOnWindows(capturedPwd)
+		if info, err := os.Stat(normPwd); err == nil && info.IsDir() {
+			if checkCommandSandbox(normPwd, t.WorkspacePath) == nil {
+				if !explicitCwd || !strings.EqualFold(filepath.Clean(normPwd), filepath.Clean(initialWorkDir)) {
+					t.mu.Lock()
+					t.SessionCwd = filepath.Clean(normPwd)
+					t.mu.Unlock()
+				}
+			}
+		}
+	}
+
+	// 2. Update SessionEnv delta
+	if len(envLines) > 0 {
+		normKey := func(k string) string {
+			if runtime.GOOS == "windows" {
+				return strings.ToUpper(k)
+			}
+			return k
+		}
+		t.mu.Lock()
+		if t.SessionEnv == nil {
+			t.SessionEnv = make(map[string]string)
+		}
+		for _, line := range envLines {
+			k, v, ok := parsePosixExportOrEnvLine(line)
+			if !ok || k == "" {
+				continue
+			}
+			if k == "__UNJESS_UNSET__" {
+				unsetKey := strings.TrimSpace(v)
+				delete(t.SessionEnv, unsetKey)
+				if runtime.GOOS == "windows" {
+					for existingK := range t.SessionEnv {
+						if strings.EqualFold(existingK, unsetKey) {
+							delete(t.SessionEnv, existingK)
+						}
+					}
+				}
+				continue
+			}
+			if ignoredShellEnvVars[k] {
+				continue
+			}
+			nk := normKey(k)
+			if baseVal, exists := baselineEnv[nk]; exists && baseVal == v {
+				continue
+			}
+			if runtime.GOOS == "windows" {
+				for existingK := range t.SessionEnv {
+					if strings.EqualFold(existingK, k) && existingK != k {
+						delete(t.SessionEnv, existingK)
+					}
+				}
+			}
+			t.SessionEnv[k] = v
+		}
+		t.mu.Unlock()
+	}
+
+	return cleanedOutput
 }
 
 func (t *ToolExecutor) executeRunCommand(ctx context.Context, args map[string]any) (string, bool) {
@@ -3729,12 +4195,22 @@ func (t *ToolExecutor) executeRunCommand(ctx context.Context, args map[string]an
 	}
 
 	workDir := t.WorkspacePath
+	t.mu.Lock()
+	if t.SessionCwd != "" {
+		if info, errS := os.Stat(t.SessionCwd); errS == nil && info.IsDir() {
+			workDir = t.SessionCwd
+		}
+	}
+	t.mu.Unlock()
+
+	explicitCwd := false
 	if cwdArg := getString(args, "cwd", "workdir"); strings.TrimSpace(cwdArg) != "" {
 		resolved, err := resolveReadOrInspectPath(t.WorkspacePath, cwdArg)
 		if err != nil {
 			return fmt.Sprintf("Error resolving cwd: %v", err), false
 		}
 		workDir = resolved
+		explicitCwd = true
 	}
 
 	timeoutSec := t.CommandTimeoutSec
@@ -3755,6 +4231,8 @@ func (t *ToolExecutor) executeRunCommand(ctx context.Context, args map[string]an
 	if getBool(args, "is_background", "background") {
 		return t.executeStartTask(ctx, args)
 	}
+
+	cmdEnv, baselineEnv := t.buildCommandEnv()
 
 	var outBytes []byte
 	var err error
@@ -3780,7 +4258,7 @@ func (t *ToolExecutor) executeRunCommand(ctx context.Context, args map[string]an
 						shellQuoteSingle(command), shellQuoteSingle(command), command)
 				}
 			}
-			cmd = exec.CommandContext(cmdCtx, shell, "-c", effectiveCmd)
+			cmd = exec.CommandContext(cmdCtx, shell, "-c", wrapPosixCommandWithStateSentinel(effectiveCmd))
 		}
 
 		cmd.Dir = workDir
@@ -3795,7 +4273,7 @@ func (t *ToolExecutor) executeRunCommand(ctx context.Context, args map[string]an
 			}
 			return cmd.Process.Kill()
 		}
-		cmd.Env = append(os.Environ(), "CI=true", "FORCE_COLOR=0")
+		cmd.Env = cmdEnv
 
 		startTime := time.Now()
 		outBytes, err = cmd.CombinedOutput()
@@ -3817,13 +4295,17 @@ func (t *ToolExecutor) executeRunCommand(ctx context.Context, args map[string]an
 		break
 	}
 
-	output := string(outBytes)
+	output := t.extractAndStripShellState(string(outBytes), baselineEnv, explicitCwd, workDir)
+
+	if timedOut {
+		t.ResetShellSession()
+	}
 
 	// Context Truncation & Disk Log Caching (Head 25 + Tail 35 with .unjess/logs pointers)
 	output = t.truncateAndCacheOutput(command, output)
 
 	if timedOut {
-		return fmt.Sprintf("Error: command timed out after %d seconds.\nOutput:\n%s", timeoutSec, output), false
+		return fmt.Sprintf("Error: command timed out after %d seconds (shell session state reset to workspace root).\nOutput:\n%s", timeoutSec, output), false
 	}
 
 	if err != nil {

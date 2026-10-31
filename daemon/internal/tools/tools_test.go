@@ -1082,6 +1082,169 @@ func TestDeferredToolPlacementAndTodoWrite(t *testing.T) {
 	}
 }
 
+func TestPersistentShellSessionCwdAndEnvAndTimeoutReset(t *testing.T) {
+	tempDir := t.TempDir()
+	subDir := filepath.Join(tempDir, "nested_pkg")
+	if err := os.MkdirAll(subDir, 0755); err != nil {
+		t.Fatalf("failed creating subdir: %v", err)
+	}
+
+	executor := NewToolExecutor(tempDir, 30)
+	ctx := context.Background()
+
+	// 1. Change directory and set an env var in Call #1
+	var cmd1, cmd2, timeoutCmd string
+	if runtime.GOOS == "windows" {
+		cmd1 = "Set-Location nested_pkg; $env:UNJESS_PERSIST_VAR = 'persisted_ok_99'; Write-Output 'step1_done'"
+		cmd2 = "Write-Output (\"CWD=\" + (Get-Location).Path + \"|VAR=\" + $env:UNJESS_PERSIST_VAR)"
+		timeoutCmd = "Start-Sleep -Seconds 3"
+	} else {
+		cmd1 = "cd nested_pkg && export UNJESS_PERSIST_VAR='persisted_ok_99' && echo 'step1_done'"
+		cmd2 = "echo \"CWD=$(pwd)|VAR=$UNJESS_PERSIST_VAR\""
+		timeoutCmd = "sleep 3"
+	}
+
+	out1, ok1 := executor.Execute(ctx, "run_command", map[string]any{"command": cmd1})
+	if !ok1 {
+		t.Fatalf("step 1 run_command failed: %s", out1)
+	}
+	if strings.Contains(out1, "__UNJESS_STATE_") {
+		t.Errorf("sentinel marker leaked into command output: %s", out1)
+	}
+
+	// 2. Verify Call #2 inherits both nested_pkg working directory and UNJESS_PERSIST_VAR
+	out2, ok2 := executor.Execute(ctx, "run_command", map[string]any{"command": cmd2})
+	if !ok2 {
+		t.Fatalf("step 2 run_command failed: %s", out2)
+	}
+	if !strings.Contains(out2, "nested_pkg") {
+		t.Errorf("expected persistent cwd to include 'nested_pkg', got: %s", out2)
+	}
+	if !strings.Contains(out2, "VAR=persisted_ok_99") {
+		t.Errorf("expected persistent env var VAR=persisted_ok_99, got: %s", out2)
+	}
+
+	// 3. Trigger a timeout and verify shell session resets to workspace root and clears SessionEnv
+	outTimeout, okTimeout := executor.Execute(ctx, "run_command", map[string]any{
+		"command":         timeoutCmd,
+		"timeout_seconds": 1,
+	})
+	if okTimeout {
+		t.Fatalf("expected timeout command to fail, got ok: %s", outTimeout)
+	}
+	if !strings.Contains(outTimeout, "shell session state reset") {
+		t.Errorf("expected timeout message to confirm shell session state reset, got: %s", outTimeout)
+	}
+	if !strings.EqualFold(filepath.Clean(executor.SessionCwd), filepath.Clean(tempDir)) {
+		t.Errorf("expected SessionCwd to reset to %s after timeout, got %s", tempDir, executor.SessionCwd)
+	}
+	if len(executor.SessionEnv) != 0 {
+		t.Errorf("expected SessionEnv to be cleared after timeout, got %v", executor.SessionEnv)
+	}
+}
+
+func TestFileFreshnessStaleVersionAndMultiEditPreflight(t *testing.T) {
+	tempDir := t.TempDir()
+	executor := NewToolExecutor(tempDir, 30)
+	executor.EnforceReadBeforeEdit = true
+	ctx := context.Background()
+
+	targetFile := filepath.Join(tempDir, "module.py")
+	initialContent := "def alpha():\n    return 1\n\ndef beta():\n    return 2\n"
+	if err := os.WriteFile(targetFile, []byte(initialContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// 1. Read the file so its version hash is recorded
+	_, ok := executor.Execute(ctx, "read_file", map[string]any{"path": "module.py"})
+	if !ok {
+		t.Fatal("read_file failed")
+	}
+
+	// 2. Simulate external modification on disk behind the agent's back
+	externalContent := "def alpha():\n    return 100\n\ndef beta():\n    return 2\n"
+	if err := os.WriteFile(targetFile, []byte(externalContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// 3. Attempting edit_file with stale observation must fail with FS_STALE_VERSION
+	staleRes, staleOk := executor.Execute(ctx, "edit_file", map[string]any{
+		"path":       "module.py",
+		"old_string": "def beta():\n    return 2",
+		"new_string": "def beta():\n    return 20",
+	})
+	if staleOk || !strings.Contains(staleRes, "FS_STALE_VERSION") {
+		t.Fatalf("expected FS_STALE_VERSION error after external modification, got ok=%v res=%s", staleOk, staleRes)
+	}
+
+	// 4. Re-read the file, then perform two consecutive edits without an intermediate read_file
+	_, ok = executor.Execute(ctx, "read_file", map[string]any{"path": "module.py"})
+	if !ok {
+		t.Fatal("re-read failed")
+	}
+	edit1Res, edit1Ok := executor.Execute(ctx, "edit_file", map[string]any{
+		"path":       "module.py",
+		"old_string": "return 100",
+		"new_string": "return 101",
+	})
+	if !edit1Ok {
+		t.Fatalf("first edit after re-read failed: %s", edit1Res)
+	}
+	edit2Res, edit2Ok := executor.Execute(ctx, "edit_file", map[string]any{
+		"path":       "module.py",
+		"old_string": "return 2",
+		"new_string": "return 202",
+	})
+	if !edit2Ok {
+		t.Fatalf("second consecutive edit_file should succeed without false FS_STALE_VERSION, got: %s", edit2Res)
+	}
+
+	// 5. Multi-hunk preflight simulation: if hunk 2 fails, hunk 1 must NOT be written to disk
+	beforeFailedMulti, _ := os.ReadFile(targetFile)
+	badMultiRes, badMultiOk := executor.Execute(ctx, "edit_file", map[string]any{
+		"path": "module.py",
+		"edits": []any{
+			map[string]any{"old_string": "return 101", "new_string": "return 999"},
+			map[string]any{"old_string": "non_existent_symbol_xyz", "new_string": "return 0"},
+		},
+	})
+	if badMultiOk || !strings.Contains(badMultiRes, "preflight aborted") {
+		t.Fatalf("expected multi-hunk preflight to abort when hunk 2 fails, got ok=%v res=%s", badMultiOk, badMultiRes)
+	}
+	afterFailedMulti, _ := os.ReadFile(targetFile)
+	if string(afterFailedMulti) != string(beforeFailedMulti) {
+		t.Fatalf("disk file was partially mutated despite failed multi-hunk preflight:\n%s", string(afterFailedMulti))
+	}
+
+	// 6. Valid multi-hunk edit applies all hunks atomically
+	goodMultiRes, goodMultiOk := executor.Execute(ctx, "edit_file", map[string]any{
+		"path": "module.py",
+		"edits": []any{
+			map[string]any{"old_string": "return 101", "new_string": "return 111"},
+			map[string]any{"old_string": "return 202", "new_string": "return 222"},
+		},
+	})
+	if !goodMultiOk {
+		t.Fatalf("expected valid multi-hunk edit to succeed, got: %s", goodMultiRes)
+	}
+	finalDisk, _ := os.ReadFile(targetFile)
+	if !strings.Contains(string(finalDisk), "return 111") || !strings.Contains(string(finalDisk), "return 222") {
+		t.Errorf("unexpected file content after valid multi-hunk edit:\n%s", string(finalDisk))
+	}
+
+	// 7. Confirmed Absence check: read_file on absent file -> external creation -> write_file blocked by FS_STALE_VERSION
+	_, _ = executor.Execute(ctx, "read_file", map[string]any{"path": "new_service.py"})
+	_ = os.WriteFile(filepath.Join(tempDir, "new_service.py"), []byte("# externally created\n"), 0644)
+	writeStaleRes, writeStaleOk := executor.Execute(ctx, "write_file", map[string]any{
+		"path":    "new_service.py",
+		"content": "# overwrite attempt\n",
+	})
+	if writeStaleOk || !strings.Contains(writeStaleRes, "FS_STALE_VERSION") {
+		t.Fatalf("expected write_file to catch external creation on confirmed-absent file with FS_STALE_VERSION, got ok=%v res=%s", writeStaleOk, writeStaleRes)
+	}
+}
+
+
 
 
 

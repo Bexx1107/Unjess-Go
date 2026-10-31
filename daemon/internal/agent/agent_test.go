@@ -1713,5 +1713,173 @@ func TestCompactMessagesSmartlyAndScratchDetection(t *testing.T) {
 	}
 }
 
+func TestTransparentBookkeepingRepeatToolGuard(t *testing.T) {
+	var lastKey string
+	var sameCount int
+
+	// 1. Canonical key-sorted JSON with trimmed string values matches across whitespace/key order
+	k1 := canonicalizeToolCallKey("grep_search", map[string]any{"pattern": "  solve_matrix  ", "path": "src/"})
+	k2 := canonicalizeToolCallKey("GREP_SEARCH", map[string]any{"path": "src/ ", "pattern": "solve_matrix"})
+	if k1 != k2 {
+		t.Fatalf("expected canonical tool keys to match, got %q vs %q", k1, k2)
+	}
+
+	// 2. Interleaved todo_write calls must be transparent to repeat-tool counting:
+	// grep -> todo_write -> grep -> todo_write -> grep => repeat count 3!
+	c1, tracked1 := updateRepeatToolState("grep_search", map[string]any{"pattern": "solve_matrix", "path": "src/"}, &lastKey, &sameCount)
+	if !tracked1 || c1 != 1 {
+		t.Fatalf("expected count=1 on first grep_search, got %d (tracked=%v)", c1, tracked1)
+	}
+
+	cTodo, trackedTodo := updateRepeatToolState("todo_write", map[string]any{"todos": []any{map[string]any{"content": "Step 1", "status": "in_progress"}}}, &lastKey, &sameCount)
+	if trackedTodo || cTodo != 1 {
+		t.Fatalf("expected todo_write to be transparent and keep count=1, got %d (tracked=%v)", cTodo, trackedTodo)
+	}
+	if rem := formatRepeatToolReminder("todo_write", sameCount, 0); rem != "" {
+		t.Errorf("expected no repeat reminder on transparent todo_write, got: %s", rem)
+	}
+
+	c2, _ := updateRepeatToolState("grep_search", map[string]any{"path": "src/", "pattern": " solve_matrix "}, &lastKey, &sameCount)
+	if c2 != 2 {
+		t.Fatalf("expected count=2 on second grep_search across todo_write, got %d", c2)
+	}
+
+	_, _ = updateRepeatToolState("todo_write", map[string]any{"todos": []any{map[string]any{"content": "Step 1", "status": "completed"}}}, &lastKey, &sameCount)
+
+	c3, _ := updateRepeatToolState("grep_search", map[string]any{"pattern": "solve_matrix", "path": "src/"}, &lastKey, &sameCount)
+	if c3 != 3 {
+		t.Fatalf("expected count=3 on third grep_search across todo_write, got %d", c3)
+	}
+
+	// 3. Verify escalating reminder schedule [3, 5, 8]
+	rem3 := formatRepeatToolReminder("grep_search", 3, 0)
+	if !strings.Contains(rem3, "Loop / Stuck Pattern Detected") {
+		t.Errorf("expected threshold-3 loop reminder, got: %s", rem3)
+	}
+	rem5 := formatRepeatToolReminder("grep_search", 5, 0)
+	if !strings.Contains(rem5, "High-Severity Loop Warning") || !strings.Contains(rem5, "#5") {
+		t.Errorf("expected threshold-5 high-severity reminder, got: %s", rem5)
+	}
+	rem8 := formatRepeatToolReminder("grep_search", 8, 0)
+	if !strings.Contains(rem8, "CRITICAL Loop Escalation") || !strings.Contains(rem8, "#8") {
+		t.Errorf("expected threshold-8 critical loop escalation, got: %s", rem8)
+	}
+}
+
+func TestTwoStageCompactionAndEightSectionCheckpoint(t *testing.T) {
+	// 1. Test Stage-1 Model-Free Pruner (4096 head + 1024 tail for >8192 char tool results when total > 100k)
+	// Create 3 older large tool outputs (40,000 chars each = 120,000 chars total, exceeding 100k Stage-1 threshold)
+	// plus 6 recent tool outputs so the first 3 are eligible for Stage-1 pruning.
+	bigOut := "HEAD_MARKER_" + strings.Repeat("M", 39970) + "_TAIL_MARKER"
+	msgs := []llm.Message{
+		{Role: "tool", ToolName: "run_command", Content: bigOut},
+		{Role: "tool", ToolName: "run_command", Content: bigOut},
+		{Role: "tool", ToolName: "run_command", Content: bigOut},
+		{Role: "tool", ToolName: "read_file", Content: "recent 1"},
+		{Role: "tool", ToolName: "read_file", Content: "recent 2"},
+		{Role: "tool", ToolName: "read_file", Content: "recent 3"},
+		{Role: "tool", ToolName: "read_file", Content: "recent 4"},
+		{Role: "tool", ToolName: "read_file", Content: "recent 5"},
+		{Role: "tool", ToolName: "read_file", Content: "recent 6"},
+	}
+
+	compactMessagesSmartly(msgs)
+
+	// Verify the first 3 tool outputs were pruned by Stage-1 (4096 head + 1024 tail) and NOT Stage-2
+	for i := 0; i < 3; i++ {
+		c := msgs[i].Content
+		if !strings.Contains(c, "[Stage-1 Pruned") {
+			t.Fatalf("expected msgs[%d] to be pruned by Stage-1 head+tail pruner, got len=%d", i, len(c))
+		}
+		if !strings.HasPrefix(c, "HEAD_MARKER_") || !strings.HasSuffix(c, "_TAIL_MARKER") {
+			t.Errorf("expected Stage-1 pruner to preserve exact head and tail markers on msgs[%d]", i)
+		}
+		if strings.Contains(c, "[Compacted older") {
+			t.Errorf("expected Stage-2 compaction to be skipped after Stage-1 reclaimed enough budget")
+		}
+	}
+
+	// 2. Test Multimodal Image Offload (keeps newest 2 image-bearing messages, offloads older ones)
+	imgMsgs := []llm.Message{
+		{Role: "user", Content: "Turn 1", Images: []llm.ImageAttachment{{Name: "old_shot_1.png", Data: "AAAA"}}},
+		{Role: "user", Content: "Turn 2", Images: []llm.ImageAttachment{{Name: "old_shot_2.png", Data: "BBBB"}}},
+		{Role: "user", Content: "Turn 3", Images: []llm.ImageAttachment{{Name: "recent_shot_3.png", Data: "CCCC"}}},
+		{Role: "user", Content: "Turn 4", Images: []llm.ImageAttachment{{Name: "recent_shot_4.png", Data: "DDDD"}}},
+	}
+	offloaded := offloadOlderImages(imgMsgs)
+	if offloaded != 2 {
+		t.Fatalf("expected 2 older images to be offloaded, got %d", offloaded)
+	}
+	if len(imgMsgs[0].Images) != 0 || !strings.Contains(imgMsgs[0].Content, "[Offloaded image attachment(s): old_shot_1.png") {
+		t.Errorf("expected imgMsgs[0] image to be offloaded with marker, got %+v", imgMsgs[0])
+	}
+	if len(imgMsgs[2].Images) != 1 || len(imgMsgs[3].Images) != 1 {
+		t.Errorf("expected newest 2 image-bearing messages to retain their images")
+	}
+
+	// 3. Test Warm KV-Cache Prefix Compaction Request builder
+	baseOpts := llm.ChatOptions{
+		Model:        "deepseek-reasoner",
+		SystemPrompt: "System prompt invariant",
+		Messages:     []llm.Message{{Role: "user", Content: "Hello"}},
+	}
+	warmReq := buildWarmPrefixCompactionRequest(baseOpts)
+	if warmReq.SystemPrompt != baseOpts.SystemPrompt || len(warmReq.Messages) != 2 {
+		t.Fatalf("unexpected warm compaction request: %+v", warmReq)
+	}
+	if warmReq.Messages[0].Content != "Hello" || !strings.Contains(warmReq.Messages[1].Content, "<compaction-request>") {
+		t.Errorf("warm compaction request did not preserve prefix or append <compaction-request>")
+	}
+
+	// 4. Test CompactConversation 8-Section Checkpoint output
+	hm, tempDir := setupTestManager(t)
+	created := hm.CreateConversation("Compaction Test", tempDir, "workspace")
+	conv := created["conversation"].(map[string]any)
+	convID := conv["id"].(string)
+
+	hm.mu.Lock()
+	conv["turns"] = []any{
+		map[string]any{"role": "user", "text": "Implement persistent shell and freshness checks", "timestamp": "10:00"},
+		map[string]any{
+			"role":      "agent",
+			"text":      "Implemented shell state tracking",
+			"timestamp": "10:01",
+			"model":     "deepseek-reasoner",
+			"tool_calls": []any{
+				map[string]any{"name": "edit_file", "status": "completed", "arguments": map[string]any{"path": "tools.go"}},
+				map[string]any{"name": "run_command", "status": "completed", "arguments": map[string]any{"command": "go test ./..."}},
+				map[string]any{"name": "todo_write", "status": "completed", "arguments": map[string]any{"todos": []any{map[string]any{"content": "Write tests", "status": "in_progress"}}}},
+			},
+		},
+		map[string]any{"role": "user", "text": "Recent user turn", "timestamp": "10:05"},
+		map[string]any{"role": "agent", "text": "Recent agent turn", "timestamp": "10:06"},
+	}
+	hm.mu.Unlock()
+
+	compactedConv, err := hm.CompactConversation(convID)
+	if err != nil {
+		t.Fatalf("CompactConversation failed: %v", err)
+	}
+	turnsAfter := compactedConv["turns"].([]any)
+	summaryTurn := turnsAfter[0].(map[string]any)
+	summaryText := fmt.Sprint(summaryTurn["text"])
+
+	for _, section := range []string{
+		"### 1. Primary Request and Intent",
+		"### 2. Key Technical Concepts",
+		"### 3. Files and Code Sections Examined or Modified",
+		"### 4. Errors and Fixes",
+		"### 5. Problem Solving & Verifications Executed",
+		"### 6. All User Messages",
+		"### 7. Pending Tasks",
+		"### 8. Current Work & Next Step",
+	} {
+		if !strings.Contains(summaryText, section) {
+			t.Errorf("expected 8-section checkpoint to contain %q, got:\n%s", section, summaryText)
+		}
+	}
+}
+
+
 
 
