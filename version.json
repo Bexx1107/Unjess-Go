@@ -1,0 +1,325 @@
+{
+  "version": "2.3.8",
+  "published_at": "2026-10-31",
+  "channel": "stable",
+  "download_url": "https://unjess.si/releases/Unjess.exe",
+  "installer_url": "https://unjess.si/releases/Unjess-Setup.exe",
+  "webview2_loader_url": "https://unjess.si/releases/WebView2Loader.dll",
+  "daemon_url": "https://unjess.si/releases/unjessd.exe",
+  "cli_url": "https://unjess.si/releases/unjess-cli.exe",
+  "desktop_linux_amd64_url": "https://unjess.si/releases/unjess-linux-desktop-amd64",
+  "desktop_linux_amd64_sha256": "a6a9277da812c104b17d4be8d06b6c050c1368004823a96e5cccc8d94908275c",
+  "cli_linux_amd64_url": "https://unjess.si/releases/unjess-linux-amd64",
+  "cli_linux_arm64_url": "https://unjess.si/releases/unjess-linux-arm64",
+  "daemon_linux_amd64_url": "https://unjess.si/releases/unjessd-linux-amd64",
+  "daemon_linux_arm64_url": "https://unjess.si/releases/unjessd-linux-arm64",
+  "sha256": "afb599cd9a2aefa2913ae13a2e6efa4f6e0ce0f97350953b2655a72976285fdf",
+  "installer_sha256": "afb599cd9a2aefa2913ae13a2e6efa4f6e0ce0f97350953b2655a72976285fdf",
+  "daemon_sha256": "0b993f39b2e7c09253f737e38ac6d1b2674fa0b1cd30304c12e50da31b64a50d",
+  "cli_sha256": "d7024a00c80dc6be14d8b260083d41028e7a64a18a41c46ec8594f7f05096228",
+  "desktop_sha256": "5a5909a081214c83dd1212fdd0853184e7fe1640e29cffed192ff23cd32bba72",
+  "webview2_loader_sha256": "86545b66cdb0603bc26b626fb9ad610cb6e71f28d468f5ea66df23b03dda96d5",
+  "notes": "Unjess v2.3.8 - Execution-Surface Verification Doctrine, Symbolic Adversarial Testing & Domain Rule Validation.",
+  "changelog": [
+    {
+      "version": "2.3.8",
+      "date": "2026-10-31",
+      "title": "Execution-Surface Verification Doctrine, Symbolic Adversarial Testing & Domain Rule Validation",
+      "tag": "LATEST",
+      "changes": [
+        "Execution-Surface Verification Doctrine: Enforces active independent test execution on changed paths with zero tolerance for partial passes ('3 of 4 passed' is treated as failure until 100% clean)",
+        "Symbolic & Mathematical Grader Hardening: Added explicit handling for symbolic edge cases including set unions, integration constants (+ C), piecewise expressions, units stripping, boxed LaTeX extraction, and tuple structures",
+        "Domain Rule & Classification Alignment: Enforces strict evaluation of rule ordering, exclusion semantics in mutual exclusion pairs, strict vs non-strict inequalities, and ground truth validation",
+        "Continuous Self-Correction Loop: Mandates immediate iterative root-cause fixes before concluding any execution turn"
+      ]
+    },
+    {
+      "version": "2.3.7",
+      "date": "2026-10-31",
+      "title": "Harness Hardening: Negative File Constraints, Autonomous Continuation Invariants & Catalog Optimization",
+      "tag": "UPDATE",
+      "changes": [
+        "Negative File Constraints & Protected Paths: Automatically parses negative constraints from task prompts ('Do not modify /app/...') and locks write_file, edit_file, and mutating bash commands with PermissionDenied",
+        "Autonomous Continuation Invariant: Detects intermediate narration commentary ('I will now test...', 'Let me inspect...') or empty reasoning turns, injecting immediate system guidance to keep execution active instead of exiting prematurely",
+        "Subagent Model Catalog Optimization: Only injects the full 25-model subagent catalog when tasks explicitly reference parallel workers, delegation, or models, slashing system prompt token bloat",
+        "Active Tool Surface Unification: Dynamic tool definition filtering respecting per-turn disabled tool sets and unified MCP tool registration"
+      ]
+    },
+    {
+      "version": "2.3.5",
+      "date": "2026-10-31",
+      "title": "Antigravity 7-Point Harness Engine: Smart Micro-Compaction, 30KB Output Windowing & AST Tool Alignment",
+      "tag": "UPDATE",
+      "changes": [
+        "Smart Micro-Compaction & Token Conservation: Compacts historical assistant turns and superseded file-read tool outputs into dense single-line references once context exceeds 140,000 characters, maximizing KV-cache reuse while avoiding context window overflow",
+        "Output Windowing & Truncation Caching: Caches terminal tool outputs >30,000 bytes or 300 lines to disk with head, error-context, and tail slicing, preventing context exhaustion from verbose build and test outputs",
+        "12-Tool Core Routing & Adaptive Tool Search: Replaced monolithic tool schemas with 12 foundational tools and dynamic runtime tool search, saving thousands of tokens per prompt",
+        "Hardened Smart File Editing: Advanced multi-pass fuzzy matching with auto-strip of markdown/line numbers and relative indentation preservation for zero-failure file edits",
+        "Tool Call Aliasing & Auto-Repair: Automatic normalization of hallucinated tool names and fuzzy JSON parameter repair for unformatted model outputs",
+        "Autonomous Prompt Optimization & Zero Double-Thinking: Ultra-lean system instructions preventing duplicate <think> blocks on reasoning-capable models and automatic scratch file cleanup"
+      ]
+    },
+    {
+      "version": "2.3.4",
+      "date": "2026-10-31",
+      "title": "Antigravity Unified Activity Dropdown, Crisp Status Dots & 100% Lag-Free Typing",
+      "tag": "UPDATE",
+      "changes": [
+        "Antigravity Unified Activity Dropdown: Consolidated all planning steps, tool executions, and reasoning into a single clean dropdown timeline with human-readable action verbs, duration badges, and inline expandable details",
+        "100% Lag-Free Typing: Eliminated UI input lag and DOM thrashing in chat input while the agent is executing and streaming via targeted in-place timestamp and token updates",
+        "Crisp Solid Status Dots: Fixed dot clipping and missing completed states; running items show non-clipped solid dot with smooth ripple, completed items show solid emerald dots"
+      ]
+    },
+    {
+      "version": "2.3.3",
+      "date": "2026-10-31",
+      "title": "Strict Hidden-by-Default Activity Traces & Execution Details",
+      "tag": "UPDATE",
+      "changes": [
+        "Hidden-by-Default Activity Traces: Enforced strict collapsed-by-default behavior across Agent Activity trace, execution steps, tool call details, and reasoning tokens both during live streaming and upon completion",
+        "Zero Visual Clutter: Live streaming displays only clean animated status row and streamed markdown text unless details are explicitly expanded by the user",
+        "Persistent User Toggle State: Details only expand when user explicitly clicks [Show details], preserving state seamlessly across streaming updates"
+      ]
+    },
+    {
+      "version": "2.3.2",
+      "date": "2026-10-31",
+      "title": "Changes & Code Diffs Inspector Panel & Clean Chat Stream",
+      "tag": "UPDATE",
+      "changes": [
+        "Code Changes & Diffs Inspector: Transformed right inspector sidebar into dedicated file diffs view with addition/deletion stats (+A -D), unified diffs, and individual hunk reversion",
+        "Eliminated Duplicate Thinking: Fixed UI logic so reasoning tokens render strictly once in Model Thinking & Reasoning rather than duplicating in planning step details",
+        "Ultra-Clean Chat Feed: Removed code diffs from the chat message feed completely, showing only assistant answers and collapsed Execution Trace pills with interactive Diff buttons"
+      ]
+    },
+    {
+      "version": "2.3.1",
+      "date": "2026-10-31",
+      "title": "MCP Large Payload & Binary Attachment Interceptor",
+      "tag": "UPDATE",
+      "changes": [
+        "Automatic Binary Extraction: Automatically intercepts large Base64 / binary file payloads (PDFs, images, archives) returned by email, fetch, or file MCP tools and extracts them directly to workspace downloads/",
+        "Context Window Protection: Replaces multi-megabyte Base64 payload blobs with clean disk file pointers, preventing context truncation and token exhaustion",
+        "Full Binary Parity: Instant support for PDF, PNG, JPEG, WEBP, ZIP, DOCX, and raw binaries with clean metadata (filePath, status, size_bytes)"
+      ]
+    },
+    {
+      "version": "2.3.0",
+      "date": "2026-10-30",
+      "title": "Persistent Task Scheduler, CLI Session Isolation, Quoting Fixes & Tooling Upgrades",
+      "tag": "UPDATE",
+      "changes": [
+        "Persistent Task Scheduler: Native cron, wall-clock, and interval scheduler engine running persistently in background daemon with REST API, CLI /schedule command, and Desktop GUI management tab",
+        "CLI Session Isolation: Enforced clean, dedicated conversation sessions for CLI launches, eliminating cross-GUI context leakage",
+        "Windows Execution Robustness: Git Bash auto-routing and PowerShell Base64 -EncodedCommand execution preventing quote stripping on Windows",
+        "Large File Streaming: Added start_line and end_line range slicing with streaming reader in read_file primitive for massive files",
+        "Plan Mode Scratchpad Allowance: Permitted write_file in scratch/ and .tmp/ directories during Plan Mode for non-destructive diagnostic exploration",
+        "CLI Trace Compaction: Support for collapsible single-line tool execution traces with /trace and Ctrl+O toggles"
+      ]
+    },
+    {
+      "version": "2.2.4",
+      "date": "2026-10-30",
+      "title": "Hotfix: Clean JavaScript Execution, Lucide Icon Restoration & UI Reactivity",
+      "tag": "UPDATE",
+      "changes": [
+        "JavaScript Engine Fix: Eliminated trailing syntax error in desktop interface ensuring 100% clean evaluation across all scripts",
+        "Lucide Icon Restoration: Restored full vector icon rendering across sidebar tabs, model selector, and settings views",
+        "Immediate Auto-Update Detection: Bumped release version so existing installations immediately detect update and refresh without manual reinstall"
+      ]
+    },
+    {
+      "version": "2.2.3",
+      "date": "2026-10-30",
+      "title": "Header Minimalism, Window Min-Size Reduction & Draggable Sidepanels",
+      "tag": "UPDATE",
+      "changes": [
+        "Header Minimalism: Stripped redundant badges and engine pills for a clean, focused navigation bar",
+        "Reduced Window Min-Size: Lowered desktop minimum window bounds to 480x400 for flexible screen tiling",
+        "Draggable Resizable Sidepanels: Added interactive split dividers for sidebar and context inspector with width persistence",
+        "Synchronized Go & Rust Architecture: Full parity across daemon, desktop runner, and distribution binaries"
+      ]
+    },
+    {
+      "version": "2.2.2",
+      "date": "2026-10-30",
+      "title": "Collapsible Execution Trace, Noir Minimal UI & File Drag-and-Drop Fix",
+      "tag": "UPDATE",
+      "changes": [
+        "Collapsible Execution Trace: Pure monochrome noir activity drawer grouping tool calls, diffs, thinking streams, and file touches into an expandable row, collapsed by default for clean response reading",
+        "Zero-Emoji Technical Minimalism: Eliminated all decorative emojis from activity summaries, headers, and UI status bars in favor of refined Lucide vector icons",
+        "Image & Screenshot Drag-and-Drop Fix: Added runasoriginaluser to installer preventing Windows UIPI elevation drop-blocks and broadened image extension detection (.png, .jpg, .webp, .gif)",
+        "Seamless In-App Update: Streamlined binary staging and auto-restart across Unjess Desktop and background daemon"
+      ]
+    },
+    {
+      "version": "2.2.1",
+      "date": "2026-10-30",
+      "title": "Autonomous Loop Continuation Invariant, Read-Only Spec Fences, Pre-Exit Test Protocol & UI Toast Deduplication",
+      "tag": "UPDATE",
+      "changes": [
+        "Autonomous Continuation Invariant: Intercepts intermediate narration or planned intent emitted without tool calls, injecting synthetic continuation nudges to prevent premature loop breaks and GUI stalls",
+        "Read-Only & Spec File Fences: Automatically parses negative constraints from task prompts (e.g., 'Do not modify /app/run_pretrain.sh') and enforces hard PermissionDenied blocks across write_file, edit_file, and destructive shell commands",
+        "Pre-Exit Test Verification Protocol: Actively verifies that executed regression and unit tests passed without errors before allowing task completion, requiring the model to resolve failures first",
+        "UI Toast Deduplication & Stacking Guard: Prevents duplicate notification pills from stacking indefinitely on repeated update checks and caps active notifications"
+      ]
+    },
+    {
+      "version": "2.2.0",
+      "date": "2026-10-29",
+      "title": "Harness Evolution: Head/Tail Truncation, Dynamic Timeouts & Async Tasks, Adversarial Self-Audit & GUI Virtualization",
+      "tag": "UPDATE",
+      "changes": [
+        "Error-Aware Context & Log Truncation: Scans omitted middle lines for test failures, panics, and tracebacks (FAILED, AssertionError, Traceback, SyntaxError) to pin the exact failure context in terminal output",
+        "Claude Code Parity Tool Usage Policy: Enforces dedicated file tools (read_file, edit_file) over shell primitives and mandates surgical diff string replacement",
+        "Dynamic Step Budget Countdown: Injects proactive budget alerts at <=5 steps remaining prompting the model to halt exploration, finalize solutions, and cleanup",
+        "Pre-Exit Syntax Sanity Verification: Automated AST and compiler sanity check intercepts exit if modified files contain severe syntax errors, requiring immediate self-healing",
+        "Workspace Cleanliness & Artifact Cleanup Invariant: Mandates removal of temporary test scripts, scratch files, and intermediate debug logs before task completion",
+        "Dynamic Timeouts & Asynchronous Task Manager: run_command accepts custom timeout_seconds (up to 1800s); added start_task, poll_task, cancel_task and is_background: true execution",
+        "Head & Tail Context Truncation: stdout/stderr exceeding 80 lines or 8KB is cached to disk in .unjess/logs/ and injected as 25-head / 35-tail lines with on-demand pointers",
+        "Adversarial Self-Verification Invariant: Core system prompt enforces autonomous verification scripts and edge-case testing before completion",
+        "Multi-directory Skills Package Architecture: GitHub skills installation clones full directory trees with executable permissions preserved",
+        "GUI Typing Lag Fix: Implemented DOM message virtualization windowing, CSS content-visibility: auto, and requestAnimationFrame debouncing",
+        "Windows Defender False Positive Compliance: Clean Go linker flags (-trimpath -ldflags=\"-s -w -buildid=\"), embedded winres metadata, and zero third-party packers"
+      ]
+    },
+    {
+      "version": "2.1.3",
+      "date": "2026-10-27",
+      "title": "High-Capacity Subagents (300 Turns), Per-Worker Max Turns & Fail-Safe Report Synthesis",
+      "tag": "UPDATE",
+      "changes": [
+        "Increased default subagent maximum turn limit from 50 to 300 turns to support complex long-running autonomous building and refactoring workflows",
+        "Added per-worker max_turns parameter in invoke_subagent allowing parent agents to assign custom iteration budgets per subagent",
+        "Added fail-safe report synthesis in executeSubagentLoop: subagents that reach their turn limit or complete without text now return structured activity summaries instead of empty reports"
+      ]
+    },
+    {
+      "version": "2.1.2",
+      "date": "2026-10-21",
+      "title": "Token Budget & Context Intelligence (/budget, /context), Browser-Use CDP Engine & Auto Error Learning",
+      "tag": "UPDATE",
+      "changes": [
+        "Added /budget (/price) and /context slash commands and interactive dashboards showing session, day, week, month, and year token & USD telemetry plus per-layer context window usage",
+        "Upgraded Browser tab with dual-mode Web Proxy + Browser-Use CDP Engine (numbered interactive DOM element overlays, click/type/scroll/navigate actions)",
+        "Added Harness2-inspired Auto Error Learning & Tool Self-Correction engine persisting verified tool fixes across sessions",
+        "Streamlined Right Inspector and Project Explorer UI with clean green active workspace folder indicator and 1M/262K cloud model context window limits"
+      ]
+    },
+    {
+      "version": "2.1.1",
+      "date": "2026-10-19",
+      "title": "Reasoning Effort Levels (Auto/Low/Med/High/Max), October 2026 Models & Live Thinking Stream",
+      "tag": "UPDATE",
+      "changes": [
+        "Added Reasoning Effort Selector (Auto, Low, Med, High, Max, Off) directly inside the Model Select dropdowns",
+        "Added native API effort levels across Anthropic (Claude Opus 5.5, Sonnet 5.5, Fable 5.1, Haiku 5.5), Google Gemini (Gemini 4 Argon, Gemini 3.8 Flash), QwenCloud/DashScope (Qwen 3.8 Max, DeepSeek V4.1, GLM 5.3), Moonshot (Kimi K3, K2.7 Code), and OpenAI (GPT-5, o3, o4-mini)",
+        "Fixed live Model Thinking & Reasoning stream auto-expansion during active turns across Gemini, Claude 5.5, Qwen, and Kimi",
+        "Added Caveman & Ponytail prompt dock toggles and fixed Moonshot (.ai/.cn) and Qwen DashScope (Intl/CN/Coding) multi-region endpoint auto-fallback"
+      ]
+    },
+    {
+      "version": "2.1.0",
+      "date": "2026-10-18",
+      "title": "Frontier v2.1.0 - AST Engine, Shadow Worktrees, Self-Healing, Visual QA & Red/White Security Duel",
+      "tag": "UPDATE",
+      "changes": [
+        "Added AST Code Intelligence Engine with ast_outline, ast_find_callers, ast_edit_symbol, and ast_rename_symbol",
+        "Added Automatic Linter & Compiler Self-Healing Feedback Loop verifying files after write_file and edit_file",
+        "Added Shadow Git Worktrees & Speculative Multi-Branch Execution (speculative_execute) with Hunk-Level Diff Revert in UI",
+        "Added Red Team vs. White Team Autonomous Pentesting & Auto-Remediation Duel (sec_attack_surface, sec_taint_scan, sec_smart_fuzz, sec_supply_chain_audit, run_security_duel)",
+        "Added Self-Evolving Tool Synthesis (synthesize_tool), Multimodal Visual QA Loop (visual_qa_screenshot), Time-Travel Crash Inspector (debug_trace), Git Archeology (git_archeology), and Ghost-Coder Watchdog"
+      ]
+    },
+    {
+      "version": "2.0.3",
+      "date": "2026-10-17",
+      "title": "Seamless Windows Process Restart & Robust Update Pipeline",
+      "tag": "UPDATE",
+      "changes": [
+        "Added robust Windows detached process restart engine launching new Unjess.exe and cleanly closing old instances",
+        "Added target executable resolution updating both desktop shell (Unjess.exe) and background daemon (unjessd.exe)",
+        "Added frontend active health polling with automatic window reload when new version comes online",
+        "Fixed update button state handling with reliable try/finally guards preventing indefinite spinning"
+      ]
+    },
+    {
+      "version": "2.0.2",
+      "date": "2026-10-16",
+      "title": "Interactive Slash Commands & Instant MCP Awareness",
+      "tag": "UPDATE",
+      "changes": [
+        "Added interactive \"/\" Slash Commands Palette in prompt box with floating, searchable menu and arrow/tab navigation (/compact, /goal, /plan, /subagent, /skill, /web, /mcp, /memory, /clear, /help)",
+        "Added native mcp_status tool for main agent and subagents to inspect all connected MCP servers and available tools in a single call",
+        "Auto-injected <connected_mcp_servers> directly into system prompt for instantaneous 0-second MCP tool awareness"
+      ]
+    },
+    {
+      "version": "2.0.1",
+      "date": "2026-10-16",
+      "title": "Mobile Viewport & Prompt Dock Fix",
+      "tag": "UPDATE",
+      "changes": [
+        "Added dynamic mobile viewport height tracking (100dvh + window.visualViewport.height) adapting automatically to mobile browser URL and toolbar heights",
+        "Added min-h-0 across the flex chain and pinned #chat-input-dock with flex-shrink-0 above mobile browser toolbars and keyboard",
+        "Added automatic viewport height synchronization on resize and scroll events"
+      ]
+    },
+    {
+      "version": "2.0.0",
+      "date": "2026-10-16",
+      "title": "Cross-Session Memory, Live Web Tools & Go/Rust Architecture",
+      "tag": "MAJOR",
+      "changes": [
+        "Added Cross-Session Persistent Memory Engine (memory.go) storing memories in ~/.unjess/memory/memories.json across 5 categories (preference, project, fact, decision, architecture)",
+        "Added 3 native memory tools for agents and subagents: memory_save, memory_recall, and memory_delete",
+        "Added Automatic Cross-Session Context Injection (agent.go) with <cross_session_memory> and <recent_sessions_context>",
+        "Added Native Live Internet Tools (tools.go): web_search via DuckDuckGo and read_url with clean Markdown/text conversion",
+        "Replaced 50 MB embedded Python runtime with native 8.6 MB Go backend daemon (unjessd) and 1.3 MB Rust desktop shell",
+        "Added Antigravity-style Parallel Subagent Spawning (invoke_subagent) with concurrent Go worker goroutines",
+        "Built Split-Screen Live Subagent Transcript Inspector with real-time thinking, file diffs, and direct subagent messaging",
+        "Added Built-in Auto-Updater & Release Changelog Engine connected to unjess.si",
+        "Standardized Windows command execution on hidden PowerShell and added dynamic Ollama context sizing (num_ctx >= 16384)"
+      ]
+    },
+    {
+      "version": "1.8.0",
+      "date": "2026-10-15",
+      "title": "Mashina Collab Native MCP & Dynamic Model Discovery",
+      "tag": "FEATURE",
+      "changes": [
+        "Added native HTTP JSON-RPC 2.0 + SSE MCP transport with built-in Mashina Collab (mashina.si/api/collab/mcp) integration",
+        "Dynamic model discovery across local Ollama and all 12 configured cloud API key providers",
+        "Restored custom theme accent color engine with dynamic CSS variables"
+      ]
+    },
+    {
+      "version": "1.7.0",
+      "date": "2026-10-14",
+      "title": "Monochrome Carbon Aesthetic, Multimodal Attachments & Native Folder Picker",
+      "tag": "UI",
+      "changes": [
+        "Redesigned interface in high-contrast monochrome carbon palette",
+        "Added Ctrl+V clipboard image paste, drag-and-drop file attachments, and automatic 4K image optimization",
+        "Added Quick Chat auto-isolated workspaces and native Windows Folder Picker dialog"
+      ]
+    },
+    {
+      "version": "1.5.0",
+      "date": "2026-10-13",
+      "title": "Skills Library, REA Preinstalled Skill & MCP Control Center",
+      "tag": "FEATURE",
+      "changes": [
+        "Preinstalled Reverse Engineer Anything (morluto/rea) skill and 1-click MCP server presets",
+        "Added GitHub Skill Repository installer and 6-tab Settings Control Center"
+      ]
+    }
+  ],
+  "cli_linux_amd64_sha256": "4fc0413b88b37eef8cbb409313cd5fbc2e21206cbd1742ee947986533af4b268",
+  "cli_linux_arm64_sha256": "15e96f06869d03936316c5f91f40be8a1a2afc1430b861fb23fbb5ccfbe362ac",
+  "daemon_linux_amd64_sha256": "5d08d65eb40e29f4a5b7c91826549854f94704d2a542b0027efda7ba49c0d828",
+  "daemon_linux_arm64_sha256": "89b516c055d585fc1a4b2149d3360ee605ad11494600eaa0e490132a88398714",
+  "cli_windows_amd64_sha256": "f32a2fbe537a0776fed929c148448e6c2f375e2c05094c0e7dbb857848a1d9d6",
+  "daemon_windows_amd64_sha256": "d8df6ecaf187a1ba8cefb6d6933d92c38887780783e80bbbdc0d89e174f497e9",
+  "setup_windows_amd64_sha256": "3b209673252a045db54d4ad57db60f0f8f17b6b9b360b500fb357815ce743d0b"
+}
