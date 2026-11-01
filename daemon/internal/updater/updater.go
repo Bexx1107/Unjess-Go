@@ -83,12 +83,14 @@ func BuiltinChangelog() []ChangelogEntry {
 		{
 			Version: "2.9.9",
 			Date:    "2026-11-01",
-			Title:   "Interactive Chat Session Renaming & Conversation Title REST API",
+			Title:   "Interactive Chat Renaming, Dynamic Prompt Field Raising & Version Unification",
 			Tag:     "LATEST",
 			Changes: []string{
 				"Interactive Chat Session Renaming: Added inline rename button (pencil icon) and double-click to rename conversations across both project workspace trees and quick chats",
 				"Header Session Renaming: Clickable middle header session title with dedicated rename button for instant title updates",
+				"Dynamic Prompt Field Auto-Resize: Textarea smoothly raises and expands up to 240px (10-12 lines) as user types multi-line prompts, eliminating cramped single-line scrolling and resetting cleanly on send",
 				"Conversation Rename REST API: Added POST and PATCH /api/harness/conversations/{id}/rename with atomic title persistence in ~/.unjess/state.json",
+				"Full Versioning Unification: Completely synchronized canonical version v2.9.9 across Go daemon, CLI, desktop HTML, Windows versioninfo, and updater manifests",
 			},
 		},
 		{

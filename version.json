@@ -15,21 +15,23 @@
   "daemon_linux_arm64_url": "https://unjess.si/releases/unjessd-linux-arm64",
   "sha256": "afb599cd9a2aefa2913ae13a2e6efa4f6e0ce0f97350953b2655a72976285fdf",
   "installer_sha256": "afb599cd9a2aefa2913ae13a2e6efa4f6e0ce0f97350953b2655a72976285fdf",
-  "daemon_sha256": "b509332cff8c67ed992e10c3c722331bcce6055df9af8bb565adf5a96a503006",
-  "cli_sha256": "5bb495eac0e116b2ef8593355bcf402a2a76dd5f56da6c53f45327b9a5ec7f24",
+  "daemon_sha256": "f26688e133bcf9031fb4801118f5c6a8d90a34132463c11cc7a7fde63915ff6b",
+  "cli_sha256": "ca8b9a449050b010ae16f9dd4c7bdcea88742e44747808531cd388f74dcc5393",
   "desktop_sha256": "5a5909a081214c83dd1212fdd0853184e7fe1640e29cffed192ff23cd32bba72",
   "webview2_loader_sha256": "86545b66cdb0603bc26b626fb9ad610cb6e71f28d468f5ea66df23b03dda96d5",
-  "notes": "Unjess v2.9.9 - Interactive Chat Session Renaming, Conversation Rename REST API, Silent Windows Background Daemon Execution (-H=windowsgui), GGUF & Windows Path Local Provider Routing.",
+  "notes": "Unjess v2.9.9 - Interactive Chat Renaming, Dynamic Prompt Field Raising (up to 240px auto-expand), Silent Windows Daemon Execution (-H=windowsgui), GGUF & Windows Path Local Provider Routing.",
   "changelog": [
     {
       "version": "2.9.9",
       "date": "2026-11-01",
-      "title": "Interactive Chat Session Renaming & Conversation Title REST API",
+      "title": "Interactive Chat Renaming, Dynamic Prompt Field Raising & Version Unification",
       "tag": "LATEST",
       "changes": [
         "Interactive Chat Session Renaming: Added inline rename button (pencil icon) and double-click to rename conversations across both project workspace trees and quick chats",
         "Header Session Renaming: Clickable middle header session title with dedicated rename button for instant title updates",
-        "Conversation Rename REST API: Added POST and PATCH /api/harness/conversations/{id}/rename with atomic title persistence in ~/.unjess/state.json"
+        "Dynamic Prompt Field Auto-Resize: Textarea smoothly raises and expands up to 240px (10-12 lines) as user types multi-line prompts, eliminating cramped single-line scrolling and resetting cleanly on send",
+        "Conversation Rename REST API: Added POST and PATCH /api/harness/conversations/{id}/rename with atomic title persistence in ~/.unjess/state.json",
+        "Full Versioning Unification: Completely synchronized canonical version v2.9.9 across Go daemon, CLI, desktop HTML, Windows versioninfo, and updater manifests"
       ]
     },
     {
@@ -361,11 +363,11 @@
       ]
     }
   ],
-  "cli_linux_amd64_sha256": "a3b1e48e526d80c98ce3d59ac4dc98fe08e8e521059b639bfc29d26a39c0cca4",
+  "cli_linux_amd64_sha256": "23314697574f5ba10fa49945caee3057869fc612e0a1e8d22addfb990931d1a0",
   "cli_linux_arm64_sha256": "15e96f06869d03936316c5f91f40be8a1a2afc1430b861fb23fbb5ccfbe362ac",
-  "daemon_linux_amd64_sha256": "a106255e30e3dc9b23f7a1e8d15546749f148b0160d30879aae14ce56c94ae9e",
+  "daemon_linux_amd64_sha256": "26e7517c47f927dbd7146309130056abe478a41e139a4e02cd5d750c7313cdd6",
   "daemon_linux_arm64_sha256": "89b516c055d585fc1a4b2149d3360ee605ad11494600eaa0e490132a88398714",
-  "cli_windows_amd64_sha256": "5bb495eac0e116b2ef8593355bcf402a2a76dd5f56da6c53f45327b9a5ec7f24",
-  "daemon_windows_amd64_sha256": "b509332cff8c67ed992e10c3c722331bcce6055df9af8bb565adf5a96a503006",
+  "cli_windows_amd64_sha256": "ca8b9a449050b010ae16f9dd4c7bdcea88742e44747808531cd388f74dcc5393",
+  "daemon_windows_amd64_sha256": "f26688e133bcf9031fb4801118f5c6a8d90a34132463c11cc7a7fde63915ff6b",
   "setup_windows_amd64_sha256": "3b209673252a045db54d4ad57db60f0f8f17b6b9b360b500fb357815ce743d0b"
 }

@@ -60,6 +60,7 @@
       --app-height: 100dvh;
       --unjess-accent: #7dd3fc;
       --unjess-accent-glow: rgba(125, 211, 252, 0.15);
+    }
     [data-turn-role="user"], [data-turn-role="agent"] {
       content-visibility: auto;
       contain-intrinsic-size: 100px 300px;
@@ -69,8 +70,11 @@
       contain: layout style;
     }
     #chat-input-textarea {
-      will-change: contents;
-    }
+      min-height: 32px;
+      max-height: 240px;
+      line-height: 1.5;
+      overflow-y: hidden;
+      resize: none;
     }
     html, body {
       height: 100%;
@@ -147,7 +151,7 @@
       </div>
       <button id="btn-header-version" type="button" class="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono bg-zinc-900/90 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700/60 transition cursor-pointer select-none" title="Unjess Version & Updates (Click to check)">
         <span id="header-version-dot" class="hidden w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
-        <span id="header-version-text">v2.9.6</span>
+        <span id="header-version-text">v2.9.9</span>
       </button>
       <span id="backend-status-pill" class="hidden">
         <span id="backend-status-dot"></span>
@@ -477,7 +481,7 @@
                 id="chat-input-textarea"
                 rows="1"
                 placeholder="Ask Unjess to code, plan, debug, or run tools... (type / for commands, @ for files/git)"
-                class="w-full max-h-28 bg-transparent px-2 py-1 text-xs text-white placeholder-slate-500 focus:outline-none resize-none leading-relaxed select-text"
+                class="w-full bg-transparent px-2 py-1 text-xs text-white placeholder-slate-500 focus:outline-none resize-none leading-relaxed select-text min-h-[32px] max-h-[240px]"
               ></textarea>
 
               <div class="flex items-center justify-between pt-2 border-t border-unjessBorder/60">
@@ -1709,7 +1713,7 @@
                   <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-unjessBorder pb-4">
                     <div class="space-y-1">
                       <div class="flex items-center space-x-2.5">
-                        <span id="update-current-version-title" class="text-sm font-bold text-white tracking-tight">Unjess v2.9.6</span>
+                        <span id="update-current-version-title" class="text-sm font-bold text-white tracking-tight">Unjess v2.9.9</span>
                         <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-900 text-zinc-300 border border-zinc-700/60">
                           Go + Rust Native Engine • unjess.si
                         </span>
@@ -1721,7 +1725,7 @@
                       <!-- Status Pill -->
                       <span id="update-check-status-badge" class="px-2.5 py-1 rounded-full text-[11px] font-mono flex items-center space-x-1.5 bg-zinc-900 border border-zinc-700/60 text-zinc-300">
                         <span id="update-status-badge-dot" class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                        <span id="update-status-badge-text">Up to date (v2.9.6)</span>
+                        <span id="update-status-badge-text">Up to date (v2.9.9)</span>
                       </span>
 
                       <!-- Check for Updates Button -->
@@ -8003,6 +8007,7 @@ function openNewChatModal(initialMode = 'quick') {
       const input = document.getElementById('chat-input-textarea');
       if (input) {
         input.value = promptText;
+        if (typeof autoResizeChatInput === 'function') autoResizeChatInput(input);
         sendUserPrompt();
       }
     }
@@ -9036,6 +9041,7 @@ function openNewChatModal(initialMode = 'quick') {
       const chatInput = document.getElementById('chat-input-textarea');
       if (chatInput) {
         chatInput.value = prompt;
+        if (typeof autoResizeChatInput === 'function') autoResizeChatInput(chatInput);
       }
       const autofixBtn = document.getElementById('btn-watchdog-autofix');
       if (autofixBtn) autofixBtn.classList.add('hidden');
@@ -9048,6 +9054,7 @@ function openNewChatModal(initialMode = 'quick') {
       const chatInput = document.getElementById('chat-input-textarea');
       if (chatInput) {
         chatInput.value = duelPrompt;
+        if (typeof autoResizeChatInput === 'function') autoResizeChatInput(chatInput);
       }
       showToast('Launching Red/White Security Duel...', 'info');
       sendPrompt();
@@ -9056,7 +9063,10 @@ function openNewChatModal(initialMode = 'quick') {
     function sendPrompt(text) {
       if (text !== undefined && text !== null) {
         const input = document.getElementById('chat-input-textarea');
-        if (input) input.value = text;
+        if (input) {
+          input.value = text;
+          if (typeof autoResizeChatInput === 'function') autoResizeChatInput(input);
+        }
       }
       return sendUserPrompt();
     }
@@ -9109,7 +9119,10 @@ function openNewChatModal(initialMode = 'quick') {
       const firstWord = trimmedText.split(/\s+/)[0].toLowerCase();
 
       if (firstWord === '/budget' || firstWord === '/price') {
-        if (input) input.value = '';
+        if (input) {
+          input.value = '';
+          if (typeof autoResizeChatInput === 'function') autoResizeChatInput(input);
+        }
         state.pendingAttachments = [];
         renderPendingAttachments();
         let conv = getActiveConversation();
@@ -9135,7 +9148,10 @@ function openNewChatModal(initialMode = 'quick') {
       }
 
       if (firstWord === '/context') {
-        if (input) input.value = '';
+        if (input) {
+          input.value = '';
+          if (typeof autoResizeChatInput === 'function') autoResizeChatInput(input);
+        }
         state.pendingAttachments = [];
         renderPendingAttachments();
         let conv = getActiveConversation();
@@ -9161,7 +9177,10 @@ function openNewChatModal(initialMode = 'quick') {
       }
 
       if (firstWord === '/clear') {
-        if (input) input.value = '';
+        if (input) {
+          input.value = '';
+          if (typeof autoResizeChatInput === 'function') autoResizeChatInput(input);
+        }
         state.pendingAttachments = [];
         renderPendingAttachments();
         await handleClearContext();
@@ -9169,7 +9188,10 @@ function openNewChatModal(initialMode = 'quick') {
       }
 
       if (firstWord === '/help') {
-        if (input) input.value = '';
+        if (input) {
+          input.value = '';
+          if (typeof autoResizeChatInput === 'function') autoResizeChatInput(input);
+        }
         state.pendingAttachments = [];
         renderPendingAttachments();
         let conv = getActiveConversation();
@@ -9195,7 +9217,10 @@ function openNewChatModal(initialMode = 'quick') {
       if (firstWord === '/caveman') {
         const rest = trimmedText.slice(8).trim();
         if (!rest) {
-          if (input) input.value = '';
+          if (input) {
+            input.value = '';
+            if (typeof autoResizeChatInput === 'function') autoResizeChatInput(input);
+          }
           state.pendingAttachments = [];
           renderPendingAttachments();
           toggleCavemanMode();
@@ -9208,7 +9233,10 @@ function openNewChatModal(initialMode = 'quick') {
       } else if (firstWord === '/ponytail') {
         const rest = trimmedText.slice(9).trim();
         if (!rest) {
-          if (input) input.value = '';
+          if (input) {
+            input.value = '';
+            if (typeof autoResizeChatInput === 'function') autoResizeChatInput(input);
+          }
           state.pendingAttachments = [];
           renderPendingAttachments();
           togglePonytailMode();
@@ -9246,7 +9274,10 @@ function openNewChatModal(initialMode = 'quick') {
         text = `Use memory_recall to search persistent memories for: ${rest || 'recent project insights and decisions'}`;
       }
 
-      if (input) input.value = '';
+      if (input) {
+        input.value = '';
+        if (typeof autoResizeChatInput === 'function') autoResizeChatInput(input);
+      }
 
       const currentAttachments = [...(state.pendingAttachments || [])];
       state.pendingAttachments = [];
@@ -9624,6 +9655,22 @@ function openNewChatModal(initialMode = 'quick') {
     }
 
     // -------------------------------------------------------------------------
+    // 10b. DYNAMIC PROMPT INPUT AUTO-RESIZE (RAISES SMOOTHLY UP TO 240px)
+    // -------------------------------------------------------------------------
+    function autoResizeChatInput(el) {
+      const textarea = el || document.getElementById('chat-input-textarea');
+      if (!textarea) return;
+      textarea.style.height = 'auto';
+      const minHeight = 32;
+      const maxHeight = 240;
+      const scrollH = textarea.scrollHeight;
+      const targetHeight = Math.min(Math.max(scrollH, minHeight), maxHeight);
+      textarea.style.height = `${targetHeight}px`;
+      textarea.style.overflowY = scrollH > maxHeight ? 'auto' : 'hidden';
+    }
+    window.autoResizeChatInput = autoResizeChatInput;
+
+    // -------------------------------------------------------------------------
     // 11. INTERACTIVE @FILE & @GIT MENTION AUTOCOMPLETE POPOVER
     // -------------------------------------------------------------------------
     function initMentionAutocomplete() {
@@ -9914,6 +9961,7 @@ function openNewChatModal(initialMode = 'quick') {
 
         textarea.value = newText;
         textarea.selectionStart = textarea.selectionEnd = newCursorPos;
+        if (typeof autoResizeChatInput === 'function') autoResizeChatInput(textarea);
         closeAtPopover();
         textarea.focus();
       }
@@ -10016,13 +10064,15 @@ function openNewChatModal(initialMode = 'quick') {
 
         textarea.value = newText;
         textarea.selectionStart = textarea.selectionEnd = newCursorPos;
+        if (typeof autoResizeChatInput === 'function') autoResizeChatInput(textarea);
         closeSlashPopover();
         textarea.focus();
       }
 
-      // Input typing detection (rAF debounced for high-speed typing at 120 FPS)
+      // Input typing detection & auto-resize (instant auto-raise at 120 FPS)
       let _typingRafId = null;
       textarea.addEventListener('input', () => {
+        if (typeof autoResizeChatInput === 'function') autoResizeChatInput(textarea);
         if (_typingRafId) cancelAnimationFrame(_typingRafId);
         _typingRafId = requestAnimationFrame(() => {
           const cursorPos = textarea.selectionStart;
@@ -10626,10 +10676,57 @@ function openNewChatModal(initialMode = 'quick') {
       if (!Array.isArray(changelog) || changelog.length === 0) {
         changelog = [
           {
+            version: "2.9.9",
+            date: "2026-11-01",
+            title: "Interactive Chat Session Renaming & Dynamic Prompt Raising",
+            tag: "LATEST",
+            changes: [
+              "Interactive Chat Session Renaming: Added inline rename button (pencil icon) and double-click to rename conversations across both project workspace trees and quick chats",
+              "Header Session Renaming: Clickable middle header session title with dedicated rename button for instant title updates",
+              "Dynamic Prompt Field Auto-Resize: Textarea smoothly raises and expands up to 240px (10-12 lines) as user types multi-line prompts, eliminating cramped single-line scrolling and resetting cleanly on send",
+              "Conversation Rename REST API: Added POST and PATCH /api/harness/conversations/{id}/rename with atomic title persistence in ~/.unjess/state.json"
+            ]
+          },
+          {
+            version: "2.9.8",
+            date: "2026-11-01",
+            title: "Silent Windows Daemon Execution (-H=windowsgui) & GGUF Local Provider Routing",
+            tag: "UPDATE",
+            changes: [
+              "Silent Windows Daemon Execution: Built unjessd.exe with -H=windowsgui linker flag (PE32+ GUI subsystem) to eliminate terminal/cmd popups",
+              "GGUF & Windows Path Provider Routing: Fixed provider detection so Windows absolute file paths (e.g. E:\\models\\...) and .gguf files route cleanly to llama.cpp / LM Studio rather than failing with Ollama 'invalid model name' error",
+              "OpenAI /v1 Base URL Normalization: Automatically ensures llama.cpp and LM Studio endpoints call /v1/chat/completions even if user specifies root port URL",
+              "Active Provider Synchronization: Synchronizes active provider in settings and chat execution payload when selecting models from local providers"
+            ]
+          },
+          {
+            version: "2.9.7",
+            date: "2026-11-01",
+            title: "Dynamic Model Discovery for llama.cpp & LM Studio, Test & Fetch Controls",
+            tag: "UPDATE",
+            changes: [
+              "Automated llama.cpp Model Discovery: Directly queries /v1/models on llama-server to populate active GGUF models into UI dropdowns",
+              "LM Studio Discovery: Directly queries /v1/models on LM Studio server with automatic optgroup categorization",
+              "Instant Settings Probing: Added dedicated 'Fetch' model discovery controls for llama.cpp and LM Studio endpoints",
+              "Dynamic Runtime Versioning: Complete unification of runtime versioning across daemon, CLI, desktop shell, and system prompts"
+            ]
+          },
+          {
             version: "2.9.6",
+            date: "2026-11-01",
+            title: "Terminal-Bench 4.0 Near-Miss Hardening & Dynamic Execution Parity",
+            tag: "UPDATE",
+            changes: [
+              "Terminal-Bench 4.0 Near-Miss Hardening: Pre-exit verifier guard and automated residual convergence checks",
+              "Dynamic Runtime Versioning: Unified canonical version across Go daemon, CLI, settings API, and agent self-knowledge prompts",
+              "Headless Execution Reliability: Streamlined subprocess monitoring and graceful container cleanup"
+            ]
+          },
+          {
+            version: "2.3.8",
             date: "2026-10-31",
             title: "Execution-Surface Verification Doctrine, Symbolic Adversarial Testing & Domain Rule Validation",
-            tag: "LATEST",
+            tag: "UPDATE",
             changes: [
               "Execution-Surface Verification Doctrine: Enforces active independent test execution on changed paths with zero tolerance for partial passes ('3 of 4 passed' is treated as failure until 100% clean)",
               "Symbolic & Mathematical Grader Hardening: Added explicit handling for symbolic edge cases including set unions, integration constants (+ C), piecewise expressions, units stripping, boxed LaTeX extraction, and tuple structures",
@@ -10856,7 +10953,7 @@ function openNewChatModal(initialMode = 'quick') {
         if (resp && resp.ok) {
           const data = await resp.json();
           state.updates = data;
-          const currentVer = data.current_version || '2.9.6';
+          const currentVer = data.current_version || '2.9.9';
           const latestVer = data.latest_version || currentVer;
           const isAvailable = Boolean(data.update_available);
           state.updateAvailable = isAvailable;
@@ -11731,11 +11828,13 @@ function openNewChatModal(initialMode = 'quick') {
       window.addEventListener('resize', () => {
         syncViewportHeight();
         syncResponsiveSidebars();
+        if (typeof autoResizeChatInput === 'function') autoResizeChatInput();
       });
 
       renderActiveTools();
       initTerminal();
       initMentionAutocomplete();
+      if (typeof autoResizeChatInput === 'function') autoResizeChatInput();
 
       // 1. Load All Settings & Skills & MCP Servers first
       await loadAllSettings();
