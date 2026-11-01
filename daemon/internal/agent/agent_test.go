@@ -257,6 +257,16 @@ func TestConversationLifecycle(t *testing.T) {
 		t.Errorf("expected quick workspace in conversation: %v", quickConv["workspace"])
 	}
 
+	// Rename conversation
+	renRes := hm.RenameConversation(convID, "Renamed Session Title")
+	if renRes["status"] != "ok" {
+		t.Fatalf("failed renaming conversation: %+v", renRes)
+	}
+	renConv := renRes["conversation"].(map[string]any)
+	if renConv["title"] != "Renamed Session Title" {
+		t.Errorf("expected title 'Renamed Session Title', got %v", renConv["title"])
+	}
+
 	// Delete conversation
 	delRes := hm.DeleteConversation(convID)
 	if delRes["status"] != "ok" {

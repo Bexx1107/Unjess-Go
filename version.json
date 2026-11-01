@@ -1,5 +1,5 @@
 {
-  "version": "2.9.8",
+  "version": "2.9.9",
   "published_at": "2026-11-01",
   "channel": "stable",
   "download_url": "https://unjess.si/releases/Unjess.exe",
@@ -15,17 +15,28 @@
   "daemon_linux_arm64_url": "https://unjess.si/releases/unjessd-linux-arm64",
   "sha256": "afb599cd9a2aefa2913ae13a2e6efa4f6e0ce0f97350953b2655a72976285fdf",
   "installer_sha256": "afb599cd9a2aefa2913ae13a2e6efa4f6e0ce0f97350953b2655a72976285fdf",
-  "daemon_sha256": "8d42ac68fd52e4be72a82a7e8423d102a3fc3b24a68535789e4dcc044c8833d1",
-  "cli_sha256": "7e9e73d7a61e9955c645c4d62eda4cd3d9b01ed2a20a49ce4461caf66113969a",
+  "daemon_sha256": "b509332cff8c67ed992e10c3c722331bcce6055df9af8bb565adf5a96a503006",
+  "cli_sha256": "5bb495eac0e116b2ef8593355bcf402a2a76dd5f56da6c53f45327b9a5ec7f24",
   "desktop_sha256": "5a5909a081214c83dd1212fdd0853184e7fe1640e29cffed192ff23cd32bba72",
   "webview2_loader_sha256": "86545b66cdb0603bc26b626fb9ad610cb6e71f28d468f5ea66df23b03dda96d5",
-  "notes": "Unjess v2.9.8 - Silent Windows Background Daemon Execution (-H=windowsgui), GGUF & Windows Path Local Provider Routing, Dynamic Model Discovery for llama.cpp & LM Studio.",
+  "notes": "Unjess v2.9.9 - Interactive Chat Session Renaming, Conversation Rename REST API, Silent Windows Background Daemon Execution (-H=windowsgui), GGUF & Windows Path Local Provider Routing.",
   "changelog": [
+    {
+      "version": "2.9.9",
+      "date": "2026-11-01",
+      "title": "Interactive Chat Session Renaming & Conversation Title REST API",
+      "tag": "LATEST",
+      "changes": [
+        "Interactive Chat Session Renaming: Added inline rename button (pencil icon) and double-click to rename conversations across both project workspace trees and quick chats",
+        "Header Session Renaming: Clickable middle header session title with dedicated rename button for instant title updates",
+        "Conversation Rename REST API: Added POST and PATCH /api/harness/conversations/{id}/rename with atomic title persistence in ~/.unjess/state.json"
+      ]
+    },
     {
       "version": "2.9.8",
       "date": "2026-11-01",
       "title": "Silent Windows Daemon Execution (-H=windowsgui) & GGUF Local Provider Routing",
-      "tag": "LATEST",
+      "tag": "UPDATE",
       "changes": [
         "Silent Windows Daemon Execution: Built unjessd.exe with -H=windowsgui linker flag (PE32+ GUI subsystem) to eliminate terminal/cmd popups",
         "GGUF & Windows Path Provider Routing: Fixed provider detection so Windows absolute file paths (e.g. E:\\models\\...) and .gguf files route cleanly to llama.cpp / LM Studio rather than failing with Ollama 'invalid model name' error",
@@ -350,11 +361,11 @@
       ]
     }
   ],
-  "cli_linux_amd64_sha256": "66bd61cbd7652687ca0600507d0d499f49ae06e3f42468c7ec00dbdbd7d113cf",
+  "cli_linux_amd64_sha256": "a3b1e48e526d80c98ce3d59ac4dc98fe08e8e521059b639bfc29d26a39c0cca4",
   "cli_linux_arm64_sha256": "15e96f06869d03936316c5f91f40be8a1a2afc1430b861fb23fbb5ccfbe362ac",
-  "daemon_linux_amd64_sha256": "3bcfdb811b5dd8cb99ed25c3727459df6d0a49cde66a253fdef0ae28cb2882a2",
+  "daemon_linux_amd64_sha256": "a106255e30e3dc9b23f7a1e8d15546749f148b0160d30879aae14ce56c94ae9e",
   "daemon_linux_arm64_sha256": "89b516c055d585fc1a4b2149d3360ee605ad11494600eaa0e490132a88398714",
-  "cli_windows_amd64_sha256": "7e9e73d7a61e9955c645c4d62eda4cd3d9b01ed2a20a49ce4461caf66113969a",
-  "daemon_windows_amd64_sha256": "8d42ac68fd52e4be72a82a7e8423d102a3fc3b24a68535789e4dcc044c8833d1",
+  "cli_windows_amd64_sha256": "5bb495eac0e116b2ef8593355bcf402a2a76dd5f56da6c53f45327b9a5ec7f24",
+  "daemon_windows_amd64_sha256": "b509332cff8c67ed992e10c3c722331bcce6055df9af8bb565adf5a96a503006",
   "setup_windows_amd64_sha256": "3b209673252a045db54d4ad57db60f0f8f17b6b9b360b500fb357815ce743d0b"
 }

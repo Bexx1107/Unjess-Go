@@ -333,7 +333,10 @@
             <div class="flex flex-col justify-center min-w-0">
               <div class="flex items-center space-x-2">
                 <span class="w-1.5 h-3.5 bg-sky-400 rounded-full inline-block flex-shrink-0"></span>
-                <h1 id="feed-project-title" class="text-xs sm:text-sm font-semibold text-white tracking-tight truncate">Active Session</h1>
+                <h1 id="feed-project-title" class="text-xs sm:text-sm font-semibold text-white tracking-tight truncate cursor-pointer hover:underline" title="Click to rename session">Active Session</h1>
+                <button type="button" id="btn-rename-feed-title" class="text-zinc-500 hover:text-zinc-200 p-0.5 rounded transition" title="Rename session">
+                  <i data-lucide="edit-2" class="w-3 h-3"></i>
+                </button>
                 
                 <!-- Agentic Capsule Badge -->
                 <button type="button" id="badge-agent-mode" onclick="cycleAgentMode()" title="Click to switch mode: Autonomous / Plan / Supervised" class="hidden xs:inline-flex sm:inline-flex items-center space-x-1 px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] font-medium bg-zinc-900/80 border border-zinc-700/80 hover:border-zinc-500 text-zinc-300 flex-shrink-0 cursor-pointer transition">
@@ -3799,6 +3802,9 @@
                   <span class="truncate pr-2 text-[12px]">${escapeHtml(conv.title || 'New Coding Session')}</span>
                   <div class="flex items-center space-x-1 flex-shrink-0">
                     <span class="text-[11px] text-zinc-500 group-hover:hidden flex-shrink-0 font-mono">${timeLabel}</span>
+                    <button type="button" class="hidden group-hover:inline-flex text-zinc-400 hover:text-zinc-200 p-0.5 rounded transition btn-rename-conv" title="Rename conversation">
+                      <i data-lucide="edit-2" class="w-3 h-3"></i>
+                    </button>
                     <button type="button" class="hidden group-hover:inline-flex text-zinc-400 hover:text-red-400 p-0.5 rounded transition btn-delete-conv" title="Delete conversation">
                       <i data-lucide="trash-2" class="w-3 h-3"></i>
                     </button>
@@ -3806,12 +3812,21 @@
                 `;
 
                 convRow.addEventListener('click', (e) => {
+                  if (e.target.closest('.btn-rename-conv')) {
+                    e.stopPropagation();
+                    renameConversation(conv.id, e);
+                    return;
+                  }
                   if (e.target.closest('.btn-delete-conv')) {
                     e.stopPropagation();
                     deleteConversation(conv.id, e);
                     return;
                   }
                   selectConversation(conv.id);
+                });
+                convRow.addEventListener('dblclick', (e) => {
+                  e.stopPropagation();
+                  renameConversation(conv.id, e);
                 });
 
                 nestedContainer.appendChild(convRow);
@@ -3858,6 +3873,9 @@
               <span class="truncate pr-2 text-[12px]">${escapeHtml(conv.title || 'Quick Chat')}</span>
               <div class="flex items-center space-x-1 flex-shrink-0">
                 <span class="text-[11px] text-zinc-500 group-hover:hidden flex-shrink-0 font-mono">${timeLabel}</span>
+                <button type="button" class="hidden group-hover:inline-flex text-zinc-400 hover:text-zinc-200 p-0.5 rounded transition btn-rename-conv" title="Rename conversation">
+                  <i data-lucide="edit-2" class="w-3 h-3"></i>
+                </button>
                 <button type="button" class="hidden group-hover:inline-flex text-zinc-400 hover:text-red-400 p-0.5 rounded transition btn-delete-conv" title="Delete conversation">
                   <i data-lucide="trash-2" class="w-3 h-3"></i>
                 </button>
@@ -3865,12 +3883,21 @@
             `;
 
             convRow.addEventListener('click', (e) => {
+              if (e.target.closest('.btn-rename-conv')) {
+                e.stopPropagation();
+                renameConversation(conv.id, e);
+                return;
+              }
               if (e.target.closest('.btn-delete-conv')) {
                 e.stopPropagation();
                 deleteConversation(conv.id, e);
                 return;
               }
               selectConversation(conv.id);
+            });
+            convRow.addEventListener('dblclick', (e) => {
+              e.stopPropagation();
+              renameConversation(conv.id, e);
             });
 
             quickContainer.appendChild(convRow);
@@ -7853,6 +7880,34 @@ function openNewChatModal(initialMode = 'quick') {
       state.conversations.unshift(newConv);
       selectConversation(newConv.id);
       renderSidebarProjectsTree();
+    }
+
+    async function renameConversation(convId, e = null) {
+      if (e && typeof e.stopPropagation === 'function') {
+        e.stopPropagation();
+        e.preventDefault();
+      }
+      const conv = (state.conversations || []).find(c => c && c.id === convId);
+      if (!conv) return;
+      const currentTitle = conv.title || 'New Session';
+      const newTitle = prompt('Rename conversation:', currentTitle);
+      if (!newTitle || !newTitle.trim() || newTitle.trim() === currentTitle) return;
+
+      const trimmed = newTitle.trim();
+      conv.title = trimmed;
+      if (conv.id === state.activeConvId) {
+        const feedTitle = document.getElementById('feed-project-title');
+        if (feedTitle) feedTitle.textContent = trimmed;
+      }
+      renderSidebarProjectsTree();
+
+      try {
+        await fetch(`${API_BASE}/api/harness/conversations/${convId}/rename`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: trimmed })
+        });
+      } catch (err) {}
     }
 
     async function deleteConversation(convId, e = null) {
@@ -12126,6 +12181,14 @@ function openNewChatModal(initialMode = 'quick') {
 
       // Settings: Save Settings button
       document.getElementById('btn-save-settings')?.addEventListener('click', saveAllSettings);
+
+      // Chat Session Title Rename buttons
+      document.getElementById('feed-project-title')?.addEventListener('click', () => {
+        if (state.activeConvId) renameConversation(state.activeConvId);
+      });
+      document.getElementById('btn-rename-feed-title')?.addEventListener('click', () => {
+        if (state.activeConvId) renameConversation(state.activeConvId);
+      });
 
       // Settings: Subtab navigation buttons
       ['models', 'keys', 'skills', 'mcp', 'behavior', 'display', 'updates'].forEach(tabId => {

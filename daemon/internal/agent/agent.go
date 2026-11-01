@@ -1754,6 +1754,37 @@ func (hm *HarnessManager) ClearConversation(convID string) map[string]any {
 	return map[string]any{"status": "ok"}
 }
 
+// RenameConversation updates the title of a conversation.
+func (hm *HarnessManager) RenameConversation(convID, newTitle string) map[string]any {
+	hm.mu.Lock()
+	defer hm.mu.Unlock()
+
+	trimmed := strings.TrimSpace(newTitle)
+	if trimmed == "" {
+		trimmed = "Untitled Session"
+	}
+
+	convs, _ := hm.state["conversations"].([]any)
+	var updatedConv map[string]any
+	for _, c := range convs {
+		if cm, ok := c.(map[string]any); ok {
+			if cm["id"] == convID {
+				cm["title"] = trimmed
+				cm["updated_at"] = time.Now().Unix()
+				updatedConv = cm
+				break
+			}
+		}
+	}
+	_ = hm.saveStateLocked()
+
+	return map[string]any{
+		"status":        "ok",
+		"conversation":  updatedConv,
+		"conversations": convs,
+	}
+}
+
 // CompactConversation summarizes old turns in conv["turns"] into a single compact [Compacted Session Summary] turn,
 // preserving the last 2 turns intact so the agent context stays lean.
 func (hm *HarnessManager) CompactConversation(convID string) (map[string]any, error) {

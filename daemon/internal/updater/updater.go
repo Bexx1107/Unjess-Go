@@ -81,10 +81,21 @@ type VersionManifest struct {
 func BuiltinChangelog() []ChangelogEntry {
 	return []ChangelogEntry{
 		{
+			Version: "2.9.9",
+			Date:    "2026-11-01",
+			Title:   "Interactive Chat Session Renaming & Conversation Title REST API",
+			Tag:     "LATEST",
+			Changes: []string{
+				"Interactive Chat Session Renaming: Added inline rename button (pencil icon) and double-click to rename conversations across both project workspace trees and quick chats",
+				"Header Session Renaming: Clickable middle header session title with dedicated rename button for instant title updates",
+				"Conversation Rename REST API: Added POST and PATCH /api/harness/conversations/{id}/rename with atomic title persistence in ~/.unjess/state.json",
+			},
+		},
+		{
 			Version: "2.9.8",
 			Date:    "2026-11-01",
 			Title:   "Silent Windows Daemon Execution (-H=windowsgui) & GGUF Local Provider Routing",
-			Tag:     "LATEST",
+			Tag:     "UPDATE",
 			Changes: []string{
 				"Windows PE GUI Subsystem Enforcement: Built unjessd.exe with -H=windowsgui linker flag, ensuring daemon runs completely silent in background without spawning CMD window",
 				"GGUF & Windows Path Provider Routing: Fixed provider detection so Windows absolute file paths (e.g. E:\\models\\...) and .gguf files route cleanly to llama.cpp / LM Studio rather than failing with Ollama 'invalid model name' error",

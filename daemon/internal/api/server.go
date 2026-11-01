@@ -146,10 +146,16 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /api/harness/conversations", s.handleCreateConversation)
 	mux.HandleFunc("DELETE /api/harness/conversations/{id}", s.handleDeleteConversation)
 	mux.HandleFunc("POST /api/harness/conversations/{id}/clear", s.handleClearConversation)
+	mux.HandleFunc("POST /api/harness/conversations/{id}/rename", s.handleRenameConversation)
+	mux.HandleFunc("PATCH /api/harness/conversations/{id}", s.handleRenameConversation)
 	mux.HandleFunc("DELETE /api/harness/conversations/", s.handleDeleteConversation)
 	mux.HandleFunc("POST /api/harness/conversations/", func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/clear") {
 			s.handleClearConversation(w, r)
+			return
+		}
+		if strings.HasSuffix(r.URL.Path, "/rename") {
+			s.handleRenameConversation(w, r)
 			return
 		}
 		s.handleCreateConversation(w, r)
@@ -572,6 +578,26 @@ func (s *Server) handleClearConversation(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	res := s.Harness.ClearConversation(convID)
+	writeJSON(w, http.StatusOK, res)
+}
+
+func (s *Server) handleRenameConversation(w http.ResponseWriter, r *http.Request) {
+	convID := r.PathValue("id")
+	if convID == "" {
+		p := strings.TrimPrefix(r.URL.Path, "/api/harness/conversations/")
+		p = strings.TrimSuffix(p, "/rename")
+		convID = strings.Trim(p, "/")
+	}
+	if convID == "" {
+		writeError(w, http.StatusBadRequest, "conversation_id is required")
+		return
+	}
+	var body map[string]any
+	if r.Body != nil {
+		_ = json.NewDecoder(r.Body).Decode(&body)
+	}
+	title, _ := body["title"].(string)
+	res := s.Harness.RenameConversation(convID, title)
 	writeJSON(w, http.StatusOK, res)
 }
 

@@ -334,7 +334,26 @@ func TestConversationsRoutes(t *testing.T) {
 		t.Fatalf("missing conversation ID")
 	}
 
-	// 2. Clear conversation
+	// 2. Rename conversation
+	renamePayload := map[string]any{
+		"title": "Renamed API Conv",
+	}
+	rb, _ := json.Marshal(renamePayload)
+	reqRename := httptest.NewRequest("POST", "/api/harness/conversations/"+convID+"/rename", bytes.NewReader(rb))
+	wRename := httptest.NewRecorder()
+	handler.ServeHTTP(wRename, reqRename)
+
+	if wRename.Code != http.StatusOK {
+		t.Fatalf("rename conversation failed: %d, body: %s", wRename.Code, wRename.Body.String())
+	}
+	var renameRes map[string]any
+	_ = json.NewDecoder(wRename.Body).Decode(&renameRes)
+	renConv, _ := renameRes["conversation"].(map[string]any)
+	if renConv["title"] != "Renamed API Conv" {
+		t.Errorf("expected renamed title 'Renamed API Conv', got %v", renConv["title"])
+	}
+
+	// 3. Clear conversation
 	reqClear := httptest.NewRequest("POST", "/api/harness/conversations/"+convID+"/clear", nil)
 	wClear := httptest.NewRecorder()
 	handler.ServeHTTP(wClear, reqClear)
@@ -575,13 +594,13 @@ func TestUpdatesEndpoints(t *testing.T) {
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"version":      "2.9.9",
+			"version":      "3.0.0",
 			"published_at": "2026-11-01",
-			"download_url": "https://unjess.si/releases/Unjess-2.9.9.exe",
+			"download_url": "https://unjess.si/releases/Unjess-3.0.0.exe",
 			"notes":        "Test update release",
 			"changelog": []map[string]any{
 				{
-					"version": "2.9.9",
+					"version": "3.0.0",
 					"title":   "Autonomous Codebase Refactoring",
 					"tag":     "FEATURE",
 					"changes": []string{"Refactoring pipeline"},
@@ -608,8 +627,8 @@ func TestUpdatesEndpoints(t *testing.T) {
 	if err := json.NewDecoder(wCheck.Body).Decode(&checkResp); err != nil {
 		t.Fatalf("failed decoding check response: %v", err)
 	}
-	if checkResp["latest_version"] != "2.9.9" {
-		t.Errorf("expected latest_version '2.9.9', got %v", checkResp["latest_version"])
+	if checkResp["latest_version"] != "3.0.0" {
+		t.Errorf("expected latest_version '3.0.0', got %v", checkResp["latest_version"])
 	}
 	if checkResp["update_available"] != true {
 		t.Errorf("expected update_available true, got %v", checkResp["update_available"])
