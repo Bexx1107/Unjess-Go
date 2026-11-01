@@ -1073,11 +1073,23 @@
                   </div>
                   <div>
                     <label class="block text-slate-400 mb-1">LM Studio Server URL</label>
-                    <input id="settings-lmstudio-url" type="text" placeholder="http://localhost:1234" class="w-full bg-slate-900 border border-unjessBorder rounded-lg p-2 text-white font-mono text-xs focus:outline-none focus:border-slate-500 select-text">
+                    <div class="flex space-x-2">
+                      <input id="settings-lmstudio-url" type="text" placeholder="http://localhost:1234" class="flex-1 bg-slate-900 border border-unjessBorder rounded-lg p-2 text-white font-mono text-xs focus:outline-none focus:border-slate-500 select-text">
+                      <button id="btn-test-lmstudio" type="button" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-unjessBorder text-unjessCyan hover:text-white font-mono text-xs transition flex items-center space-x-1 flex-shrink-0" title="Test & Fetch models from LM Studio">
+                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                        <span>Fetch</span>
+                      </button>
+                    </div>
                   </div>
                   <div>
                     <label class="block text-slate-400 mb-1">llama.cpp Base URL</label>
-                    <input id="settings-llamacpp-url" type="text" placeholder="http://localhost:8080" class="w-full bg-slate-900 border border-unjessBorder rounded-lg p-2 text-white font-mono text-xs focus:outline-none focus:border-slate-500 select-text">
+                    <div class="flex space-x-2">
+                      <input id="settings-llamacpp-url" type="text" placeholder="http://localhost:8080" class="flex-1 bg-slate-900 border border-unjessBorder rounded-lg p-2 text-white font-mono text-xs focus:outline-none focus:border-slate-500 select-text">
+                      <button id="btn-test-llamacpp" type="button" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-unjessBorder text-unjessCyan hover:text-white font-mono text-xs transition flex items-center space-x-1 flex-shrink-0" title="Test & Fetch models from llama.cpp">
+                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                        <span>Fetch</span>
+                      </button>
+                    </div>
                   </div>
                   <div>
                     <label class="block text-slate-400 mb-1">Kimi (Moonshot) Base URL</label>
@@ -3010,13 +3022,15 @@
     // -------------------------------------------------------------------------
     // 2. OLLAMA & MODEL DISCOVERY (Backend + Direct Ollama Fallback)
     // -------------------------------------------------------------------------
-    async function fetchAndSyncModels(customOllamaUrl = '', customOllamaKey = '') {
+    async function fetchAndSyncModels(customOllamaUrl = '', customOllamaKey = '', customLlamaCppUrl = '', customLMStudioUrl = '') {
       const endpoint = (customOllamaUrl || state.ollamaUrl || 'http://localhost:11434').trim();
       const apiKey = (customOllamaKey !== undefined ? customOllamaKey : state.ollamaApiKey).trim();
+      const llamaUrl = (customLlamaCppUrl || document.getElementById('settings-llamacpp-url')?.value || state.settings?.llamacpp_base_url || 'http://localhost:8080').trim();
+      const lmStudioUrl = (customLMStudioUrl || document.getElementById('settings-lmstudio-url')?.value || state.settings?.lmstudio_base_url || 'http://localhost:1234').trim();
       const badge = document.getElementById('ollama-connection-badge');
       if (badge) {
         badge.className = 'text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-white/10';
-        badge.textContent = `Connecting to ${endpoint}...`;
+        badge.textContent = `Connecting to models...`;
       }
 
       let discovered = [];
@@ -3026,7 +3040,14 @@
 
       // 1. Try via Unjess backend /api/studio/models
       try {
-        const qs = new URLSearchParams({ endpoint, key: apiKey });
+        const qs = new URLSearchParams({
+          endpoint,
+          key: apiKey,
+          ollama_url: endpoint,
+          ollama_key: apiKey,
+          llamacpp_url: llamaUrl,
+          lmstudio_url: lmStudioUrl
+        });
         const resp = await fetch(`${API_BASE}/api/studio/models?${qs.toString()}`);
         if (resp.ok) {
           const data = await resp.json();
@@ -10218,6 +10239,8 @@ function openNewChatModal(initialMode = 'quick') {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ provider: e.target.value })
+            }).then(() => {
+              fetchAndSyncModels();
             }).catch(() => {});
           });
         }
@@ -12020,6 +12043,34 @@ function openNewChatModal(initialMode = 'quick') {
           statusMsg.textContent = res.isOnline
             ? `Loaded ${res.count} Ollama models from ${url}`
             : `Could not reach Ollama at ${url} (${res.errMsg || 'check server'})`;
+        }
+      });
+
+      // Settings: Test & Fetch llama.cpp Models button
+      document.getElementById('btn-test-llamacpp')?.addEventListener('click', async () => {
+        const url = (document.getElementById('settings-llamacpp-url')?.value || '').trim() || 'http://localhost:8080';
+        const statusMsg = document.getElementById('settings-status-msg');
+        if (statusMsg) statusMsg.textContent = `Fetching models from llama.cpp at ${url}...`;
+        await fetchAndSyncModels('', '', url, '');
+        const llamaModels = (state.models || []).filter(m => m.provider === 'llama.cpp');
+        if (statusMsg) {
+          statusMsg.textContent = llamaModels.length > 0
+            ? `Discovered ${llamaModels.length} model(s) from llama.cpp at ${url}`
+            : `No models returned from llama.cpp at ${url} (is llama-server running?)`;
+        }
+      });
+
+      // Settings: Test & Fetch LM Studio Models button
+      document.getElementById('btn-test-lmstudio')?.addEventListener('click', async () => {
+        const url = (document.getElementById('settings-lmstudio-url')?.value || '').trim() || 'http://localhost:1234';
+        const statusMsg = document.getElementById('settings-status-msg');
+        if (statusMsg) statusMsg.textContent = `Fetching models from LM Studio at ${url}...`;
+        await fetchAndSyncModels('', '', '', url);
+        const lmModels = (state.models || []).filter(m => m.provider === 'LM Studio');
+        if (statusMsg) {
+          statusMsg.textContent = lmModels.length > 0
+            ? `Discovered ${lmModels.length} model(s) from LM Studio at ${url}`
+            : `No models returned from LM Studio at ${url} (is LM Studio running?)`;
         }
       });
 

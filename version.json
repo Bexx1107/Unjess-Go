@@ -1,5 +1,5 @@
 {
-  "version": "2.9.6",
+  "version": "2.9.7",
   "published_at": "2026-11-01",
   "channel": "stable",
   "download_url": "https://unjess.si/releases/Unjess.exe",
@@ -15,17 +15,29 @@
   "daemon_linux_arm64_url": "https://unjess.si/releases/unjessd-linux-arm64",
   "sha256": "afb599cd9a2aefa2913ae13a2e6efa4f6e0ce0f97350953b2655a72976285fdf",
   "installer_sha256": "afb599cd9a2aefa2913ae13a2e6efa4f6e0ce0f97350953b2655a72976285fdf",
-  "daemon_sha256": "0b993f39b2e7c09253f737e38ac6d1b2674fa0b1cd30304c12e50da31b64a50d",
-  "cli_sha256": "d7024a00c80dc6be14d8b260083d41028e7a64a18a41c46ec8594f7f05096228",
+  "daemon_sha256": "54b3787166957a380526c9944ed581b1b3afe1c2424d5b3c9916048a4a453192",
+  "cli_sha256": "3e0c3bd36f2fc3e910eb38481c73f682f3d60d3bd50b7e6824950ec1afbefd2f",
   "desktop_sha256": "5a5909a081214c83dd1212fdd0853184e7fe1640e29cffed192ff23cd32bba72",
   "webview2_loader_sha256": "86545b66cdb0603bc26b626fb9ad610cb6e71f28d468f5ea66df23b03dda96d5",
-  "notes": "Unjess v2.9.6 - Dynamic Runtime Versioning & Terminal-Bench 4.0 Near-Miss Hardening.",
+  "notes": "Unjess v2.9.7 - Dynamic Model Discovery for llama.cpp & LM Studio, Unified Dynamic Runtime Versioning.",
   "changelog": [
+    {
+      "version": "2.9.7",
+      "date": "2026-11-01",
+      "title": "Dynamic Model Discovery for llama.cpp & LM Studio, Test & Fetch Controls",
+      "tag": "LATEST",
+      "changes": [
+        "Automated llama.cpp Model Discovery: Directly queries /v1/models on llama-server to populate active GGUF models into UI dropdowns",
+        "LM Studio Discovery: Directly queries /v1/models on LM Studio server with automatic optgroup categorization",
+        "Instant Settings Probing: Added dedicated 'Fetch' model discovery controls for llama.cpp and LM Studio endpoints",
+        "Dynamic Runtime Versioning: Complete unification of runtime versioning across daemon, CLI, desktop shell, and system prompts"
+      ]
+    },
     {
       "version": "2.9.6",
       "date": "2026-11-01",
       "title": "Dynamic Runtime Versioning & Terminal-Bench 4.0 Near-Miss Hardening",
-      "tag": "LATEST",
+      "tag": "UPDATE",
       "changes": [
         "Dynamic Runtime Versioning: Unified canonical version across Go daemon, CLI, settings API, and agent self-knowledge prompts",
         "Terminal-Bench 4.0 Near-Miss Hardening: Pre-exit verifier guard and automated residual convergence checks",
@@ -326,11 +338,11 @@
       ]
     }
   ],
-  "cli_linux_amd64_sha256": "4fc0413b88b37eef8cbb409313cd5fbc2e21206cbd1742ee947986533af4b268",
+  "cli_linux_amd64_sha256": "09c5869f158654a08b3c6c6842684aed2980fbf6d680f044cebe70758ba874e4",
   "cli_linux_arm64_sha256": "15e96f06869d03936316c5f91f40be8a1a2afc1430b861fb23fbb5ccfbe362ac",
-  "daemon_linux_amd64_sha256": "5d08d65eb40e29f4a5b7c91826549854f94704d2a542b0027efda7ba49c0d828",
+  "daemon_linux_amd64_sha256": "070bfbe7cd9c3cbf5f3a34427a7a6bca96157548917097d504844cc76d574030",
   "daemon_linux_arm64_sha256": "89b516c055d585fc1a4b2149d3360ee605ad11494600eaa0e490132a88398714",
-  "cli_windows_amd64_sha256": "f32a2fbe537a0776fed929c148448e6c2f375e2c05094c0e7dbb857848a1d9d6",
-  "daemon_windows_amd64_sha256": "d8df6ecaf187a1ba8cefb6d6933d92c38887780783e80bbbdc0d89e174f497e9",
+  "cli_windows_amd64_sha256": "3e0c3bd36f2fc3e910eb38481c73f682f3d60d3bd50b7e6824950ec1afbefd2f",
+  "daemon_windows_amd64_sha256": "54b3787166957a380526c9944ed581b1b3afe1c2424d5b3c9916048a4a453192",
   "setup_windows_amd64_sha256": "3b209673252a045db54d4ad57db60f0f8f17b6b9b360b500fb357815ce743d0b"
 }

@@ -81,10 +81,22 @@ type VersionManifest struct {
 func BuiltinChangelog() []ChangelogEntry {
 	return []ChangelogEntry{
 		{
+			Version: "2.9.7",
+			Date:    "2026-11-01",
+			Title:   "Dynamic Model Discovery for llama.cpp & LM Studio, Test & Fetch Controls",
+			Tag:     "LATEST",
+			Changes: []string{
+				"Automated llama.cpp Model Discovery: Directly queries /v1/models on llama-server to populate active GGUF models into UI dropdowns",
+				"LM Studio Discovery: Directly queries /v1/models on LM Studio server with automatic optgroup categorization",
+				"Instant Settings Probing: Added dedicated 'Fetch' model discovery controls for llama.cpp and LM Studio endpoints",
+				"Dynamic Runtime Versioning: Complete unification of runtime versioning across daemon, CLI, desktop shell, and system prompts",
+			},
+		},
+		{
 			Version: "2.9.6",
 			Date:    "2026-11-01",
 			Title:   "Terminal-Bench 4.0 Near-Miss Hardening & Dynamic Execution Parity",
-			Tag:     "LATEST",
+			Tag:     "UPDATE",
 			Changes: []string{
 				"Terminal-Bench 4.0 Near-Miss Hardening: Pre-exit verifier guard and automated residual convergence checks",
 				"Dynamic Runtime Versioning: Unified canonical version across Go daemon, CLI, settings API, and agent self-knowledge prompts",

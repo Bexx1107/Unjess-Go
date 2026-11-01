@@ -472,6 +472,119 @@ func DiscoverModels(s *Settings, overrideOllamaURL string, overrideOllamaKey str
 		}
 	}
 
+	// Probe llama.cpp endpoint if configured or accessible
+	probeClient := &http.Client{
+		Timeout: 1500 * time.Millisecond,
+	}
+
+	llamaBase := strings.TrimRight(s.LlamaCppBaseURL, "/")
+	if llamaBase == "" {
+		llamaBase = "http://localhost:8080"
+	}
+	if !strings.HasPrefix(llamaBase, "http://") && !strings.HasPrefix(llamaBase, "https://") {
+		llamaBase = "http://" + llamaBase
+	}
+	llamaModelsURL := llamaBase
+	if !strings.HasSuffix(llamaModelsURL, "/v1") {
+		llamaModelsURL += "/v1"
+	}
+	llamaModelsURL += "/models"
+
+	if lReq, lErr := http.NewRequest("GET", llamaModelsURL, nil); lErr == nil {
+		if lResp, lDoErr := probeClient.Do(lReq); lDoErr == nil && lResp.StatusCode == 200 {
+			defer lResp.Body.Close()
+			var lData struct {
+				Data []struct {
+					ID   string `json:"id"`
+					Meta struct {
+						Size    int64 `json:"size"`
+						NParams int64 `json:"n_params"`
+						NCtx    int64 `json:"n_ctx_train"`
+					} `json:"meta"`
+				} `json:"data"`
+			}
+			if err := json.NewDecoder(lResp.Body).Decode(&lData); err == nil && len(lData.Data) > 0 {
+				for _, item := range lData.Data {
+					if item.ID != "" {
+						cleanName := filepath.Base(item.ID)
+						cleanName = strings.TrimSuffix(cleanName, ".gguf")
+						cleanName = strings.TrimSuffix(cleanName, ".GGUF")
+						desc := "Local llama-server GGUF model"
+						if item.Meta.NParams > 0 {
+							desc = fmt.Sprintf("Local llama.cpp (%.1fB params)", float64(item.Meta.NParams)/1e9)
+						}
+						parsedModels = append(parsedModels, map[string]any{
+							"id":              item.ID,
+							"name":            cleanName,
+							"raw_name":        item.ID,
+							"provider":        "llama.cpp",
+							"is_cloud":        false,
+							"size":            item.Meta.Size,
+							"parameter_size":  "",
+							"quantization":    "",
+							"family":          "llama.cpp",
+							"capabilities":    []string{"tools"},
+							"has_tools":       true,
+							"has_thinking":    false,
+							"supports_effort": false,
+							"remote_host":     "",
+							"desc":            desc,
+						})
+					}
+				}
+			}
+		}
+	}
+
+	// Probe LM Studio endpoint if configured or accessible
+	lmBase := strings.TrimRight(s.LMStudioBaseURL, "/")
+	if lmBase == "" {
+		lmBase = "http://localhost:1234"
+	}
+	if !strings.HasPrefix(lmBase, "http://") && !strings.HasPrefix(lmBase, "https://") {
+		lmBase = "http://" + lmBase
+	}
+	lmModelsURL := lmBase
+	if !strings.HasSuffix(lmModelsURL, "/v1") {
+		lmModelsURL += "/v1"
+	}
+	lmModelsURL += "/models"
+
+	if lmReq, lmErr := http.NewRequest("GET", lmModelsURL, nil); lmErr == nil {
+		if lmResp, lmDoErr := probeClient.Do(lmReq); lmDoErr == nil && lmResp.StatusCode == 200 {
+			defer lmResp.Body.Close()
+			var lmData struct {
+				Data []struct {
+					ID string `json:"id"`
+				} `json:"data"`
+			}
+			if err := json.NewDecoder(lmResp.Body).Decode(&lmData); err == nil && len(lmData.Data) > 0 {
+				for _, item := range lmData.Data {
+					if item.ID != "" {
+						cleanName := filepath.Base(item.ID)
+						parsedModels = append(parsedModels, map[string]any{
+							"id":              item.ID,
+							"name":            cleanName,
+							"raw_name":        item.ID,
+							"provider":        "LM Studio",
+							"is_cloud":        false,
+							"size":            int64(0),
+							"parameter_size":  "",
+							"quantization":    "",
+							"family":          "lmstudio",
+							"capabilities":    []string{"tools"},
+							"has_tools":       true,
+							"has_thinking":    false,
+							"supports_effort": false,
+							"remote_host":     "",
+							"desc":            "Local LM Studio model",
+						})
+					}
+				}
+			}
+		}
+	}
+
 	// Add models for configured cloud providers
 	configuredProviders := make([]string, 0)
 	if ollamaOnline {

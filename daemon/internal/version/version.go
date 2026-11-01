@@ -2,4 +2,4 @@
 package version
 
 // Current is the canonical semver string for the active release of Unjess.
-const Current = "2.9.6"
+const Current = "2.9.7"
