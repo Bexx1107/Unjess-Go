@@ -32,9 +32,17 @@ func getOpenAIBaseURL(opts ChatOptions, provider string) string {
 	case "qwen":
 		return getBaseURL(opts, provider, "https://dashscope-intl.aliyuncs.com/compatible-mode/v1")
 	case "lmstudio":
-		return getBaseURL(opts, provider, "http://localhost:1234/v1")
+		u := getBaseURL(opts, provider, "http://localhost:1234/v1")
+		if !strings.HasSuffix(u, "/v1") {
+			u = u + "/v1"
+		}
+		return u
 	case "llamacpp":
-		return getBaseURL(opts, provider, "http://localhost:8080/v1")
+		u := getBaseURL(opts, provider, "http://localhost:8080/v1")
+		if !strings.HasSuffix(u, "/v1") {
+			u = u + "/v1"
+		}
+		return u
 	default:
 		return getBaseURL(opts, provider, "https://api.openai.com/v1")
 	}

@@ -59,6 +59,16 @@ func TestDetectProvider(t *testing.T) {
 		{"qwen2.5-coder:7b", "", "ollama"},
 		{"llama3.2:1b", "", "ollama"},
 
+		// Local GGUF models & Windows absolute paths (must route to llamacpp/lmstudio, NOT ollama or cloud)
+		{`E:\models\Qwen3.8-27B-OBLITERATED\Qwen3.8-27B-OBLITERATED-Q4_K_M.gguf`, "", "llamacpp"},
+		{`E:\models\Qwen3.8-27B-OBLITERATED\Qwen3.8-27B-OBLITERATED-Q4_K_M.gguf`, "llamacpp", "llamacpp"},
+		{`E:\models\Qwen3.8-27B-OBLITERATED\Qwen3.8-27B-OBLITERATED-Q4_K_M.gguf`, "llama.cpp", "llamacpp"},
+		{`E:\models\Qwen3.8-27B-OBLITERATED\Qwen3.8-27B-OBLITERATED-Q4_K_M.gguf`, "lmstudio", "lmstudio"},
+		{`/mnt/streamvault/models/model.gguf`, "", "llamacpp"},
+		{"qwen3.8-27b.gguf", "", "llamacpp"},
+		{"qwen3.8-27b", "llamacpp", "llamacpp"},
+		{"mistral-7b", "llamacpp", "llamacpp"},
+
 		// Configured provider fallback
 		{"my-custom-fine-tune", "groq", "groq"},
 		{"my-custom-fine-tune", "", "ollama"},

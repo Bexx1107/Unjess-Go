@@ -15,21 +15,22 @@
   "daemon_linux_arm64_url": "https://unjess.si/releases/unjessd-linux-arm64",
   "sha256": "afb599cd9a2aefa2913ae13a2e6efa4f6e0ce0f97350953b2655a72976285fdf",
   "installer_sha256": "afb599cd9a2aefa2913ae13a2e6efa4f6e0ce0f97350953b2655a72976285fdf",
-  "daemon_sha256": "148f8e47436ca062b2794117409d2bc1577215b562f297c91da3c248056aa235",
-  "cli_sha256": "c0dfc56fb2c51580217b41fbaeb024872d9c0426aa7b353be4b6535b0b8b769e",
+  "daemon_sha256": "8d42ac68fd52e4be72a82a7e8423d102a3fc3b24a68535789e4dcc044c8833d1",
+  "cli_sha256": "7e9e73d7a61e9955c645c4d62eda4cd3d9b01ed2a20a49ce4461caf66113969a",
   "desktop_sha256": "5a5909a081214c83dd1212fdd0853184e7fe1640e29cffed192ff23cd32bba72",
   "webview2_loader_sha256": "86545b66cdb0603bc26b626fb9ad610cb6e71f28d468f5ea66df23b03dda96d5",
-  "notes": "Unjess v2.9.8 - Silent Windows Background Daemon Execution (-H=windowsgui), Dynamic Model Discovery for llama.cpp & LM Studio.",
+  "notes": "Unjess v2.9.8 - Silent Windows Background Daemon Execution (-H=windowsgui), GGUF & Windows Path Local Provider Routing, Dynamic Model Discovery for llama.cpp & LM Studio.",
   "changelog": [
     {
       "version": "2.9.8",
       "date": "2026-11-01",
-      "title": "Silent Windows Daemon Subsystem (-H=windowsgui) & Clean Console Detachment",
+      "title": "Silent Windows Daemon Execution (-H=windowsgui) & GGUF Local Provider Routing",
       "tag": "LATEST",
       "changes": [
         "Silent Windows Daemon Execution: Built unjessd.exe with -H=windowsgui linker flag (PE32+ GUI subsystem) to eliminate terminal/cmd popups",
-        "Clean Background Execution: Daemon runs detached in the background without spawning any console or terminal window alongside the desktop app",
-        "Dynamic Model Discovery: Directly queries /v1/models on llama.cpp and LM Studio endpoints with instant fetch controls"
+        "GGUF & Windows Path Provider Routing: Fixed provider detection so Windows absolute file paths (e.g. E:\\models\\...) and .gguf files route cleanly to llama.cpp / LM Studio rather than failing with Ollama 'invalid model name' error",
+        "OpenAI /v1 Base URL Normalization: Automatically ensures llama.cpp and LM Studio endpoints call /v1/chat/completions even if user specifies root port URL",
+        "Active Provider Synchronization: Synchronizes active provider in settings and chat execution payload when selecting models from local providers"
       ]
     },
     {
@@ -349,11 +350,11 @@
       ]
     }
   ],
-  "cli_linux_amd64_sha256": "f3226efb0c43a43951fdb778e66bd3c78471f0c390cace220be02cdec010e7df",
+  "cli_linux_amd64_sha256": "66bd61cbd7652687ca0600507d0d499f49ae06e3f42468c7ec00dbdbd7d113cf",
   "cli_linux_arm64_sha256": "15e96f06869d03936316c5f91f40be8a1a2afc1430b861fb23fbb5ccfbe362ac",
-  "daemon_linux_amd64_sha256": "c4adf9e7b90c54f6ad2619462bf557ca3c54c4f47601ed52f247c4729b116599",
+  "daemon_linux_amd64_sha256": "3bcfdb811b5dd8cb99ed25c3727459df6d0a49cde66a253fdef0ae28cb2882a2",
   "daemon_linux_arm64_sha256": "89b516c055d585fc1a4b2149d3360ee605ad11494600eaa0e490132a88398714",
-  "cli_windows_amd64_sha256": "c0dfc56fb2c51580217b41fbaeb024872d9c0426aa7b353be4b6535b0b8b769e",
-  "daemon_windows_amd64_sha256": "148f8e47436ca062b2794117409d2bc1577215b562f297c91da3c248056aa235",
+  "cli_windows_amd64_sha256": "7e9e73d7a61e9955c645c4d62eda4cd3d9b01ed2a20a49ce4461caf66113969a",
+  "daemon_windows_amd64_sha256": "8d42ac68fd52e4be72a82a7e8423d102a3fc3b24a68535789e4dcc044c8833d1",
   "setup_windows_amd64_sha256": "3b209673252a045db54d4ad57db60f0f8f17b6b9b360b500fb357815ce743d0b"
 }

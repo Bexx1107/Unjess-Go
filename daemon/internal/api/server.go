@@ -944,6 +944,9 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 	if m, ok := raw["model"].(string); ok {
 		req.Model = m
 	}
+	if prv, ok := raw["provider"].(string); ok && prv != "" {
+		req.Provider = prv
+	}
 	if ws, ok := raw["workspace"].(string); ok {
 		req.Workspace = ws
 	}

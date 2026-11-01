@@ -170,7 +170,15 @@ func DetectProvider(model string, configuredProvider string) string {
 	lower := strings.ToLower(m)
 	customList := loadCustomProvidersForLLM()
 
-	// If model has provider/model prefix (for known or custom providers), split and return provider.
+	normConfigured := strings.ToLower(strings.TrimSpace(configuredProvider))
+	switch normConfigured {
+	case "llama.cpp":
+		normConfigured = "llamacpp"
+	case "lm studio":
+		normConfigured = "lmstudio"
+	}
+
+	// 1. If model has explicit provider/model prefix (for known or custom providers), split and return provider.
 	if idx := strings.Index(lower, "/"); idx != -1 {
 		prefix := lower[:idx]
 		if knownProviders[prefix] {
@@ -191,15 +199,36 @@ func DetectProvider(model string, configuredProvider string) string {
 		}
 	}
 
-	// If model ends with :cloud, use "ollama".
+	// 2. Identify local file paths or GGUF files (e.g. E:\models\..., /home/..., model.gguf)
+	isWindowsPath := len(m) >= 2 && ((m[0] >= 'a' && m[0] <= 'z') || (m[0] >= 'A' && m[0] <= 'Z')) && m[1] == ':'
+	hasPathSep := strings.Contains(m, "\\") || strings.HasPrefix(m, "/") || strings.HasPrefix(m, "./") || strings.HasPrefix(m, "../")
+	isGGUF := strings.HasSuffix(lower, ".gguf") || strings.Contains(lower, ".gguf") || strings.HasSuffix(lower, ".bin")
+
+	if isWindowsPath || hasPathSep || isGGUF {
+		if normConfigured == "lmstudio" {
+			return "lmstudio"
+		}
+		return "llamacpp"
+	}
+
+	// 3. If configuredProvider is explicitly a local server (llamacpp or lmstudio), retain it!
+	// Do not let model naming heuristics (like 'qwen' or 'mistral' in a local GGUF) hijack local server execution to cloud APIs.
+	if normConfigured == "llamacpp" || normConfigured == "lmstudio" {
+		return normConfigured
+	}
+
+	// 4. If model ends with :cloud, use "ollama".
 	if strings.HasSuffix(lower, ":cloud") {
 		return "ollama"
 	}
 
-	// If model contains : (e.g. ornith-1.5:9b, qwen2.5-coder:7b), return "ollama".
-	if strings.Contains(lower, ":") && !strings.HasPrefix(lower, "http:") && !strings.HasPrefix(lower, "https:") {
+	// 5. If model contains : (e.g. ornith-1.5:9b, qwen2.5-coder:7b), return "ollama".
+	// Must NOT match URLs or Windows drive letters!
+	if strings.Contains(lower, ":") && !strings.HasPrefix(lower, "http:") && !strings.HasPrefix(lower, "https:") && !isWindowsPath {
 		return "ollama"
 	}
+
+	// 6. Cloud model prefix heuristics
 
 	// Google Gemini / Gemma / Antigravity / Deep Research cloud models
 	if strings.HasPrefix(lower, "gemini-") || strings.HasPrefix(lower, "gemma-") || strings.HasPrefix(lower, "antigravity-") || strings.HasPrefix(lower, "deep-research-") || strings.HasPrefix(lower, "learnlm-") {

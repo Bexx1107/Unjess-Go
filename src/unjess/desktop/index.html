@@ -3246,6 +3246,43 @@
 
       const mObj = state.models.find(m => m.id === modelId) || { id: modelId, name: modelId, desc: 'Selected language model' };
 
+      let matchedProvider = '';
+      if (mObj && mObj.provider) {
+        if (mObj.provider === 'llama.cpp') matchedProvider = 'llamacpp';
+        else if (mObj.provider.toLowerCase().includes('lm studio')) matchedProvider = 'lmstudio';
+        else if (mObj.provider === 'Ollama' || mObj.provider === 'Ollama Cloud') matchedProvider = 'ollama';
+        else if (mObj.provider === 'Google') matchedProvider = 'google';
+        else if (mObj.provider === 'OpenAI') matchedProvider = 'openai';
+        else if (mObj.provider === 'Anthropic') matchedProvider = 'anthropic';
+        else if (mObj.provider === 'Groq') matchedProvider = 'groq';
+        else if (mObj.provider === 'Mistral') matchedProvider = 'mistral';
+        else if (mObj.provider === 'xAI') matchedProvider = 'xai';
+        else if (mObj.provider === 'Cerebras') matchedProvider = 'cerebras';
+        else if (mObj.provider === 'OpenRouter') matchedProvider = 'openrouter';
+        else if (mObj.provider.includes('Kimi')) matchedProvider = 'kimi';
+        else if (mObj.provider.includes('Qwen')) matchedProvider = 'qwen';
+        else matchedProvider = mObj.provider.toLowerCase();
+      }
+      if (matchedProvider) {
+        state.selectedProvider = matchedProvider;
+        if (state.settings) state.settings.provider = matchedProvider;
+        const provSelect = document.getElementById('settings-provider');
+        if (provSelect && Array.from(provSelect.options).some(o => o.value === matchedProvider)) {
+          provSelect.value = matchedProvider;
+        }
+      }
+
+      if (persist) {
+        // Asynchronously persist selected model and provider to ~/.unjess/config.yaml
+        const payload = { default_model: modelId };
+        if (matchedProvider) payload.provider = matchedProvider;
+        fetch(`${API_BASE}/api/studio/settings`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        }).catch(() => {});
+      }
+
       const pillText = document.getElementById('active-model-text');
       const inspName = document.getElementById('inspector-model-name');
       const inspDesc = document.getElementById('inspector-model-desc');
@@ -9300,10 +9337,23 @@ function openNewChatModal(initialMode = 'quick') {
 
       const enabledToolsMap = {};
       Object.values(state.tools).forEach(t => { enabledToolsMap[t.id] = t.enabled; });
+
+      const activeModelObj = state.models.find(m => m.id === state.selectedModel);
+      let activeProvider = state.selectedProvider || '';
+      if (!activeProvider && activeModelObj && activeModelObj.provider) {
+        if (activeModelObj.provider === 'llama.cpp') activeProvider = 'llamacpp';
+        else if (activeModelObj.provider.toLowerCase().includes('lm studio')) activeProvider = 'lmstudio';
+        else activeProvider = activeModelObj.provider.toLowerCase();
+      }
+      if (!activeProvider && state.settings && state.settings.provider) {
+        activeProvider = state.settings.provider;
+      }
+
       const reqBodyStr = JSON.stringify({
         conversation_id: conv.id,
         prompt: text,
         model: state.selectedModel,
+        provider: activeProvider,
         reasoning_effort: state.reasoningEffort || 'high',
         workspace: state.activeWorkspace,
         tools: enabledToolsMap,

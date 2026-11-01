@@ -14,6 +14,7 @@ type ChatTurnRequest struct {
 	ConversationID  string           `json:"conversation_id"`
 	Prompt          string           `json:"prompt"`
 	Model           string           `json:"model"`
+	Provider        string           `json:"provider,omitempty"`
 	ReasoningEffort string           `json:"reasoning_effort,omitempty"`
 	Workspace       string           `json:"workspace"`
 	WorkflowID      string           `json:"workflow_id"`

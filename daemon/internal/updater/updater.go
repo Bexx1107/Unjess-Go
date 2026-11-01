@@ -83,11 +83,13 @@ func BuiltinChangelog() []ChangelogEntry {
 		{
 			Version: "2.9.8",
 			Date:    "2026-11-01",
-			Title:   "Silent Windows Daemon Parity (-H=windowsgui Linker Enforcement)",
+			Title:   "Silent Windows Daemon Execution (-H=windowsgui) & GGUF Local Provider Routing",
 			Tag:     "LATEST",
 			Changes: []string{
-				"Windows PE GUI Subsystem Enforcement: Restored -H=windowsgui linker flag for unjessd.exe, ensuring daemon runs completely silent in background without spawning CMD window",
-				"Clean Background Process Execution: Transparent detached execution when launched by desktop shell",
+				"Windows PE GUI Subsystem Enforcement: Built unjessd.exe with -H=windowsgui linker flag, ensuring daemon runs completely silent in background without spawning CMD window",
+				"GGUF & Windows Path Provider Routing: Fixed provider detection so Windows absolute file paths (e.g. E:\\models\\...) and .gguf files route cleanly to llama.cpp / LM Studio rather than failing with Ollama 'invalid model name' error",
+				"OpenAI /v1 Base URL Normalization: Automatically ensures llama.cpp and LM Studio endpoints call /v1/chat/completions even if user specifies root port URL",
+				"Active Provider Synchronization: Synchronizes active provider in settings and chat execution payload when selecting models from local providers",
 			},
 		},
 		{

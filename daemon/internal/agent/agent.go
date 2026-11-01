@@ -2873,8 +2873,8 @@ func (hm *HarnessManager) RunSubagentTask(ctx context.Context, agentID, taskProm
 	if model == "" && hm.settings != nil {
 		model = hm.settings.Model
 	}
-	provider := ""
-	if hm.settings != nil {
+	provider := strings.TrimSpace(fmt.Sprint(targetAgent["provider"]))
+	if (provider == "" || provider == "<nil>") && hm.settings != nil {
 		provider = hm.settings.Provider
 	}
 	provider = llm.DetectProvider(model, provider)
@@ -4970,8 +4970,8 @@ func (hm *HarnessManager) RunAgentTurn(ctx context.Context, req ChatTurnRequest)
 	if model == "" && hm.settings != nil {
 		model = hm.settings.Model
 	}
-	provider := ""
-	if hm.settings != nil {
+	provider := req.Provider
+	if provider == "" && hm.settings != nil {
 		provider = hm.settings.Provider
 	}
 	provider = llm.DetectProvider(model, provider)
