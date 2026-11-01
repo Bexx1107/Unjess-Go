@@ -7,8 +7,8 @@ fn main() {
         res.set("FileDescription", "Unjess AI Autonomous Coding Assistant & Harness");
         res.set("CompanyName", "Unjess");
         res.set("LegalCopyright", "Copyright (c) 2026 Unjess. All rights reserved.");
-        res.set("FileVersion", "2.3.8.0");
-        res.set("ProductVersion", "2.3.8.0");
+        res.set("FileVersion", "2.9.6.0");
+        res.set("ProductVersion", "2.9.6.0");
         res.set("OriginalFilename", "Unjess.exe");
         res.set("InternalName", "Unjess");
         res.set_windres_path("x86_64-w64-mingw32-windres");

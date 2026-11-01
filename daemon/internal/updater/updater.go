@@ -17,10 +17,12 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"unjess-daemon/internal/version"
 )
 
 const (
-	CurrentVersion   = "2.3.8"
+	CurrentVersion   = version.Current
 	DefaultUpdateURL = "https://unjess.si/releases/version.json"
 )
 
@@ -79,10 +81,21 @@ type VersionManifest struct {
 func BuiltinChangelog() []ChangelogEntry {
 	return []ChangelogEntry{
 		{
+			Version: "2.9.6",
+			Date:    "2026-11-01",
+			Title:   "Terminal-Bench 4.0 Near-Miss Hardening & Dynamic Execution Parity",
+			Tag:     "LATEST",
+			Changes: []string{
+				"Terminal-Bench 4.0 Near-Miss Hardening: Pre-exit verifier guard and automated residual convergence checks",
+				"Dynamic Runtime Versioning: Unified canonical version across Go daemon, CLI, settings API, and agent self-knowledge prompts",
+				"Headless Execution Reliability: Streamlined subprocess monitoring and graceful container cleanup",
+			},
+		},
+		{
 			Version: "2.3.8",
 			Date:    "2026-10-31",
 			Title:   "Execution-Surface Verification Doctrine, Symbolic Adversarial Testing & Domain Rule Validation",
-			Tag:     "LATEST",
+			Tag:     "UPDATE",
 			Changes: []string{
 				"Execution-Surface Verification Doctrine: Enforces active independent test execution on changed paths with zero tolerance for partial passes ('3 of 4 passed' is treated as failure until 100% clean)",
 				"Symbolic & Mathematical Grader Hardening: Added explicit handling for symbolic edge cases including set unions, integration constants (+ C), piecewise expressions, units stripping, boxed LaTeX extraction, and tuple structures",

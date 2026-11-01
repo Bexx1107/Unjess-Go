@@ -13,6 +13,7 @@ import (
 	"unjess-daemon/internal/config"
 	"unjess-daemon/internal/llm"
 	"unjess-daemon/internal/tools"
+	"unjess-daemon/internal/version"
 )
 
 func setupTestManager(t *testing.T) (*HarnessManager, string) {
@@ -1601,8 +1602,9 @@ func TestClaudeCodeParityToolPolicyAndBudgetWarning(t *testing.T) {
 
 	// 1. Verify Unjess self-knowledge version string
 	cfgPrompt := hm.buildHarnessConfigPrompt("deepseek-v4.1-flash:1017", "ollama", "Autonomous")
-	if !strings.Contains(cfgPrompt, "You are Unjess v2.3.8") {
-		t.Errorf("expected Unjess v2.3.8 in self knowledge prompt, got: %s", cfgPrompt)
+	expectedGreeting := fmt.Sprintf("You are Unjess v%s", version.Current)
+	if !strings.Contains(cfgPrompt, expectedGreeting) {
+		t.Errorf("expected %q in self knowledge prompt, got: %s", expectedGreeting, cfgPrompt)
 	}
 
 	// 2. Verify subagent prompt includes Claude Code parity tool usage policy

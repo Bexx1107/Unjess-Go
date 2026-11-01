@@ -45,7 +45,7 @@ func TestBuiltinChangelog(t *testing.T) {
 		t.Fatalf("expected at least 4 changelog entries, got %d", len(cl))
 	}
 
-	expectedVersions := []string{"2.3.8", "2.3.7", "2.3.5", "2.3.4", "2.3.3", "2.3.2", "2.3.1", "2.3.0", "2.2.4", "2.2.3", "2.2.2", "2.2.1", "2.2.0", "2.1.3", "2.1.2", "2.1.1", "2.1.0", "2.0.3", "2.0.2", "2.0.1", "2.0.0", "1.8.0", "1.7.0", "1.5.0"}
+	expectedVersions := []string{"2.9.6", "2.3.8", "2.3.7", "2.3.5", "2.3.4", "2.3.3", "2.3.2", "2.3.1", "2.3.0", "2.2.4", "2.2.3", "2.2.2", "2.2.1", "2.2.0", "2.1.3", "2.1.2", "2.1.1", "2.1.0", "2.0.3", "2.0.2", "2.0.1", "2.0.0", "1.8.0", "1.7.0", "1.5.0"}
 	for i, ver := range expectedVersions {
 		if cl[i].Version != ver {
 			t.Errorf("entry %d: expected version %s, got %s", i, ver, cl[i].Version)
@@ -98,15 +98,15 @@ func TestCheckForUpdatesRemote(t *testing.T) {
 	// Spin up mock update server
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		manifest := VersionManifest{
-			Version:      "2.3.9",
+			Version:      "2.9.7",
 			PublishedAt:  "2026-11-01",
 			Channel:      "stable",
-			DownloadURL:  "https://unjess.si/releases/Unjess-2.3.9.exe",
-			InstallerURL: "https://unjess.si/releases/Unjess-Installer-2.3.9.exe",
+			DownloadURL:  "https://unjess.si/releases/Unjess-2.9.7.exe",
+			InstallerURL: "https://unjess.si/releases/Unjess-Installer-2.9.7.exe",
 			Notes:        "Added quantum memory indexing and lightning UI updates.",
 			Changelog: []ChangelogEntry{
 				{
-					Version: "2.3.9",
+					Version: "2.9.7",
 					Date:    "2026-11-01",
 					Title:   "Quantum Memory Indexing",
 					Tag:     "FEATURE",
@@ -126,13 +126,13 @@ func TestCheckForUpdatesRemote(t *testing.T) {
 	if res["source"] != "remote" {
 		t.Errorf("expected source 'remote', got %v", res["source"])
 	}
-	if res["latest_version"] != "2.3.9" {
-		t.Errorf("expected latest_version '2.3.9', got %v", res["latest_version"])
+	if res["latest_version"] != "2.9.7" {
+		t.Errorf("expected latest_version '2.9.7', got %v", res["latest_version"])
 	}
 	if res["update_available"] != true {
 		t.Errorf("expected update_available true, got %v", res["update_available"])
 	}
-	if res["download_url"] != "https://unjess.si/releases/Unjess-2.3.9.exe" {
+	if res["download_url"] != "https://unjess.si/releases/Unjess-2.9.7.exe" {
 		t.Errorf("expected download_url to match, got %v", res["download_url"])
 	}
 
@@ -140,8 +140,8 @@ func TestCheckForUpdatesRemote(t *testing.T) {
 	if !ok || len(cl) == 0 {
 		t.Fatalf("expected changelog list, got %v", res["changelog"])
 	}
-	if cl[0].Version != "2.3.9" {
-		t.Errorf("expected newest version 2.3.9 at index 0, got %s", cl[0].Version)
+	if cl[0].Version != "2.9.7" {
+		t.Errorf("expected newest version 2.9.7 at index 0, got %s", cl[0].Version)
 	}
 	if cl[1].Version != CurrentVersion {
 		t.Errorf("expected %s at index 1, got %s", CurrentVersion, cl[1].Version)
@@ -167,9 +167,9 @@ func TestApplyUpdateToTarget(t *testing.T) {
 			return
 		}
 		manifest := VersionManifest{
-			Version:     "2.3.8",
+			Version:     CurrentVersion,
 			DownloadURL: ts.URL + "/download",
-			Notes:       "New v2.3.8 release",
+			Notes:       "New release",
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(manifest)
@@ -184,8 +184,8 @@ func TestApplyUpdateToTarget(t *testing.T) {
 	if res["status"] != "ok" {
 		t.Errorf("expected status 'ok', got %v", res["status"])
 	}
-	if res["updated_to"] != "2.3.8" {
-		t.Errorf("expected updated_to '2.3.8', got %v", res["updated_to"])
+	if res["updated_to"] != CurrentVersion {
+		t.Errorf("expected updated_to '%s', got %v", CurrentVersion, res["updated_to"])
 	}
 	msg, _ := res["message"].(string)
 	if !strings.Contains(msg, "Update downloaded and staged") {

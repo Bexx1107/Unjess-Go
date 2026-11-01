@@ -28,6 +28,7 @@ import (
 	"unjess-daemon/internal/security"
 	"unjess-daemon/internal/skills"
 	"unjess-daemon/internal/tools"
+	"unjess-daemon/internal/version"
 	"unjess-daemon/internal/workspace"
 	"unjess-daemon/internal/worktree"
 )
@@ -4290,7 +4291,7 @@ func (hm *HarnessManager) buildHarnessConfigPrompt(activeModel, activeProvider, 
 	}
 	sb.WriteString("</harness_configuration>\n\n")
 	sb.WriteString("<unjess_self_knowledge>\n")
-	sb.WriteString("You are Unjess v2.3.8, an autonomous AI coding & security engineering harness running as a native Rust/WebView2 Desktop App (`Unjess.exe`), a high-concurrency Go Daemon (`unjessd.exe`), and a full-parity terminal CLI (`unjess` / `njss`).\n")
+	sb.WriteString(fmt.Sprintf("You are Unjess v%s, an autonomous AI coding & security engineering harness running as a native Rust/WebView2 Desktop App (`Unjess.exe`), a high-concurrency Go Daemon (`unjessd.exe`), and a full-parity terminal CLI (`unjess` / `njss`).\n", version.Current))
 	sb.WriteString("- Shared State Directory (`~/.unjess/`): Both Desktop and CLI share `config.yaml` (settings), `keys.yaml` (API keys), `custom_providers.json` (dynamic OpenAI-compatible AI providers), `mcp.json` (MCP servers), `skills/` (installed SKILL.md modules), `custom_tools/` (synthesized tools), and `memory/memories.json`.\n")
 	sb.WriteString("- 4 Execution Modes: `Autonomous` (auto-runs tools & cross-drive external path access), `Supervised` (prompts user before `run_command`), `Plan` (read-only discovery until `propose_plan` is approved), and `Duel` (Red Team vs. White Team Security Arena via `run_security_duel`).\n")
 	sb.WriteString("- Slash Commands & Prompt Toggles: `/plan` (switch to Plan mode), `/duel` (launch Security Duel), `/compact` (summarize & compress conversation context), `/budget` & `/context` (inspect token usage & context window), `/caveman` (ultra-concise output mode), `/ponytail` (Ponytail persona toggle), plus `@file`, `@git status`, and `@git diff` context mentions.\n")
@@ -4988,7 +4989,7 @@ func (hm *HarnessManager) RunAgentTurn(ctx context.Context, req ChatTurnRequest)
 	nativeThinkingActive := llm.SupportsReasoningEffort(model, provider) && activeEffort != "none"
 
 	var sysBuilder strings.Builder
-	sysBuilder.WriteString("You are Unjess v2.3.8 (Native Go Daemon + Rust Desktop Harness), an autonomous expert coding agent with direct access to local development tools.\n")
+	sysBuilder.WriteString(fmt.Sprintf("You are Unjess v%s (Native Go Daemon + Rust Desktop Harness), an autonomous expert coding agent with direct access to local development tools.\n", version.Current))
 	sysBuilder.WriteString(fmt.Sprintf("Workspace root: %s\n", wsPath))
 	if runtime.GOOS == "windows" {
 		sysBuilder.WriteString("Tool execution environment: Windows PowerShell (powershell.exe). Use PowerShell syntax for commands (prefer `@'...'@` single-quoted here-strings for multiline literals, pass `-Depth` to `ConvertTo-Json`, and do not pipe slow commands into `Select-Object -First` when full output is needed).\n")

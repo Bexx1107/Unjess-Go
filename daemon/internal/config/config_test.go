@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"unjess-daemon/internal/version"
 )
 
 func TestDefaultSettings(t *testing.T) {
@@ -141,8 +143,8 @@ func TestSerializeSettingsDict(t *testing.T) {
 	if dict["auto_update_enabled"] != true {
 		t.Errorf("expected auto_update_enabled true, got %v", dict["auto_update_enabled"])
 	}
-	if dict["current_version"] != "2.3.8" {
-		t.Errorf("expected current_version '2.3.8', got %v", dict["current_version"])
+	if dict["current_version"] != version.Current {
+		t.Errorf("expected current_version %q, got %v", version.Current, dict["current_version"])
 	}
 	if dict["update_server_url"] != "https://unjess.si/releases/version.json" {
 		t.Errorf("expected default update_server_url, got %v", dict["update_server_url"])

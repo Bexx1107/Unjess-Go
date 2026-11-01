@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 
+	"unjess-daemon/internal/version"
+
 	"gopkg.in/yaml.v3"
 )
 
@@ -709,7 +711,7 @@ func SerializeSettingsDict(s *Settings) map[string]any {
 			}
 			return "https://unjess.si/releases/version.json"
 		}(),
-		"current_version": "2.3.8",
+		"current_version": version.Current,
 	}
 }
 

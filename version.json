@@ -1,6 +1,6 @@
 {
-  "version": "2.3.8",
-  "published_at": "2026-10-31",
+  "version": "2.9.6",
+  "published_at": "2026-11-01",
   "channel": "stable",
   "download_url": "https://unjess.si/releases/Unjess.exe",
   "installer_url": "https://unjess.si/releases/Unjess-Setup.exe",
@@ -19,13 +19,24 @@
   "cli_sha256": "d7024a00c80dc6be14d8b260083d41028e7a64a18a41c46ec8594f7f05096228",
   "desktop_sha256": "5a5909a081214c83dd1212fdd0853184e7fe1640e29cffed192ff23cd32bba72",
   "webview2_loader_sha256": "86545b66cdb0603bc26b626fb9ad610cb6e71f28d468f5ea66df23b03dda96d5",
-  "notes": "Unjess v2.3.8 - Execution-Surface Verification Doctrine, Symbolic Adversarial Testing & Domain Rule Validation.",
+  "notes": "Unjess v2.9.6 - Dynamic Runtime Versioning & Terminal-Bench 4.0 Near-Miss Hardening.",
   "changelog": [
+    {
+      "version": "2.9.6",
+      "date": "2026-11-01",
+      "title": "Dynamic Runtime Versioning & Terminal-Bench 4.0 Near-Miss Hardening",
+      "tag": "LATEST",
+      "changes": [
+        "Dynamic Runtime Versioning: Unified canonical version across Go daemon, CLI, settings API, and agent self-knowledge prompts",
+        "Terminal-Bench 4.0 Near-Miss Hardening: Pre-exit verifier guard and automated residual convergence checks",
+        "Headless Execution Reliability: Streamlined subprocess monitoring and graceful container cleanup"
+      ]
+    },
     {
       "version": "2.3.8",
       "date": "2026-10-31",
       "title": "Execution-Surface Verification Doctrine, Symbolic Adversarial Testing & Domain Rule Validation",
-      "tag": "LATEST",
+      "tag": "UPDATE",
       "changes": [
         "Execution-Surface Verification Doctrine: Enforces active independent test execution on changed paths with zero tolerance for partial passes ('3 of 4 passed' is treated as failure until 100% clean)",
         "Symbolic & Mathematical Grader Hardening: Added explicit handling for symbolic edge cases including set unions, integration constants (+ C), piecewise expressions, units stripping, boxed LaTeX extraction, and tuple structures",

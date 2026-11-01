@@ -11,6 +11,8 @@ import (
 	"strings"
 	"syscall"
 	"unsafe"
+
+	"unjess-daemon/internal/version"
 )
 
 //go:embed Unjess.exe
@@ -98,7 +100,8 @@ func main() {
 
 	if !silent {
 		welcomeMsg := fmt.Sprintf(
-			"Welcome to Unjess v2.3.8 Setup (unjess.si)\n\nClick OK to install Unjess — Autonomous AI Coding Harness:\n\n• Install Location: %s\n• Creates Desktop & Start Menu Shortcuts\n• Registers Uninstaller in Windows Installed Apps",
+			"Welcome to Unjess v%s Setup (unjess.si)\n\nClick OK to install Unjess — Autonomous AI Coding Harness:\n\n• Install Location: %s\n• Creates Desktop & Start Menu Shortcuts\n• Registers Uninstaller in Windows Installed Apps",
+			version.Current,
 			installDir,
 		)
 		result := messageBox("Unjess Setup", welcomeMsg, MB_OKCANCEL|MB_ICONINFORMATION)
@@ -180,7 +183,7 @@ func main() {
 	// 6. Register in Windows Uninstall registry
 	regKey := `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\Unjess`
 	regSetString(regKey, "DisplayName", "Unjess")
-	regSetString(regKey, "DisplayVersion", "2.3.8")
+	regSetString(regKey, "DisplayVersion", version.Current)
 	regSetString(regKey, "Publisher", "unjess.si")
 	regSetString(regKey, "URLInfoAbout", "https://unjess.si")
 	regSetString(regKey, "DisplayIcon", targetIcon)
@@ -195,7 +198,7 @@ func main() {
 	if !silent {
 		messageBox(
 			"Unjess Setup",
-			"Unjess v2.3.8 has been installed successfully!\n\nClick OK to launch Unjess.",
+			fmt.Sprintf("Unjess v%s has been installed successfully!\n\nClick OK to launch Unjess.", version.Current),
 			MB_OK|MB_ICONINFORMATION,
 		)
 	}
