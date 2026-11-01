@@ -1,4 +1,4 @@
-# Unjess 2.0 (`v2.9.9`) — Native Go Daemon + Rust Desktop Harness
+# Unjess 3.0 (`v3.0.0`) — Native Go Daemon + Rust Desktop Harness
 
 ![Unjess Banner](assets/logo_banner.png)
 
@@ -48,7 +48,7 @@ Unjess2.0/
 
 ---
 
-## Key Capabilities (`v2.9.9`)
+## Key Capabilities (`v3.0.0`)
 
 ### 1. Autonomous ReAct Engine & 7-Point Harness Architecture
 - **12-Tool Listed Core + Deferred Tool Search (`tool_search`)**: Keeps per-turn prompt schemas ultra-lean (`run_command`, `read_file`, `write_file`, `edit_file`, `grep_search`, `find_by_name`, `list_dir`, `todo_write`, `invoke_subagent`, `web_search`, `read_url`, `tool_search`) while dynamically unlocking 18+ specialized AST, Security, Worktree, Memory, and Browser tools on demand.

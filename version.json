@@ -1,5 +1,5 @@
 {
-  "version": "2.9.9",
+  "version": "3.0.0",
   "published_at": "2026-11-01",
   "channel": "stable",
   "download_url": "https://unjess.si/releases/Unjess.exe",
@@ -15,17 +15,31 @@
   "daemon_linux_arm64_url": "https://unjess.si/releases/unjessd-linux-arm64",
   "sha256": "afb599cd9a2aefa2913ae13a2e6efa4f6e0ce0f97350953b2655a72976285fdf",
   "installer_sha256": "afb599cd9a2aefa2913ae13a2e6efa4f6e0ce0f97350953b2655a72976285fdf",
-  "daemon_sha256": "f26688e133bcf9031fb4801118f5c6a8d90a34132463c11cc7a7fde63915ff6b",
-  "cli_sha256": "ca8b9a449050b010ae16f9dd4c7bdcea88742e44747808531cd388f74dcc5393",
+  "daemon_sha256": "874229d634d76fca3c4a0bf61640765fe49ae18e1f0187b0d66fda1613fd1c42",
+  "cli_sha256": "5adf08e4775c2630e83534d61f83f9701299e5752b534f9a80f8e502a9c7c872",
   "desktop_sha256": "5a5909a081214c83dd1212fdd0853184e7fe1640e29cffed192ff23cd32bba72",
   "webview2_loader_sha256": "86545b66cdb0603bc26b626fb9ad610cb6e71f28d468f5ea66df23b03dda96d5",
-  "notes": "Unjess v2.9.9 - Interactive Chat Renaming, Dynamic Prompt Field Raising (up to 240px auto-expand), Silent Windows Daemon Execution (-H=windowsgui), GGUF & Windows Path Local Provider Routing.",
+  "notes": "Unjess v3.0.0 - Full Autonomous Harness Milestone: Zero-Latency Dynamic Prompt Auto-Raise, Silent Windows Background Daemon (-H=windowsgui), GGUF & Windows Path Local Provider Routing, Interactive Session Renaming.",
   "changelog": [
+    {
+      "version": "3.0.0",
+      "date": "2026-11-01",
+      "title": "Unjess 3.0 Milestone: Architecture Unification, Dynamic Prompt Raising & Silent Windows Execution",
+      "tag": "LATEST",
+      "changes": [
+        "Unjess 3.0 Major Milestone: Fully unified autonomous Go daemon, Rust Wry/Tao desktop shell, and zero-dependency terminal CLI",
+        "Dynamic Prompt Field Auto-Raise: Zero-latency 120 FPS auto-resizing textarea smoothly raising prompt dock up to 240px (10-12 lines)",
+        "Silent Windows Background Daemon: Built with PE32+ GUI subsystem (-H=windowsgui) eliminating CMD popups",
+        "GGUF & Local Provider Path Routing: Direct handling of Windows drive paths (E:\\models\\...) and .gguf files to llamacpp/lmstudio",
+        "Dynamic Model Discovery: Probing /v1/models on llama-server and LM Studio with dedicated test controls",
+        "Interactive Chat Session Renaming: Seamless inline renaming (pencil icon, double-click, header button) with atomic state persistence"
+      ]
+    },
     {
       "version": "2.9.9",
       "date": "2026-11-01",
       "title": "Interactive Chat Renaming, Dynamic Prompt Field Raising & Version Unification",
-      "tag": "LATEST",
+      "tag": "UPDATE",
       "changes": [
         "Interactive Chat Session Renaming: Added inline rename button (pencil icon) and double-click to rename conversations across both project workspace trees and quick chats",
         "Header Session Renaming: Clickable middle header session title with dedicated rename button for instant title updates",
@@ -363,11 +377,11 @@
       ]
     }
   ],
-  "cli_linux_amd64_sha256": "23314697574f5ba10fa49945caee3057869fc612e0a1e8d22addfb990931d1a0",
+  "cli_linux_amd64_sha256": "0d9d3f6089ee2403f3eed9db35f4f494ea9b12bb0eb05d8401c72a9e33b01671",
   "cli_linux_arm64_sha256": "15e96f06869d03936316c5f91f40be8a1a2afc1430b861fb23fbb5ccfbe362ac",
-  "daemon_linux_amd64_sha256": "26e7517c47f927dbd7146309130056abe478a41e139a4e02cd5d750c7313cdd6",
+  "daemon_linux_amd64_sha256": "fa02110a124a1570f9b65eb25c04a71c2a332205b78b14dac42b86f6ecff3e1d",
   "daemon_linux_arm64_sha256": "89b516c055d585fc1a4b2149d3360ee605ad11494600eaa0e490132a88398714",
-  "cli_windows_amd64_sha256": "ca8b9a449050b010ae16f9dd4c7bdcea88742e44747808531cd388f74dcc5393",
-  "daemon_windows_amd64_sha256": "f26688e133bcf9031fb4801118f5c6a8d90a34132463c11cc7a7fde63915ff6b",
+  "cli_windows_amd64_sha256": "5adf08e4775c2630e83534d61f83f9701299e5752b534f9a80f8e502a9c7c872",
+  "daemon_windows_amd64_sha256": "874229d634d76fca3c4a0bf61640765fe49ae18e1f0187b0d66fda1613fd1c42",
   "setup_windows_amd64_sha256": "3b209673252a045db54d4ad57db60f0f8f17b6b9b360b500fb357815ce743d0b"
 }

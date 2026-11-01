@@ -594,13 +594,13 @@ func TestUpdatesEndpoints(t *testing.T) {
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"version":      "3.0.0",
+			"version":      "3.1.0",
 			"published_at": "2026-11-01",
-			"download_url": "https://unjess.si/releases/Unjess-3.0.0.exe",
+			"download_url": "https://unjess.si/releases/Unjess-3.1.0.exe",
 			"notes":        "Test update release",
 			"changelog": []map[string]any{
 				{
-					"version": "3.0.0",
+					"version": "3.1.0",
 					"title":   "Autonomous Codebase Refactoring",
 					"tag":     "FEATURE",
 					"changes": []string{"Refactoring pipeline"},
@@ -627,8 +627,8 @@ func TestUpdatesEndpoints(t *testing.T) {
 	if err := json.NewDecoder(wCheck.Body).Decode(&checkResp); err != nil {
 		t.Fatalf("failed decoding check response: %v", err)
 	}
-	if checkResp["latest_version"] != "3.0.0" {
-		t.Errorf("expected latest_version '3.0.0', got %v", checkResp["latest_version"])
+	if checkResp["latest_version"] != "3.1.0" {
+		t.Errorf("expected latest_version '3.1.0', got %v", checkResp["latest_version"])
 	}
 	if checkResp["update_available"] != true {
 		t.Errorf("expected update_available true, got %v", checkResp["update_available"])

@@ -81,10 +81,24 @@ type VersionManifest struct {
 func BuiltinChangelog() []ChangelogEntry {
 	return []ChangelogEntry{
 		{
+			Version: "3.0.0",
+			Date:    "2026-11-01",
+			Title:   "Unjess 3.0 Milestone: Architecture Unification, Dynamic Prompt Raising & Silent Windows Execution",
+			Tag:     "LATEST",
+			Changes: []string{
+				"Unjess 3.0 Major Milestone: Fully unified autonomous Go daemon, Rust Wry/Tao desktop shell, and zero-dependency terminal CLI",
+				"Dynamic Prompt Field Auto-Raise: Zero-latency 120 FPS auto-resizing textarea smoothly raising prompt dock up to 240px (10-12 lines)",
+				"Silent Windows Background Daemon: Built with PE32+ GUI subsystem (-H=windowsgui) eliminating CMD popups",
+				"GGUF & Local Provider Path Routing: Direct handling of Windows drive paths (E:\\models\\...) and .gguf files to llamacpp/lmstudio",
+				"Dynamic Model Discovery: Probing /v1/models on llama-server and LM Studio with dedicated test controls",
+				"Interactive Chat Session Renaming: Seamless inline renaming (pencil icon, double-click, header button) with atomic state persistence",
+			},
+		},
+		{
 			Version: "2.9.9",
 			Date:    "2026-11-01",
 			Title:   "Interactive Chat Renaming, Dynamic Prompt Field Raising & Version Unification",
-			Tag:     "LATEST",
+			Tag:     "UPDATE",
 			Changes: []string{
 				"Interactive Chat Session Renaming: Added inline rename button (pencil icon) and double-click to rename conversations across both project workspace trees and quick chats",
 				"Header Session Renaming: Clickable middle header session title with dedicated rename button for instant title updates",

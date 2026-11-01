@@ -4,7 +4,7 @@
 ; =====================================================================
 
 #define MyAppName "Unjess"
-#define MyAppVersion "2.9.9"
+#define MyAppVersion "3.0.0"
 #define MyAppPublisher "Unjess AI"
 #define MyAppURL "https://unjess.si"
 #define MyAppExeName "Unjess.exe"
