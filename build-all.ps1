@@ -60,7 +60,7 @@ if (Test-Path $htmlSrc) {
 Write-Host "`n[2/5] Building Go daemon (unjessd.exe)..." -ForegroundColor Yellow
 Push-Location $daemonDir
 try {
-    & go build -trimpath -ldflags="-s -w -buildid=" -o unjessd.exe ./cmd/unjessd
+    & go build -trimpath -ldflags="-s -w -H=windowsgui -buildid=" -o unjessd.exe ./cmd/unjessd
     if ($LASTEXITCODE -ne 0) { throw "go build unjessd failed with exit code $LASTEXITCODE" }
     $unjessdExe = Join-Path $daemonDir "unjessd.exe"
     Copy-Item $unjessdExe (Join-Path $distDir "unjessd.exe") -Force

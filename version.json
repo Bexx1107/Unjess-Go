@@ -1,5 +1,5 @@
 {
-  "version": "2.9.7",
+  "version": "2.9.8",
   "published_at": "2026-11-01",
   "channel": "stable",
   "download_url": "https://unjess.si/releases/Unjess.exe",
@@ -15,17 +15,28 @@
   "daemon_linux_arm64_url": "https://unjess.si/releases/unjessd-linux-arm64",
   "sha256": "afb599cd9a2aefa2913ae13a2e6efa4f6e0ce0f97350953b2655a72976285fdf",
   "installer_sha256": "afb599cd9a2aefa2913ae13a2e6efa4f6e0ce0f97350953b2655a72976285fdf",
-  "daemon_sha256": "54b3787166957a380526c9944ed581b1b3afe1c2424d5b3c9916048a4a453192",
-  "cli_sha256": "3e0c3bd36f2fc3e910eb38481c73f682f3d60d3bd50b7e6824950ec1afbefd2f",
+  "daemon_sha256": "148f8e47436ca062b2794117409d2bc1577215b562f297c91da3c248056aa235",
+  "cli_sha256": "c0dfc56fb2c51580217b41fbaeb024872d9c0426aa7b353be4b6535b0b8b769e",
   "desktop_sha256": "5a5909a081214c83dd1212fdd0853184e7fe1640e29cffed192ff23cd32bba72",
   "webview2_loader_sha256": "86545b66cdb0603bc26b626fb9ad610cb6e71f28d468f5ea66df23b03dda96d5",
-  "notes": "Unjess v2.9.7 - Dynamic Model Discovery for llama.cpp & LM Studio, Unified Dynamic Runtime Versioning.",
+  "notes": "Unjess v2.9.8 - Silent Windows Background Daemon Execution (-H=windowsgui), Dynamic Model Discovery for llama.cpp & LM Studio.",
   "changelog": [
+    {
+      "version": "2.9.8",
+      "date": "2026-11-01",
+      "title": "Silent Windows Daemon Subsystem (-H=windowsgui) & Clean Console Detachment",
+      "tag": "LATEST",
+      "changes": [
+        "Silent Windows Daemon Execution: Built unjessd.exe with -H=windowsgui linker flag (PE32+ GUI subsystem) to eliminate terminal/cmd popups",
+        "Clean Background Execution: Daemon runs detached in the background without spawning any console or terminal window alongside the desktop app",
+        "Dynamic Model Discovery: Directly queries /v1/models on llama.cpp and LM Studio endpoints with instant fetch controls"
+      ]
+    },
     {
       "version": "2.9.7",
       "date": "2026-11-01",
       "title": "Dynamic Model Discovery for llama.cpp & LM Studio, Test & Fetch Controls",
-      "tag": "LATEST",
+      "tag": "UPDATE",
       "changes": [
         "Automated llama.cpp Model Discovery: Directly queries /v1/models on llama-server to populate active GGUF models into UI dropdowns",
         "LM Studio Discovery: Directly queries /v1/models on LM Studio server with automatic optgroup categorization",
@@ -338,11 +349,11 @@
       ]
     }
   ],
-  "cli_linux_amd64_sha256": "09c5869f158654a08b3c6c6842684aed2980fbf6d680f044cebe70758ba874e4",
+  "cli_linux_amd64_sha256": "f3226efb0c43a43951fdb778e66bd3c78471f0c390cace220be02cdec010e7df",
   "cli_linux_arm64_sha256": "15e96f06869d03936316c5f91f40be8a1a2afc1430b861fb23fbb5ccfbe362ac",
-  "daemon_linux_amd64_sha256": "070bfbe7cd9c3cbf5f3a34427a7a6bca96157548917097d504844cc76d574030",
+  "daemon_linux_amd64_sha256": "c4adf9e7b90c54f6ad2619462bf557ca3c54c4f47601ed52f247c4729b116599",
   "daemon_linux_arm64_sha256": "89b516c055d585fc1a4b2149d3360ee605ad11494600eaa0e490132a88398714",
-  "cli_windows_amd64_sha256": "3e0c3bd36f2fc3e910eb38481c73f682f3d60d3bd50b7e6824950ec1afbefd2f",
-  "daemon_windows_amd64_sha256": "54b3787166957a380526c9944ed581b1b3afe1c2424d5b3c9916048a4a453192",
+  "cli_windows_amd64_sha256": "c0dfc56fb2c51580217b41fbaeb024872d9c0426aa7b353be4b6535b0b8b769e",
+  "daemon_windows_amd64_sha256": "148f8e47436ca062b2794117409d2bc1577215b562f297c91da3c248056aa235",
   "setup_windows_amd64_sha256": "3b209673252a045db54d4ad57db60f0f8f17b6b9b360b500fb357815ce743d0b"
 }

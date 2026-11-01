@@ -81,10 +81,20 @@ type VersionManifest struct {
 func BuiltinChangelog() []ChangelogEntry {
 	return []ChangelogEntry{
 		{
+			Version: "2.9.8",
+			Date:    "2026-11-01",
+			Title:   "Silent Windows Daemon Parity (-H=windowsgui Linker Enforcement)",
+			Tag:     "LATEST",
+			Changes: []string{
+				"Windows PE GUI Subsystem Enforcement: Restored -H=windowsgui linker flag for unjessd.exe, ensuring daemon runs completely silent in background without spawning CMD window",
+				"Clean Background Process Execution: Transparent detached execution when launched by desktop shell",
+			},
+		},
+		{
 			Version: "2.9.7",
 			Date:    "2026-11-01",
 			Title:   "Dynamic Model Discovery for llama.cpp & LM Studio, Test & Fetch Controls",
-			Tag:     "LATEST",
+			Tag:     "UPDATE",
 			Changes: []string{
 				"Automated llama.cpp Model Discovery: Directly queries /v1/models on llama-server to populate active GGUF models into UI dropdowns",
 				"LM Studio Discovery: Directly queries /v1/models on LM Studio server with automatic optgroup categorization",
