@@ -1,0 +1,45 @@
+{
+  "version": "3.0.2",
+  "published_at": "2026-11-07",
+  "channel": "stable",
+  "download_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.2/Unjess.exe",
+  "installer_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.2/Unjess-Setup.exe",
+  "webview2_loader_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.2/WebView2Loader.dll",
+  "daemon_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.2/unjessd.exe",
+  "cli_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.2/unjess-cli.exe",
+  "desktop_linux_amd64_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.2/unjess-linux-desktop-amd64",
+  "desktop_linux_amd64_sha256": "a6a9277da812c104b17d4be8d06b6c050c1368004823a96e5cccc8d94908275c",
+  "cli_linux_amd64_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.2/unjess-linux-amd64",
+  "cli_linux_arm64_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.2/unjess-linux-arm64",
+  "daemon_linux_amd64_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.2/unjessd-linux-amd64",
+  "daemon_linux_arm64_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.2/unjessd-linux-arm64",
+  "sha256": "43d40e69c607a9f1d46c79688e6571c4763311a25b09a6ac841f4c2fc54e4745",
+  "installer_sha256": "78762dc4fc87cbbbfb692b05a0c6bd0ace3886660d7373d97e4e5658c87a7b8e",
+  "daemon_sha256": "b1365b459eb47432d8e8a7366572a0b05942eba0598be5293933c204628c3cbd",
+  "cli_sha256": "3191dce27a6185eaf4123e82b44e272cc95a47a478166b137a5eeeeef107b1d9",
+  "desktop_sha256": "43d40e69c607a9f1d46c79688e6571c4763311a25b09a6ac841f4c2fc54e4745",
+  "webview2_loader_sha256": "86545b66cdb0603bc26b626fb9ad610cb6e71f28d468f5ea66df23b03dda96d5",
+  "notes": "Unjess v3.0.2 - Native Lightweight Autonomous Coding Assistant.",
+  "changelog": [
+    {
+      "version": "3.0.2",
+      "date": "2026-11-07",
+      "title": "Unjess v3.0.2 - Native Lightweight Autonomous Coding Assistant",
+      "tag": "LATEST",
+      "changes": [
+        "Native Go daemon and Rust Wry desktop interface with minimal resource footprint",
+        "Full provider support: local offline models (Ollama, LM Studio) and cloud APIs (OpenAI, Anthropic, Google Gemini, DeepSeek, xAI)",
+        "Resilient agentic tool execution with automatic recovery and parameter repair",
+        "Model Context Protocol (MCP) and custom skills integration",
+        "Cross-session persistent memory and autonomous workspace management"
+      ]
+    }
+  ],
+  "cli_linux_amd64_sha256": "0d9d3f6089ee2403f3eed9db35f4f494ea9b12bb0eb05d8401c72a9e33b01671",
+  "cli_linux_arm64_sha256": "15e96f06869d03936316c5f91f40be8a1a2afc1430b861fb23fbb5ccfbe362ac",
+  "daemon_linux_amd64_sha256": "fa02110a124a1570f9b65eb25c04a71c2a332205b78b14dac42b86f6ecff3e1d",
+  "daemon_linux_arm64_sha256": "89b516c055d585fc1a4b2149d3360ee605ad11494600eaa0e490132a88398714",
+  "cli_windows_amd64_sha256": "5adf08e4775c2630e83534d61f83f9701299e5752b534f9a80f8e502a9c7c872",
+  "daemon_windows_amd64_sha256": "874229d634d76fca3c4a0bf61640765fe49ae18e1f0187b0d66fda1613fd1c42",
+  "setup_windows_amd64_sha256": "3b209673252a045db54d4ad57db60f0f8f17b6b9b360b500fb357815ce743d0b"
+}
