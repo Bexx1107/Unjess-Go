@@ -490,4 +490,3 @@ func main() {
 		t.Errorf("markdown report missing OWASP Secure Headers Audit section")
 	}
 }
-

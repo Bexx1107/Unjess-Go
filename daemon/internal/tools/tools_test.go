@@ -976,10 +976,10 @@ func TestNormalizeToolCallAndTextExtraction(t *testing.T) {
 
 	// 2. Alias str_replace_editor (view -> read_file, str_replace -> edit_file)
 	name2, args2, err := NormalizeToolCall("str_replace_editor", map[string]any{
-		"command":  "str_replace",
-		"path":     "app.py",
-		"old_str":  "a = 1",
-		"new_str":  "a = 2",
+		"command":     "str_replace",
+		"path":        "app.py",
+		"old_str":     "a = 1",
+		"new_str":     "a = 2",
 		"replace_all": "true",
 	})
 	if err != nil {
@@ -1243,8 +1243,3 @@ func TestFileFreshnessStaleVersionAndMultiEditPreflight(t *testing.T) {
 		t.Fatalf("expected write_file to catch external creation on confirmed-absent file with FS_STALE_VERSION, got ok=%v res=%s", writeStaleOk, writeStaleRes)
 	}
 }
-
-
-
-
-

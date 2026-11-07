@@ -21,7 +21,7 @@ import (
 
 func main() {
 	portFlag := flag.Int("port", 9757, "HTTP server port (default: 9757)")
-	hostFlag := flag.String("host", "0.0.0.0", "HTTP server bind address (default: 0.0.0.0)")
+	hostFlag := flag.String("host", "127.0.0.1", "HTTP server bind address (default: 127.0.0.1)")
 	parentExeFlag := flag.String("parent-exe", "", "Path to parent desktop executable (Unjess.exe)")
 	flag.Parse()
 
@@ -44,7 +44,7 @@ func main() {
 	server := api.NewServer(*portFlag, *hostFlag, settings, hm)
 
 	// 6. Print startup banner
-	fmt.Printf("Unjess Go Daemon (unjessd) listening on http://127.0.0.1:%d\n", *portFlag)
+	fmt.Printf("Unjess Go Daemon (unjessd) listening on http://%s:%d\n", *hostFlag, *portFlag)
 	if *hostFlag == "0.0.0.0" {
 		netInfo := config.GetNetworkInfo(settings, *portFlag)
 		if lanIP, ok := netInfo["lan_ip"].(string); ok && lanIP != "127.0.0.1" && lanIP != "" {

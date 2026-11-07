@@ -220,4 +220,3 @@ func TestMatchAndCatalog(t *testing.T) {
 		t.Errorf("catalog should not contain caveman or ponytail: %s", cat)
 	}
 }
-

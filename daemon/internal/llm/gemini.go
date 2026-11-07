@@ -359,10 +359,10 @@ func streamGemini(ctx context.Context, opts ChatOptions, cb StreamCallbacks) (*C
 		Candidates []struct {
 			Content struct {
 				Parts []struct {
-					Text             string         `json:"text"`
-					Thought          bool           `json:"thought"`
-					ThoughtSignature string         `json:"thoughtSignature"`
-					ThoughtSigSnake  string         `json:"thought_signature"`
+					Text             string `json:"text"`
+					Thought          bool   `json:"thought"`
+					ThoughtSignature string `json:"thoughtSignature"`
+					ThoughtSigSnake  string `json:"thought_signature"`
 					FunctionCall     *struct {
 						ID   string         `json:"id,omitempty"`
 						Name string         `json:"name"`

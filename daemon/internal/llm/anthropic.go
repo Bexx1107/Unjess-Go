@@ -344,147 +344,147 @@ func streamAnthropic(ctx context.Context, opts ChatOptions, cb StreamCallbacks) 
 		streamErrMsg := ""
 
 		for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
-			continue
-		}
-
-		if strings.HasPrefix(line, "event:") {
-			currentEventType = strings.TrimSpace(strings.TrimPrefix(line, "event:"))
-			continue
-		}
-
-		if !strings.HasPrefix(line, "data:") {
-			continue
-		}
-
-		dataStr := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
-		if dataStr == "" {
-			continue
-		}
-
-		var genericEvt struct {
-			Type string `json:"type"`
-		}
-		if err := json.Unmarshal([]byte(dataStr), &genericEvt); err != nil {
-			continue
-		}
-
-		evtType := genericEvt.Type
-		if evtType == "" {
-			evtType = currentEventType
-		}
-
-		switch evtType {
-		case "message_start":
-			var startEvt struct {
-				Message struct {
-					Usage struct {
-						InputTokens int `json:"input_tokens"`
-					} `json:"usage"`
-				} `json:"message"`
-			}
-			if err := json.Unmarshal([]byte(dataStr), &startEvt); err == nil {
-				result.InputTokens = startEvt.Message.Usage.InputTokens
+			line := strings.TrimSpace(scanner.Text())
+			if line == "" {
+				continue
 			}
 
-		case "content_block_start":
-			var blkStartEvt struct {
-				Index        int `json:"index"`
-				ContentBlock struct {
-					Type string `json:"type"`
-					ID   string `json:"id"`
-					Name string `json:"name"`
-				} `json:"content_block"`
+			if strings.HasPrefix(line, "event:") {
+				currentEventType = strings.TrimSpace(strings.TrimPrefix(line, "event:"))
+				continue
 			}
-			if err := json.Unmarshal([]byte(dataStr), &blkStartEvt); err == nil {
-				if blkStartEvt.ContentBlock.Type == "tool_use" {
-					toolBlocksByIndex[blkStartEvt.Index] = &anthropicToolBuilder{
-						id:   blkStartEvt.ContentBlock.ID,
-						name: blkStartEvt.ContentBlock.Name,
-					}
-					if cb.OnToolStream != nil {
-						cb.OnToolStream(blkStartEvt.ContentBlock.Name, 0, "")
-					}
+
+			if !strings.HasPrefix(line, "data:") {
+				continue
+			}
+
+			dataStr := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+			if dataStr == "" {
+				continue
+			}
+
+			var genericEvt struct {
+				Type string `json:"type"`
+			}
+			if err := json.Unmarshal([]byte(dataStr), &genericEvt); err != nil {
+				continue
+			}
+
+			evtType := genericEvt.Type
+			if evtType == "" {
+				evtType = currentEventType
+			}
+
+			switch evtType {
+			case "message_start":
+				var startEvt struct {
+					Message struct {
+						Usage struct {
+							InputTokens int `json:"input_tokens"`
+						} `json:"usage"`
+					} `json:"message"`
 				}
-			}
+				if err := json.Unmarshal([]byte(dataStr), &startEvt); err == nil {
+					result.InputTokens = startEvt.Message.Usage.InputTokens
+				}
 
-		case "content_block_delta":
-			var deltaEvt struct {
-				Index int `json:"index"`
-				Delta struct {
-					Type        string `json:"type"`
-					Text        string `json:"text"`
-					Thinking    string `json:"thinking"`
-					PartialJSON string `json:"partial_json"`
-				} `json:"delta"`
-			}
-			if err := json.Unmarshal([]byte(dataStr), &deltaEvt); err == nil {
-				switch deltaEvt.Delta.Type {
-				case "text_delta":
-					if deltaEvt.Delta.Text != "" {
-						parser.FeedContent(deltaEvt.Delta.Text)
-					}
-				case "thinking_delta":
-					if deltaEvt.Delta.Thinking != "" {
-						parser.FeedThinking(deltaEvt.Delta.Thinking)
-					}
-				case "input_json_delta":
-					if tb, ok := toolBlocksByIndex[deltaEvt.Index]; ok {
-						tb.json.WriteString(deltaEvt.Delta.PartialJSON)
+			case "content_block_start":
+				var blkStartEvt struct {
+					Index        int `json:"index"`
+					ContentBlock struct {
+						Type string `json:"type"`
+						ID   string `json:"id"`
+						Name string `json:"name"`
+					} `json:"content_block"`
+				}
+				if err := json.Unmarshal([]byte(dataStr), &blkStartEvt); err == nil {
+					if blkStartEvt.ContentBlock.Type == "tool_use" {
+						toolBlocksByIndex[blkStartEvt.Index] = &anthropicToolBuilder{
+							id:   blkStartEvt.ContentBlock.ID,
+							name: blkStartEvt.ContentBlock.Name,
+						}
 						if cb.OnToolStream != nil {
-							raw := tb.json.String()
-							preview := raw
-							if len(preview) > 600 {
-								preview = preview[:240] + "\n...\n" + preview[len(preview)-320:]
-							}
-							cb.OnToolStream(tb.name, len(raw), preview)
+							cb.OnToolStream(blkStartEvt.ContentBlock.Name, 0, "")
 						}
 					}
 				}
-			}
 
-		case "message_delta":
-			var msgDeltaEvt struct {
-				Delta struct {
-					StopReason  string `json:"stop_reason"`
-					StopDetails *struct {
+			case "content_block_delta":
+				var deltaEvt struct {
+					Index int `json:"index"`
+					Delta struct {
 						Type        string `json:"type"`
-						Category    string `json:"category"`
-						Explanation string `json:"explanation"`
-					} `json:"stop_details"`
-				} `json:"delta"`
-				Usage struct {
-					OutputTokens int `json:"output_tokens"`
-				} `json:"usage"`
-			}
-			if err := json.Unmarshal([]byte(dataStr), &msgDeltaEvt); err == nil {
-				if msgDeltaEvt.Usage.OutputTokens > 0 {
-					result.OutputTokens = msgDeltaEvt.Usage.OutputTokens
+						Text        string `json:"text"`
+						Thinking    string `json:"thinking"`
+						PartialJSON string `json:"partial_json"`
+					} `json:"delta"`
 				}
-				if msgDeltaEvt.Delta.StopReason != "" {
-					stopReason = msgDeltaEvt.Delta.StopReason
+				if err := json.Unmarshal([]byte(dataStr), &deltaEvt); err == nil {
+					switch deltaEvt.Delta.Type {
+					case "text_delta":
+						if deltaEvt.Delta.Text != "" {
+							parser.FeedContent(deltaEvt.Delta.Text)
+						}
+					case "thinking_delta":
+						if deltaEvt.Delta.Thinking != "" {
+							parser.FeedThinking(deltaEvt.Delta.Thinking)
+						}
+					case "input_json_delta":
+						if tb, ok := toolBlocksByIndex[deltaEvt.Index]; ok {
+							tb.json.WriteString(deltaEvt.Delta.PartialJSON)
+							if cb.OnToolStream != nil {
+								raw := tb.json.String()
+								preview := raw
+								if len(preview) > 600 {
+									preview = preview[:240] + "\n...\n" + preview[len(preview)-320:]
+								}
+								cb.OnToolStream(tb.name, len(raw), preview)
+							}
+						}
+					}
 				}
-				if msgDeltaEvt.Delta.StopDetails != nil && msgDeltaEvt.Delta.StopDetails.Explanation != "" {
-					refusalExplanation = fmt.Sprintf("[%s] %s", msgDeltaEvt.Delta.StopDetails.Category, msgDeltaEvt.Delta.StopDetails.Explanation)
-				}
-			}
 
-		case "error":
-			var errEvt struct {
-				Error struct {
-					Type    string `json:"type"`
-					Message string `json:"message"`
-				} `json:"error"`
-			}
-			if err := json.Unmarshal([]byte(dataStr), &errEvt); err == nil && errEvt.Error.Message != "" {
-				streamErrMsg = fmt.Sprintf("%s: %s", errEvt.Error.Type, errEvt.Error.Message)
-			}
+			case "message_delta":
+				var msgDeltaEvt struct {
+					Delta struct {
+						StopReason  string `json:"stop_reason"`
+						StopDetails *struct {
+							Type        string `json:"type"`
+							Category    string `json:"category"`
+							Explanation string `json:"explanation"`
+						} `json:"stop_details"`
+					} `json:"delta"`
+					Usage struct {
+						OutputTokens int `json:"output_tokens"`
+					} `json:"usage"`
+				}
+				if err := json.Unmarshal([]byte(dataStr), &msgDeltaEvt); err == nil {
+					if msgDeltaEvt.Usage.OutputTokens > 0 {
+						result.OutputTokens = msgDeltaEvt.Usage.OutputTokens
+					}
+					if msgDeltaEvt.Delta.StopReason != "" {
+						stopReason = msgDeltaEvt.Delta.StopReason
+					}
+					if msgDeltaEvt.Delta.StopDetails != nil && msgDeltaEvt.Delta.StopDetails.Explanation != "" {
+						refusalExplanation = fmt.Sprintf("[%s] %s", msgDeltaEvt.Delta.StopDetails.Category, msgDeltaEvt.Delta.StopDetails.Explanation)
+					}
+				}
 
-		case "message_stop":
-			// Completed
+			case "error":
+				var errEvt struct {
+					Error struct {
+						Type    string `json:"type"`
+						Message string `json:"message"`
+					} `json:"error"`
+				}
+				if err := json.Unmarshal([]byte(dataStr), &errEvt); err == nil && errEvt.Error.Message != "" {
+					streamErrMsg = fmt.Sprintf("%s: %s", errEvt.Error.Type, errEvt.Error.Message)
+				}
+
+			case "message_stop":
+				// Completed
+			}
 		}
-	}
 
 		if err := scanner.Err(); err != nil && err != io.EOF {
 			return nil, "", "", "", fmt.Errorf("error reading anthropic stream: %w", err)
@@ -527,7 +527,7 @@ func streamAnthropic(ctx context.Context, opts ChatOptions, cb StreamCallbacks) 
 		return nil, err
 	}
 
-	if (stopReason == "refusal" || (stopReason == "max_tokens" && strings.TrimSpace(result.Content) == "" && len(result.ToolCalls) == 0)) {
+	if stopReason == "refusal" || (stopReason == "max_tokens" && strings.TrimSpace(result.Content) == "" && len(result.ToolCalls) == 0) {
 		if stopReason == "refusal" && (initialMode == "adaptive_with_effort" || initialMode == "adaptive_only") {
 			cleanPrompt := stripThinkInstructions(opts.SystemPrompt)
 			result, stopReason, refusalExplanation, streamErrMsg, err = readStream(maxTokens, "plain", "none", cleanPrompt)

@@ -195,20 +195,20 @@ func TestApplySettingsUpdate(t *testing.T) {
 	s := NewDefaultSettings()
 
 	body := map[string]any{
-		"default_model":         "gpt-4o",
-		"provider":              "openai",
-		"openai_api_key":        "sk-new-openai",
-		"mashina_collab_token":  "mashina-new-token",
-		"max_iterations":        150,
-		"planning_mode":         "on",
-		"show_diffs":            false,
-		"accent_color":          "#10b981",
-		"fallback_chain":        "openai/gpt-4o,groq/llama-3.3-70b",
-		"ignore_patterns":       ".git\nnode_modules\ncustom_dir",
-		"auto_update_enabled":   false,
-		"update_server_url":     "https://custom.example.com/version.json",
-		"shadow_worktree_mode":  true,
-		"smart_model_routing":   true,
+		"default_model":        "gpt-4o",
+		"provider":             "openai",
+		"openai_api_key":       "sk-new-openai",
+		"mashina_collab_token": "mashina-new-token",
+		"max_iterations":       150,
+		"planning_mode":        "on",
+		"show_diffs":           false,
+		"accent_color":         "#10b981",
+		"fallback_chain":       "openai/gpt-4o,groq/llama-3.3-70b",
+		"ignore_patterns":      ".git\nnode_modules\ncustom_dir",
+		"auto_update_enabled":  false,
+		"update_server_url":    "https://custom.example.com/version.json",
+		"shadow_worktree_mode": true,
+		"smart_model_routing":  true,
 	}
 
 	if err := ApplySettingsUpdate(s, body); err != nil {

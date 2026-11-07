@@ -110,12 +110,12 @@ func TestParseSchedule_Errors(t *testing.T) {
 	badSpecs := []string{
 		"",
 		"invalid",
-		"* * * *",        // 4 fields
-		"* * * * * *",    // 6 fields
-		"65 * * * *",     // minute out of bounds
-		"* 25 * * *",     // hour out of bounds
-		"every 10s",      // below 1m
-		"at 25:00",       // hour out of bounds
+		"* * * *",     // 4 fields
+		"* * * * * *", // 6 fields
+		"65 * * * *",  // minute out of bounds
+		"* 25 * * *",  // hour out of bounds
+		"every 10s",   // below 1m
+		"at 25:00",    // hour out of bounds
 	}
 	for _, spec := range badSpecs {
 		_, err := ParseSchedule(spec)
@@ -185,7 +185,7 @@ func TestScheduler_CRUDAndRun(t *testing.T) {
 
 	// 4. Update Task
 	updated, err := s.UpdateTask(created.ID, map[string]any{
-		"title": "Nightly Code Inspector",
+		"title":           "Nightly Code Inspector",
 		"cron_expression": "every 1h",
 	})
 	if err != nil {

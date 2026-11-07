@@ -59,7 +59,6 @@ codrive/
 .unjess/
 *.exe
 *.zip
-*.rgba
 daemon/unjessd
 daemon/unjess-linux-amd64
 daemon/unjess-cli

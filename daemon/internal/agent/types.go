@@ -71,7 +71,7 @@ type SubagentRun struct {
 	Diffs         []tools.FileDiff       `json:"diffs"`
 	CancelFunc    context.CancelFunc     `json:"-"`
 	Executor      *tools.ToolExecutor    `json:"-"`
-	 startedTime   time.Time              `json:"-"`
+	startedTime   time.Time              `json:"-"`
 }
 
 // PendingSubagentApproval holds an in-flight subagent spawn request requiring user confirmation.

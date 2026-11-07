@@ -27,8 +27,8 @@ const (
 )
 
 var (
-	updaterMu         sync.RWMutex
-	parentDesktopExe  string
+	updaterMu        sync.RWMutex
+	parentDesktopExe string
 )
 
 // SetParentExecutable records the known path to the parent Unjess desktop executable.

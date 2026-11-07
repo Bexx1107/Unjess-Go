@@ -107,67 +107,29 @@ fn resolve_daemon_command() -> (String, Vec<String>) {
 }
 
 fn find_workspace_root(binary_path: &Path) -> PathBuf {
-    // 1. Check ancestors of current_exe() for src/unjess/desktop/index.html
-    if let Ok(exe) = std::env::current_exe() {
-        let mut curr = exe.parent();
+    let check_candidates = [
+        std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.to_path_buf())),
+        if binary_path.is_absolute() {
+            binary_path.parent().map(|d| d.to_path_buf())
+        } else {
+            std::env::current_dir().ok().and_then(|cwd| cwd.join(binary_path).parent().map(|d| d.to_path_buf()))
+        },
+        std::env::current_dir().ok(),
+    ];
+
+    for base in check_candidates.into_iter().flatten() {
+        let mut curr = Some(base.as_path());
         while let Some(dir) = curr {
-            if dir.join("src").join("unjess").join("desktop").join("index.html").is_file() {
+            if dir.join("daemon").join("internal").join("api").join("embedded_index.html").is_file()
+                || dir.join(DAEMON_BIN_NAME).is_file()
+            {
                 return dir.to_path_buf();
             }
             curr = dir.parent();
         }
     }
 
-    // 2. Check ancestors of binary_path for src/unjess/desktop/index.html
-    let abs_bin = if binary_path.is_absolute() {
-        binary_path.to_path_buf()
-    } else if let Ok(cwd) = std::env::current_dir() {
-        cwd.join(binary_path)
-    } else {
-        binary_path.to_path_buf()
-    };
-
-    let mut curr = abs_bin.parent();
-    while let Some(dir) = curr {
-        if dir.join("src").join("unjess").join("desktop").join("index.html").is_file() {
-            return dir.to_path_buf();
-        }
-        curr = dir.parent();
-    }
-
-    // 3. Check ancestors of current_dir() for src/unjess/desktop/index.html
-    if let Ok(cwd) = std::env::current_dir() {
-        let mut curr = Some(cwd.as_path());
-        while let Some(dir) = curr {
-            if dir.join("src").join("unjess").join("desktop").join("index.html").is_file() {
-                return dir.to_path_buf();
-            }
-            curr = dir.parent();
-        }
-    }
-
-    // 4. Check for daemon in ancestors of current_exe()
-    if let Ok(exe) = std::env::current_exe() {
-        let mut curr = exe.parent();
-        while let Some(dir) = curr {
-            if dir.join(DAEMON_BIN_NAME).is_file() {
-                return dir.to_path_buf();
-            }
-            curr = dir.parent();
-        }
-    }
-
-    // 5. If binary_path itself is daemon, use its directory (or its parent if inside 'daemon')
-    if let Some(parent) = abs_bin.parent() {
-        if parent.file_name().and_then(|n| n.to_str()) == Some("daemon") {
-            if let Some(grandparent) = parent.parent() {
-                return grandparent.to_path_buf();
-            }
-        }
-        return parent.to_path_buf();
-    }
-
-    // 6. Default to current_dir or current_exe parent
+    // Default fallback
     std::env::current_dir().unwrap_or_else(|_| {
         std::env::current_exe()
             .ok()
@@ -210,7 +172,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     }
     let window = wb.build(&event_loop)?;
 
-    const HTML: &str = include_str!("../../../src/unjess/desktop/index.html");
+    const HTML: &str = include_str!("../../../daemon/internal/api/embedded_index.html");
 
     // Check if backend daemon is already active, otherwise spawn it
     let addr = "127.0.0.1:9757";

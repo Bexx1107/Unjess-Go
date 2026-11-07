@@ -137,15 +137,15 @@ func defaultWorkflows() []any {
 func defaultAgents() []any {
 	return []any{
 		map[string]any{
-			"id":           "agent_architect",
-			"name":         "Code Architect",
-			"role":         "Full-Stack Implementation & Refactoring Specialist",
-			"icon":         "code-2",
-			"color":        "emerald",
-			"model":        "inherit",
-			"status":       "idle",
-			"current_task": "Standing by for coding or refactoring tasks",
-			"tools":        []any{"read_file", "write_file", "edit_file", "list_dir", "find_by_name", "grep_search", "run_command"},
+			"id":            "agent_architect",
+			"name":          "Code Architect",
+			"role":          "Full-Stack Implementation & Refactoring Specialist",
+			"icon":          "code-2",
+			"color":         "emerald",
+			"model":         "inherit",
+			"status":        "idle",
+			"current_task":  "Standing by for coding or refactoring tasks",
+			"tools":         []any{"read_file", "write_file", "edit_file", "list_dir", "find_by_name", "grep_search", "run_command"},
 			"system_prompt": "You are the Code Architect subagent in Unjess. You specialize in designing clean, modular software architectures, writing production-ready code, and refactoring existing files on disk. Always read existing files before modifying them and verify your changes.",
 			"logs": []any{
 				map[string]any{
@@ -155,15 +155,15 @@ func defaultAgents() []any {
 			},
 		},
 		map[string]any{
-			"id":           "agent_coder",
-			"name":         "Autonomous Coder",
-			"role":         "Feature Development & Bug Fix Specialist",
-			"icon":         "code",
-			"color":        "cyan",
-			"model":        "inherit",
-			"status":       "idle",
-			"current_task": "Standing by for feature implementation",
-			"tools":        []any{"read_file", "write_file", "edit_file", "list_dir", "find_by_name", "grep_search", "run_command"},
+			"id":            "agent_coder",
+			"name":          "Autonomous Coder",
+			"role":          "Feature Development & Bug Fix Specialist",
+			"icon":          "code",
+			"color":         "cyan",
+			"model":         "inherit",
+			"status":        "idle",
+			"current_task":  "Standing by for feature implementation",
+			"tools":         []any{"read_file", "write_file", "edit_file", "list_dir", "find_by_name", "grep_search", "run_command"},
 			"system_prompt": "You are the Autonomous Coder subagent in Unjess. You implement new features, fix bugs, and refactor code safely within the workspace. Always verify your changes before completing tasks.",
 			"logs": []any{
 				map[string]any{
@@ -173,15 +173,15 @@ func defaultAgents() []any {
 			},
 		},
 		map[string]any{
-			"id":           "agent_tester",
-			"name":         "Test & Build Engineer",
-			"role":         "Test Suite Runner, Compiler & CI Verification Agent",
-			"icon":         "package-check",
-			"color":        "zinc",
-			"model":        "inherit",
-			"status":       "idle",
-			"current_task": "Standing by for test execution and build verification",
-			"tools":        []any{"read_file", "write_file", "edit_file", "find_by_name", "grep_search", "run_command"},
+			"id":            "agent_tester",
+			"name":          "Test & Build Engineer",
+			"role":          "Test Suite Runner, Compiler & CI Verification Agent",
+			"icon":          "package-check",
+			"color":         "zinc",
+			"model":         "inherit",
+			"status":        "idle",
+			"current_task":  "Standing by for test execution and build verification",
+			"tools":         []any{"read_file", "write_file", "edit_file", "find_by_name", "grep_search", "run_command"},
 			"system_prompt": "You are the Test & Build Engineer subagent in Unjess. You write unit and integration tests, execute test runners and compilers via run_command, analyze failures, and fix broken builds.",
 			"logs": []any{
 				map[string]any{
@@ -191,15 +191,15 @@ func defaultAgents() []any {
 			},
 		},
 		map[string]any{
-			"id":           "agent_researcher",
-			"name":         "Codebase & Web Researcher",
-			"role":         "Deep Code Search, Indexing & Documentation Analyst",
-			"icon":         "search",
-			"color":        "cyan",
-			"model":        "inherit",
-			"status":       "idle",
-			"current_task": "Standing by for codebase exploration or web research",
-			"tools":        []any{"read_file", "list_dir", "find_by_name", "grep_search"},
+			"id":            "agent_researcher",
+			"name":          "Codebase & Web Researcher",
+			"role":          "Deep Code Search, Indexing & Documentation Analyst",
+			"icon":          "search",
+			"color":         "cyan",
+			"model":         "inherit",
+			"status":        "idle",
+			"current_task":  "Standing by for codebase exploration or web research",
+			"tools":         []any{"read_file", "list_dir", "find_by_name", "grep_search"},
 			"system_prompt": "You are the Codebase & Web Researcher subagent in Unjess. Your job is to rapidly explore the repository using grep_search, find_by_name, and read_file, to provide accurate technical answers.",
 			"logs": []any{
 				map[string]any{
@@ -209,15 +209,15 @@ func defaultAgents() []any {
 			},
 		},
 		map[string]any{
-			"id":           "agent_security",
-			"name":         "Security & Dependency Auditor",
-			"role":         "Vulnerability Scanner & Sandbox Boundary Verifier",
-			"icon":         "shield-alert",
-			"color":        "zinc",
-			"model":        "inherit",
-			"status":       "idle",
-			"current_task": "Standing by for security & vulnerability audits",
-			"tools":        []any{"read_file", "list_dir", "find_by_name", "grep_search", "run_command"},
+			"id":            "agent_security",
+			"name":          "Security & Dependency Auditor",
+			"role":          "Vulnerability Scanner & Sandbox Boundary Verifier",
+			"icon":          "shield-alert",
+			"color":         "zinc",
+			"model":         "inherit",
+			"status":        "idle",
+			"current_task":  "Standing by for security & vulnerability audits",
+			"tools":         []any{"read_file", "list_dir", "find_by_name", "grep_search", "run_command"},
 			"system_prompt": "You are the Security & Dependency Auditor subagent in Unjess. You inspect codebases for security flaws, path traversal risks, unvalidated inputs, leaked credentials, and dependency issues.",
 			"logs": []any{
 				map[string]any{
@@ -6315,15 +6315,15 @@ func (hm *HarnessManager) RunAgentTurn(ctx context.Context, req ChatTurnRequest)
 		"reasoning_effort": activeEffort,
 		"caveman_mode":     activeCaveman,
 		"ponytail_mode":    activePonytail,
-		"planningSteps": planningSteps,
-		"toolCalls":     executor.ToolCalls,
-		"filesCreated":  normalizedFiles,
-		"diffs":         executor.Diffs,
-		"snapshots":     executor.Snapshots,
-		"subagents":     turnSubagents,
-		"thinking":      live.Thinking,
-		"text":          finalAssistantText,
-		"elapsed_s":     elapsedS,
+		"planningSteps":    planningSteps,
+		"toolCalls":        executor.ToolCalls,
+		"filesCreated":     normalizedFiles,
+		"diffs":            executor.Diffs,
+		"snapshots":        executor.Snapshots,
+		"subagents":        turnSubagents,
+		"thinking":         live.Thinking,
+		"text":             finalAssistantText,
+		"elapsed_s":        elapsedS,
 	}
 	compactTurnInPlace(assistantTurn)
 
@@ -6705,11 +6705,11 @@ func buildWarmPrefixCompactionRequest(baseOpts llm.ChatOptions) llm.ChatOptions 
 }
 
 // compactMessagesSmartly performs Two-Stage KV-cache-friendly intra-turn context management:
-// 0. Multimodal Image Offload: Offloads base64 image payloads from older messages beyond the last 2 image turns.
-// 1. Superseded File-Read Micro-Compaction: Compacts an older read_file output only if the exact same file range header appears in a newer read_file.
-// 2. Stage-1 Model-Free Tool-Result Pruner (dsh parity): When total chars > 100,000, prunes older tool outputs > 8192 chars to 4096 head + 1024 tail.
-//    If Stage-1 brings total chars below the Stage-2 threshold (160,000), Stage-2 aggressive compaction is skipped entirely.
-// 3. Stage-2 Fallback Compaction: Only runs if context still exceeds 160,000 chars after Stage-1 pruning.
+//  0. Multimodal Image Offload: Offloads base64 image payloads from older messages beyond the last 2 image turns.
+//  1. Superseded File-Read Micro-Compaction: Compacts an older read_file output only if the exact same file range header appears in a newer read_file.
+//  2. Stage-1 Model-Free Tool-Result Pruner (dsh parity): When total chars > 100,000, prunes older tool outputs > 8192 chars to 4096 head + 1024 tail.
+//     If Stage-1 brings total chars below the Stage-2 threshold (160,000), Stage-2 aggressive compaction is skipped entirely.
+//  3. Stage-2 Fallback Compaction: Only runs if context still exceeds 160,000 chars after Stage-1 pruning.
 func compactMessagesSmartly(messages []llm.Message) {
 	// Rule 0: Offload older image attachments beyond the newest 2 image-bearing messages
 	offloadOlderImages(messages)

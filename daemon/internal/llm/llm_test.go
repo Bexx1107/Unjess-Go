@@ -661,5 +661,3 @@ func TestOllamaVisionFallback(t *testing.T) {
 		}
 	}
 }
-
-

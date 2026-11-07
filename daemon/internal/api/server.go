@@ -10,6 +10,7 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -50,7 +51,7 @@ func NewServer(port int, host string, settings *config.Settings, harness *agent.
 		port = 9757
 	}
 	if host == "" {
-		host = "0.0.0.0"
+		host = "127.0.0.1"
 	}
 	s := &Server{
 		Port:      port,
@@ -66,7 +67,18 @@ func NewServer(port int, host string, settings *config.Settings, harness *agent.
 // corsMiddleware provides Cross-Origin Resource Sharing headers for web, desktop, and mobile companion clients.
 func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		origin := r.Header.Get("Origin")
+		if origin != "" {
+			if s.Host == "127.0.0.1" || s.Host == "localhost" {
+				if isLocalOrigin(origin) {
+					w.Header().Set("Access-Control-Allow-Origin", origin)
+				}
+			} else {
+				w.Header().Set("Access-Control-Allow-Origin", "*")
+			}
+		} else {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+		}
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Pin, X-Session-Token")
 		w.Header().Set("Access-Control-Max-Age", "86400")
@@ -75,9 +87,23 @@ func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
-
 		next.ServeHTTP(w, r)
 	})
+}
+
+func isLocalOrigin(origin string) bool {
+	if origin == "" || origin == "null" {
+		return true
+	}
+	if strings.HasPrefix(origin, "tauri://") || strings.HasPrefix(origin, "wry://") || strings.HasPrefix(origin, "vscode-webview://") {
+		return true
+	}
+	u, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+	h := u.Hostname()
+	return h == "127.0.0.1" || h == "localhost"
 }
 
 // authMiddleware enforces PIN authentication if configured, exempting public UI and iframe endpoints.
@@ -1308,7 +1334,6 @@ func (s *Server) handleApproveSubagents(w http.ResponseWriter, r *http.Request) 
 	res := s.Harness.ResolveSubagentApproval(specs, approved)
 	writeJSON(w, http.StatusOK, res)
 }
-
 
 func (s *Server) handleListMCP(w http.ResponseWriter, r *http.Request) {
 	servers, err := mcp.ListMCPServers()

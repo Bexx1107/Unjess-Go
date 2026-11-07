@@ -605,8 +605,8 @@ func CoreToolDefinitions() []map[string]any {
 			},
 		},
 		{
-			"type": "function",
-			"name": "write_file",
+			"type":        "function",
+			"name":        "write_file",
 			"description": "Create a new file or completely overwrite an existing file inside the workspace. ALWAYS prefer edit_file for modifying existing files. You must read an existing file with read_file before overwriting it.",
 			"function": map[string]any{
 				"name":        "write_file",
@@ -695,8 +695,8 @@ func CoreToolDefinitions() []map[string]any {
 			},
 		},
 		{
-			"type": "function",
-			"name": "list_dir",
+			"type":        "function",
+			"name":        "list_dir",
 			"description": "List directory contents including file sizes and subdirectories.",
 			"function": map[string]any{
 				"name":        "list_dir",
@@ -722,8 +722,8 @@ func CoreToolDefinitions() []map[string]any {
 			},
 		},
 		{
-			"type": "function",
-			"name": "grep_search",
+			"type":        "function",
+			"name":        "grep_search",
 			"description": "Search for a text pattern or regex across workspace files.",
 			"function": map[string]any{
 				"name":        "grep_search",
@@ -759,8 +759,8 @@ func CoreToolDefinitions() []map[string]any {
 			},
 		},
 		{
-			"type": "function",
-			"name": "find_by_name",
+			"type":        "function",
+			"name":        "find_by_name",
 			"description": "Find files matching a glob pattern (e.g. '*.go', 'config.*') in the workspace.",
 			"function": map[string]any{
 				"name":        "find_by_name",
@@ -788,8 +788,8 @@ func CoreToolDefinitions() []map[string]any {
 			},
 		},
 		{
-			"type": "function",
-			"name": "run_command",
+			"type":        "function",
+			"name":        "run_command",
 			"description": "Execute a shell command inside the workspace directory. Commands are cheap to run and their errors are informative: run the straightforward command rather than perfecting it mentally first, and adjust from what it prints. Do not use run_command for file reading/editing/searching when read_file, edit_file, write_file, grep_search, or find_by_name can do the job. Do not sleep between commands or poll in a sleep loop — diagnose the root cause.",
 			"function": map[string]any{
 				"name":        "run_command",
@@ -841,8 +841,8 @@ func CoreToolDefinitions() []map[string]any {
 			},
 		},
 		{
-			"type": "function",
-			"name": "start_task",
+			"type":        "function",
+			"name":        "start_task",
 			"description": "Start a long-running process in the background (asynchronous execution) and return immediately with a task_id.",
 			"function": map[string]any{
 				"name":        "start_task",
@@ -878,8 +878,8 @@ func CoreToolDefinitions() []map[string]any {
 			},
 		},
 		{
-			"type": "function",
-			"name": "poll_task",
+			"type":        "function",
+			"name":        "poll_task",
 			"description": "Check the status, running state, exit code, and recent log output of a background task.",
 			"function": map[string]any{
 				"name":        "poll_task",
@@ -907,8 +907,8 @@ func CoreToolDefinitions() []map[string]any {
 			},
 		},
 		{
-			"type": "function",
-			"name": "cancel_task",
+			"type":        "function",
+			"name":        "cancel_task",
 			"description": "Terminate a running background task process.",
 			"function": map[string]any{
 				"name":        "cancel_task",
@@ -936,8 +936,8 @@ func CoreToolDefinitions() []map[string]any {
 			},
 		},
 		{
-			"type": "function",
-			"name": "git_status",
+			"type":        "function",
+			"name":        "git_status",
 			"description": "Check current git branch, dirty status, and changed files.",
 			"function": map[string]any{
 				"name":        "git_status",
@@ -953,8 +953,8 @@ func CoreToolDefinitions() []map[string]any {
 			},
 		},
 		{
-			"type": "function",
-			"name": "git_diff",
+			"type":        "function",
+			"name":        "git_diff",
 			"description": "Show uncommitted git diff against HEAD in the workspace.",
 			"function": map[string]any{
 				"name":        "git_diff",
@@ -980,8 +980,8 @@ func CoreToolDefinitions() []map[string]any {
 			},
 		},
 		{
-			"type": "function",
-			"name": "invoke_subagent",
+			"type":        "function",
+			"name":        "invoke_subagent",
 			"description": "Spawn one or more specialized subagents concurrently in parallel goroutines ('research' for fast read-only codebase exploration, 'coder' for targeted implementation, 'tester' for independent test/build verification). Subagents cannot see your conversation — make every subagent prompt self-contained with exact file paths, line numbers, and what 'done' looks like.",
 			"function": map[string]any{
 				"name":        "invoke_subagent",
@@ -1069,8 +1069,8 @@ func CoreToolDefinitions() []map[string]any {
 			},
 		},
 		{
-			"type": "function",
-			"name": "memory_save",
+			"type":        "function",
+			"name":        "memory_save",
 			"description": "Save a persistent cross-session memory (user preferences, project architecture, important facts, or decisions) to ~/.unjess/memory/memories.json so it is remembered across all future conversations and workspaces.",
 			"function": map[string]any{
 				"name":        "memory_save",
@@ -1122,8 +1122,8 @@ func CoreToolDefinitions() []map[string]any {
 			},
 		},
 		{
-			"type": "function",
-			"name": "memory_recall",
+			"type":        "function",
+			"name":        "memory_recall",
 			"description": "Search and recall persistent cross-session memories from ~/.unjess/memory/memories.json across all past sessions.",
 			"function": map[string]any{
 				"name":        "memory_recall",
@@ -1157,8 +1157,8 @@ func CoreToolDefinitions() []map[string]any {
 			},
 		},
 		{
-			"type": "function",
-			"name": "memory_delete",
+			"type":        "function",
+			"name":        "memory_delete",
 			"description": "Delete a persistent memory entry by key or ID.",
 			"function": map[string]any{
 				"name":        "memory_delete",
@@ -1186,8 +1186,8 @@ func CoreToolDefinitions() []map[string]any {
 			},
 		},
 		{
-			"type": "function",
-			"name": "web_search",
+			"type":        "function",
+			"name":        "web_search",
 			"description": "Search the live web (via DuckDuckGo) for up-to-date information, documentation, libraries, or answers. Returns titles, URLs, and text snippets.",
 			"function": map[string]any{
 				"name":        "web_search",
@@ -1223,8 +1223,8 @@ func CoreToolDefinitions() []map[string]any {
 			},
 		},
 		{
-			"type": "function",
-			"name": "read_url",
+			"type":        "function",
+			"name":        "read_url",
 			"description": "Fetch and read the text/markdown content of any public web URL (HTTP/HTTPS documentation, articles, APIs, GitHub pages).",
 			"function": map[string]any{
 				"name":        "read_url",
@@ -1252,8 +1252,8 @@ func CoreToolDefinitions() []map[string]any {
 			},
 		},
 		{
-			"type": "function",
-			"name": "mcp_status",
+			"type":        "function",
+			"name":        "mcp_status",
 			"description": "Check the live connection status, configured servers, and available tools of all Model Context Protocol (MCP) servers (e.g. mashina-collab, rea, filesystem, github, fetch).",
 			"function": map[string]any{
 				"name":        "mcp_status",
@@ -1269,8 +1269,8 @@ func CoreToolDefinitions() []map[string]any {
 			},
 		},
 		{
-			"type": "function",
-			"name": "ask_question",
+			"type":        "function",
+			"name":        "ask_question",
 			"description": "Ask the user one or more interactive multiple-choice questions with optional custom text input to clarify requirements, select implementation choices, or resolve ambiguities before taking action.",
 			"function": map[string]any{
 				"name":        "ask_question",
@@ -1340,8 +1340,8 @@ func CoreToolDefinitions() []map[string]any {
 			},
 		},
 		{
-			"type": "function",
-			"name": "propose_plan",
+			"type":        "function",
+			"name":        "propose_plan",
 			"description": "Propose an architectural or implementation plan to the user for formal approval before making code modifications or in Plan mode. Automatically generates or updates PLAN.md in the workspace and pauses until approved or given feedback.",
 			"function": map[string]any{
 				"name":        "propose_plan",
@@ -2377,55 +2377,55 @@ func ListedToolDefinitions(turnMode string, prompt string, hasImages bool, unloc
 
 // toolAliasMap maps common tool names from DeepSeek/OpenAI/Claude training corpora to Unjess canonical tool names.
 var toolAliasMap = map[string]string{
-	"bash":                "run_command",
-	"shell":               "run_command",
-	"sh":                  "run_command",
-	"powershell":          "run_command",
-	"terminal":            "run_command",
-	"exec":                "run_command",
-	"execute":             "run_command",
-	"execute_command":     "run_command",
-	"cmd":                 "run_command",
-	"run_bash":            "run_command",
-	"read":                "read_file",
-	"file_read":           "read_file",
-	"view":                "read_file",
-	"cat":                 "read_file",
-	"open_file":           "read_file",
-	"write":               "write_file",
-	"file_write":          "write_file",
-	"create_file":         "write_file",
-	"save_file":           "write_file",
-	"edit":                "edit_file",
-	"file_edit":           "edit_file",
-	"str_replace":         "edit_file",
+	"bash":                        "run_command",
+	"shell":                       "run_command",
+	"sh":                          "run_command",
+	"powershell":                  "run_command",
+	"terminal":                    "run_command",
+	"exec":                        "run_command",
+	"execute":                     "run_command",
+	"execute_command":             "run_command",
+	"cmd":                         "run_command",
+	"run_bash":                    "run_command",
+	"read":                        "read_file",
+	"file_read":                   "read_file",
+	"view":                        "read_file",
+	"cat":                         "read_file",
+	"open_file":                   "read_file",
+	"write":                       "write_file",
+	"file_write":                  "write_file",
+	"create_file":                 "write_file",
+	"save_file":                   "write_file",
+	"edit":                        "edit_file",
+	"file_edit":                   "edit_file",
+	"str_replace":                 "edit_file",
 	"str_replace_based_edit_tool": "edit_file",
-	"replace_in_file":     "edit_file",
-	"patch_file":          "edit_file",
-	"multiedit":           "edit_file",
-	"multi_edit":          "edit_file",
-	"grep":                "grep_search",
-	"search":              "grep_search",
-	"ripgrep":             "grep_search",
-	"rg":                  "grep_search",
-	"code_search":         "grep_search",
-	"glob":                "find_by_name",
-	"find":                "find_by_name",
-	"find_files":          "find_by_name",
-	"file_search":         "find_by_name",
-	"ls":                  "list_dir",
-	"dir":                 "list_dir",
-	"list_files":          "list_dir",
-	"list_directory":      "list_dir",
-	"todowrite":           "todo_write",
-	"todo_read":           "todo_write",
-	"todos":               "todo_write",
-	"task_list":           "todo_write",
-	"task":                "invoke_subagent",
-	"agent":               "invoke_subagent",
-	"subagent":            "invoke_subagent",
-	"spawn_subagent":      "invoke_subagent",
-	"toolsearch":          "tool_search",
+	"replace_in_file":             "edit_file",
+	"patch_file":                  "edit_file",
+	"multiedit":                   "edit_file",
+	"multi_edit":                  "edit_file",
+	"grep":                        "grep_search",
+	"search":                      "grep_search",
+	"ripgrep":                     "grep_search",
+	"rg":                          "grep_search",
+	"code_search":                 "grep_search",
+	"glob":                        "find_by_name",
+	"find":                        "find_by_name",
+	"find_files":                  "find_by_name",
+	"file_search":                 "find_by_name",
+	"ls":                          "list_dir",
+	"dir":                         "list_dir",
+	"list_files":                  "list_dir",
+	"list_directory":              "list_dir",
+	"todowrite":                   "todo_write",
+	"todo_read":                   "todo_write",
+	"todos":                       "todo_write",
+	"task_list":                   "todo_write",
+	"task":                        "invoke_subagent",
+	"agent":                       "invoke_subagent",
+	"subagent":                    "invoke_subagent",
+	"spawn_subagent":              "invoke_subagent",
+	"toolsearch":                  "tool_search",
 }
 
 var (
@@ -2691,7 +2691,7 @@ func NormalizeToolCall(name string, args map[string]any) (string, map[string]any
 }
 
 var (
-	xmlToolCallRe   = regexp.MustCompile(`(?s)<tool_call>\s*(\{.*?\})\s*</tool_call>`)
+	xmlToolCallRe    = regexp.MustCompile(`(?s)<tool_call>\s*(\{.*?\})\s*</tool_call>`)
 	fencedToolJSONRe = regexp.MustCompile("(?s)```(?:json|tool_call)?\\s*(\\{\\s*\"(?:name|tool|function)\"\\s*:.*?\\})\\s*```")
 )
 
@@ -3944,18 +3944,18 @@ func buildWindowsCommand(ctx context.Context, command string) *exec.Cmd {
 }
 
 var ignoredShellEnvVars = map[string]bool{
-	"_":                            true,
-	"PWD":                          true,
-	"OLDPWD":                       true,
-	"SHLVL":                        true,
-	"RANDOM":                       true,
-	"SECONDS":                      true,
-	"LINENO":                       true,
-	"EPOCHSECONDS":                 true,
-	"EPOCHREALTIME":                true,
-	"BASH_EXECUTION_STRING":        true,
-	"PSExecutionPolicyPreference":  true,
-	"LASTEXITCODE":                 true,
+	"_":                           true,
+	"PWD":                         true,
+	"OLDPWD":                      true,
+	"SHLVL":                       true,
+	"RANDOM":                      true,
+	"SECONDS":                     true,
+	"LINENO":                      true,
+	"EPOCHSECONDS":                true,
+	"EPOCHREALTIME":               true,
+	"BASH_EXECUTION_STRING":       true,
+	"PSExecutionPolicyPreference": true,
+	"LASTEXITCODE":                true,
 }
 
 func (t *ToolExecutor) buildCommandEnv() ([]string, map[string]string) {
@@ -6453,5 +6453,3 @@ func (t *ToolExecutor) executeManageUnjess(args map[string]any) (string, bool) {
 		return fmt.Sprintf("Error: unknown manage_unjess action '%s'. Supported actions: add_provider, remove_provider, list_providers, add_mcp, remove_mcp, save_skill, install_skill_github, delete_skill.", action), false
 	}
 }
-
-

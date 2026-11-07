@@ -1279,9 +1279,9 @@ func TestCompactTurnInPlaceAndSubagentSlimming(t *testing.T) {
 		},
 		"subagents": []any{
 			map[string]any{
-				"id":        "sub_1",
-				"role":      "Worker",
-				"thinking":  hugeString,
+				"id":       "sub_1",
+				"role":     "Worker",
+				"thinking": hugeString,
 				"steps": []any{
 					map[string]any{"result": hugeString, "diff": hugeString},
 				},
@@ -1891,7 +1891,3 @@ func TestTwoStageCompactionAndEightSectionCheckpoint(t *testing.T) {
 		}
 	}
 }
-
-
-
-

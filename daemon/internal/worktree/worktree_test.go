@@ -558,4 +558,3 @@ func TestDiscardSandbox_NilSafe(t *testing.T) {
 		t.Errorf("expected DiscardSandbox(nil) to be nil, got: %v", err)
 	}
 }
-

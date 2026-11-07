@@ -1001,5 +1001,3 @@ func TestScheduleEndpoints(t *testing.T) {
 		t.Fatalf("expected 200 from DELETE, got %d", wDelete.Code)
 	}
 }
-
-

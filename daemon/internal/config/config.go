@@ -69,17 +69,17 @@ type Settings struct {
 	Model    string `yaml:"model" json:"model"`
 
 	// API Keys (saved in keys.yaml, not config.yaml)
-	APIKeys     map[string]string   `yaml:"api_keys,omitempty" json:"api_keys"`
-	APIKeyPool  map[string][]string `yaml:"api_key_pool,omitempty" json:"api_key_pool,omitempty"`
+	APIKeys    map[string]string   `yaml:"api_keys,omitempty" json:"api_keys"`
+	APIKeyPool map[string][]string `yaml:"api_key_pool,omitempty" json:"api_key_pool,omitempty"`
 
 	// Base URLs for LLM backends
-	OllamaBaseURL    string `yaml:"ollama_base_url" json:"ollama_base_url"`
-	OllamaAPIBaseURL string `yaml:"ollama_api_base_url" json:"ollama_api_base_url"`
-	LlamaCppBaseURL  string `yaml:"llamacpp_base_url" json:"llamacpp_base_url"`
-	LMStudioBaseURL  string `yaml:"lmstudio_base_url" json:"lmstudio_base_url"`
-	KimiBaseURL      string `yaml:"kimi_base_url" json:"kimi_base_url"`
-	QwenBaseURL      string `yaml:"qwen_base_url" json:"qwen_base_url"`
-	MashinaURL       string `yaml:"mashina_url" json:"mashina_url"`
+	OllamaBaseURL      string `yaml:"ollama_base_url" json:"ollama_base_url"`
+	OllamaAPIBaseURL   string `yaml:"ollama_api_base_url" json:"ollama_api_base_url"`
+	LlamaCppBaseURL    string `yaml:"llamacpp_base_url" json:"llamacpp_base_url"`
+	LMStudioBaseURL    string `yaml:"lmstudio_base_url" json:"lmstudio_base_url"`
+	KimiBaseURL        string `yaml:"kimi_base_url" json:"kimi_base_url"`
+	QwenBaseURL        string `yaml:"qwen_base_url" json:"qwen_base_url"`
+	MashinaURL         string `yaml:"mashina_url" json:"mashina_url"`
 	MashinaCollabToken string `yaml:"mashina_collab_token" json:"mashina_collab_token"`
 
 	// Workspace
@@ -119,10 +119,10 @@ type Settings struct {
 	FreeModeEnabled     bool    `yaml:"free_mode_enabled" json:"free_mode_enabled"`
 
 	// Planning Mode & Context
-	PlanningMode           string `yaml:"planning_mode" json:"planning_mode"`
-	ReasoningEffort        string `yaml:"reasoning_effort" json:"reasoning_effort"`
-	EnableCompaction       bool   `yaml:"enable_compaction" json:"enable_compaction"`
-	ContextWindowOverride  int    `yaml:"context_window_override" json:"context_window_override"`
+	PlanningMode          string `yaml:"planning_mode" json:"planning_mode"`
+	ReasoningEffort       string `yaml:"reasoning_effort" json:"reasoning_effort"`
+	EnableCompaction      bool   `yaml:"enable_compaction" json:"enable_compaction"`
+	ContextWindowOverride int    `yaml:"context_window_override" json:"context_window_override"`
 
 	// RAG / Embeddings
 	EnableRAG bool `yaml:"enable_rag" json:"enable_rag"`
@@ -151,54 +151,54 @@ func NewDefaultSettings() *Settings {
 	copy(ignorePatterns, DefaultIgnoreRules)
 
 	return &Settings{
-		Provider:             "ollama",
-		Model:                "qwen2.5-coder:7b",
-		APIKeys:              make(map[string]string),
-		APIKeyPool:           make(map[string][]string),
-		OllamaBaseURL:        "http://localhost:11434",
-		OllamaAPIBaseURL:     "https://ollama.com",
-		LlamaCppBaseURL:      "http://localhost:8080",
-		LMStudioBaseURL:      "http://localhost:1234",
-		KimiBaseURL:          "https://api.moonshot.ai/v1",
-		QwenBaseURL:          "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
-		MashinaURL:           "https://mashina.si",
-		MashinaCollabToken:   "",
-		Workspace:            ".",
-		FallbackChain:        []string{},
-		MobilePin:            "",
-		EnablePinAuth:        false,
-		AllowNetworkAccess:   true,
-		NetworkPort:          8080,
-		MobileEnabled:        true,
-		MobilePort:           8080,
+		Provider:               "ollama",
+		Model:                  "qwen2.5-coder:7b",
+		APIKeys:                make(map[string]string),
+		APIKeyPool:             make(map[string][]string),
+		OllamaBaseURL:          "http://localhost:11434",
+		OllamaAPIBaseURL:       "https://ollama.com",
+		LlamaCppBaseURL:        "http://localhost:8080",
+		LMStudioBaseURL:        "http://localhost:1234",
+		KimiBaseURL:            "https://api.moonshot.ai/v1",
+		QwenBaseURL:            "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+		MashinaURL:             "https://mashina.si",
+		MashinaCollabToken:     "",
+		Workspace:              ".",
+		FallbackChain:          []string{},
+		MobilePin:              "",
+		EnablePinAuth:          false,
+		AllowNetworkAccess:     true,
+		NetworkPort:            8080,
+		MobileEnabled:          true,
+		MobilePort:             8080,
 		MaxIterations:          200,
 		SubagentMaxTurns:       300,
 		SubagentModel:          "inherit",
 		AskBeforeSubagentSpawn: false,
 		ConfirmCommands:        false,
-		CommandTimeout:       1200,
-		LLMTimeout:           300.0,
-		EnableStuckDetection: true,
-		Verbosity:            "normal",
-		ShowDiffs:            true,
-		ShowCost:             true,
-		ShowStats:            true,
-		AccentColor:          "#7dd3fc",
-		MaxCostPerSession:    0.0,
-		MaxTokensPerMessage:  0,
-		FreeModeEnabled:      false,
-		PlanningMode:         "auto",
-		ReasoningEffort:      "high",
-		EnableCompaction:     true,
-		ContextWindowOverride: 0,
-		EnableRAG:            false,
-		Language:             "en",
-		VirtualMode:          false,
-		ShadowWorktreeMode:   false,
-		SmartModelRouting:    false,
-		AutoUpdateEnabled:    true,
-		UpdateServerURL:      "https://unjess.si/releases/version.json",
-		IgnorePatterns:       ignorePatterns,
+		CommandTimeout:         1200,
+		LLMTimeout:             300.0,
+		EnableStuckDetection:   true,
+		Verbosity:              "normal",
+		ShowDiffs:              true,
+		ShowCost:               true,
+		ShowStats:              true,
+		AccentColor:            "#7dd3fc",
+		MaxCostPerSession:      0.0,
+		MaxTokensPerMessage:    0,
+		FreeModeEnabled:        false,
+		PlanningMode:           "auto",
+		ReasoningEffort:        "high",
+		EnableCompaction:       true,
+		ContextWindowOverride:  0,
+		EnableRAG:              false,
+		Language:               "en",
+		VirtualMode:            false,
+		ShadowWorktreeMode:     false,
+		SmartModelRouting:      false,
+		AutoUpdateEnabled:      true,
+		UpdateServerURL:        "https://unjess.si/releases/version.json",
+		IgnorePatterns:         ignorePatterns,
 	}
 }
 
@@ -672,14 +672,14 @@ func SerializeSettingsDict(s *Settings) map[string]any {
 		"subagent_model":            s.SubagentModel,
 		"ask_before_subagent_spawn": s.AskBeforeSubagentSpawn,
 		"command_timeout":           s.CommandTimeout,
-		"llm_timeout":             s.LLMTimeout,
-		"planning_mode":           s.PlanningMode,
-		"reasoning_effort":        s.ReasoningEffort,
-		"confirm_commands":        s.ConfirmCommands,
-		"enable_compaction":       s.EnableCompaction,
-		"enable_stuck_detection":  s.EnableStuckDetection,
-		"context_window_override": s.ContextWindowOverride,
-		"ignore_patterns":         ignorePatterns,
+		"llm_timeout":               s.LLMTimeout,
+		"planning_mode":             s.PlanningMode,
+		"reasoning_effort":          s.ReasoningEffort,
+		"confirm_commands":          s.ConfirmCommands,
+		"enable_compaction":         s.EnableCompaction,
+		"enable_stuck_detection":    s.EnableStuckDetection,
+		"context_window_override":   s.ContextWindowOverride,
+		"ignore_patterns":           ignorePatterns,
 
 		// Display, Theme & Mobile
 		"verbosity":      s.Verbosity,
