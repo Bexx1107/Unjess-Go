@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"sync"
@@ -768,6 +769,8 @@ func (s *StdioTransport) Close() error {
 		_ = s.stdin.Close()
 	}
 	if s.cmd != nil && s.cmd.Process != nil {
+		// Kill the whole tree so helpers such as a Chrome launched by the server do not linger.
+		killProcessTree(s.cmd.Process.Pid)
 		_ = s.cmd.Process.Kill()
 		_ = s.cmd.Wait()
 	}
@@ -1060,8 +1063,13 @@ func (m *Manager) Connect(serverName string) error {
 		return fmt.Errorf("MCP server '%s' is disabled", serverName)
 	}
 
-	if client, ok := m.clients[serverName]; ok && client.initialized {
-		return nil
+	if client, ok := m.clients[serverName]; ok {
+		if client.initialized && client.transport.IsRunning() {
+			return nil
+		}
+		// Stale client (server process died): tear it down and reconnect.
+		_ = client.Close()
+		delete(m.clients, serverName)
 	}
 
 	targetURL := strings.TrimSpace(cfg.URL)
@@ -1174,6 +1182,60 @@ func (m *Manager) DisconnectAll() {
 		delete(m.clients, name)
 	}
 	m.allTools = make(map[string]ToolInfo)
+}
+
+// sharedManagers keeps one long-lived Manager per workspace so stateful MCP servers (for example
+// chrome-devtools, which owns a Chrome instance and its open pages) survive between agent turns
+// instead of being torn down every time a turn finishes.
+var (
+	sharedMu       sync.Mutex
+	sharedManagers = make(map[string]*Manager)
+)
+
+// Shared returns the process-wide Manager for workspaceDir, creating it on first use. Server
+// configs are reloaded on every call; servers that were removed, disabled, or reconfigured are
+// disconnected so the next ConnectAll starts them with the new settings.
+func Shared(workspaceDir string) *Manager {
+	sharedMu.Lock()
+	defer sharedMu.Unlock()
+
+	m, ok := sharedManagers[workspaceDir]
+	if !ok {
+		m = NewManager(workspaceDir)
+		sharedManagers[workspaceDir] = m
+		return m
+	}
+
+	fresh, _ := LoadMCPConfig()
+	if fresh == nil {
+		fresh = make(map[string]ServerConfig)
+	}
+	m.mu.Lock()
+	for name, client := range m.clients {
+		nc, exists := fresh[name]
+		if !exists || !nc.Enabled || !reflect.DeepEqual(nc, m.configs[name]) {
+			_ = client.Close()
+			delete(m.clients, name)
+			for k, t := range m.allTools {
+				if t.Server == name {
+					delete(m.allTools, k)
+				}
+			}
+		}
+	}
+	m.configs = fresh
+	m.mu.Unlock()
+	return m
+}
+
+// ShutdownShared closes every shared Manager and its MCP server processes. Call on daemon exit.
+func ShutdownShared() {
+	sharedMu.Lock()
+	defer sharedMu.Unlock()
+	for key, m := range sharedManagers {
+		m.DisconnectAll()
+		delete(sharedManagers, key)
+	}
 }
 
 // AvailableTools returns all discovered tools across connected servers.

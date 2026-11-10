@@ -8,3 +8,6 @@ import "syscall"
 func sysProcAttr() *syscall.SysProcAttr {
 	return nil
 }
+
+// killProcessTree is a no-op here; the caller falls back to killing the direct child.
+func killProcessTree(pid int) {}

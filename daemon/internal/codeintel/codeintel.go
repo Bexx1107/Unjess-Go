@@ -16,8 +16,16 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 )
+
+// allowExternalPaths, when true, lets post-edit checks operate on files outside the
+// workspace root. The agent enables it in Autonomous/Duel mode.
+var allowExternalPaths atomic.Bool
+
+// SetAllowExternalPaths toggles whether files outside the workspace root may be checked.
+func SetAllowExternalPaths(v bool) { allowExternalPaths.Store(v) }
 
 // SymbolNode represents an extracted code symbol (function, method, struct, etc.).
 type SymbolNode struct {
@@ -43,6 +51,9 @@ func resolveSafePath(wsPath, relPath string) (string, error) {
 		target = filepath.Clean(relPath)
 	} else {
 		target = filepath.Clean(filepath.Join(cleanWs, relPath))
+	}
+	if allowExternalPaths.Load() {
+		return target, nil
 	}
 	rel, err := filepath.Rel(cleanWs, target)
 	if err != nil || strings.HasPrefix(rel, "..") || rel == ".." {

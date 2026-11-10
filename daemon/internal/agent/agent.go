@@ -3496,9 +3496,8 @@ func (hm *HarnessManager) executeSubagentLoop(parentCtx context.Context, sr *Sub
 	if catalog != "" {
 		sys.WriteString(catalog + "\n")
 	}
-	mcpMgr := mcp.NewManager(sr.Workspace)
+	mcpMgr := mcp.Shared(sr.Workspace)
 	mcpMgr.ConnectAll()
-	defer mcpMgr.DisconnectAll()
 
 	mcpTools := mcpMgr.AvailableTools()
 	serverToolsMap := make(map[string][]string)
@@ -3739,6 +3738,7 @@ func (hm *HarnessManager) executeSubagentLoop(parentCtx context.Context, sr *Sub
 				var syntaxErrors []string
 				for _, ft := range sr.Executor.FilesTouched {
 					if ft.Action == "modified" || ft.Action == "created" {
+						codeintel.SetAllowExternalPaths(hm.isAutoMode())
 						feedback := codeintel.RunPostEditCheck(subCtx, sr.Workspace, ft.Path)
 						if strings.Contains(feedback, "SELF-HEAL REQUIRED") || strings.Contains(feedback, "SyntaxError") {
 							syntaxErrors = append(syntaxErrors, fmt.Sprintf("- `%s`: %s", ft.Path, feedback))
@@ -4921,9 +4921,8 @@ func (hm *HarnessManager) RunAgentTurn(ctx context.Context, req ChatTurnRequest)
 	_ = hm.saveStateLocked()
 	hm.mu.Unlock()
 
-	mcpMgr := mcp.NewManager(wsPath)
+	mcpMgr := mcp.Shared(wsPath)
 	mcpMgr.ConnectAll()
-	defer mcpMgr.DisconnectAll()
 
 	mcpTools := mcpMgr.AvailableTools()
 	serverToolsMap := make(map[string][]string)
@@ -5498,6 +5497,7 @@ func (hm *HarnessManager) RunAgentTurn(ctx context.Context, req ChatTurnRequest)
 				var syntaxErrors []string
 				for _, ft := range executor.FilesTouched {
 					if ft.Action == "modified" || ft.Action == "created" {
+						codeintel.SetAllowExternalPaths(hm.isAutoMode())
 						feedback := codeintel.RunPostEditCheck(turnCtx, wsPath, ft.Path)
 						if strings.Contains(feedback, "SELF-HEAL REQUIRED") || strings.Contains(feedback, "SyntaxError") {
 							syntaxErrors = append(syntaxErrors, fmt.Sprintf("- `%s`: %s", ft.Path, feedback))
@@ -6828,4 +6828,13 @@ func detectLeftoverScratchFiles(wsPath string, touched []tools.FileTouch) []stri
 		}
 	}
 	return leftovers
+}
+
+// isAutoMode reports whether the agent runs in Autonomous or Duel mode, where file access is not confined to the workspace root.
+func (hm *HarnessManager) isAutoMode() bool {
+	mode := hm.agentMode
+	if mode == "" {
+		return hm.settings == nil || !hm.settings.ConfirmCommands
+	}
+	return mode == "Autonomous" || mode == "Duel"
 }

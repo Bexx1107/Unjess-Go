@@ -15,6 +15,7 @@ import (
 	"unjess-daemon/internal/agent"
 	"unjess-daemon/internal/api"
 	"unjess-daemon/internal/config"
+	"unjess-daemon/internal/mcp"
 	"unjess-daemon/internal/skills"
 	"unjess-daemon/internal/updater"
 )
@@ -64,6 +65,8 @@ func main() {
 
 	<-stop
 	fmt.Println("\nShutting down Unjess Go Daemon...")
+
+	mcp.ShutdownShared()
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutdownCancel()
