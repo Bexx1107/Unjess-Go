@@ -101,6 +101,48 @@ func TestCORS(t *testing.T) {
 	}
 }
 
+func TestCORS_SecurityOriginRejection(t *testing.T) {
+	srv, tempDir := setupTestServer(t)
+	defer os.RemoveAll(tempDir)
+
+	handler := srv.corsMiddleware(srv.Routes())
+
+	// 1. Untrusted external origin MUST be rejected with 403 Forbidden
+	reqEvil := httptest.NewRequest("POST", "/api/health", nil)
+	reqEvil.Header.Set("Origin", "https://malicious-website.com")
+	recEvil := httptest.NewRecorder()
+	handler.ServeHTTP(recEvil, reqEvil)
+
+	if recEvil.Code != http.StatusForbidden {
+		t.Errorf("expected 403 Forbidden for untrusted origin, got %d", recEvil.Code)
+	}
+
+	// 2. Untrusted external referer MUST be rejected with 403 Forbidden
+	reqEvilRef := httptest.NewRequest("GET", "/api/health", nil)
+	reqEvilRef.Header.Set("Referer", "https://malicious-website.com/csrf-exploit.html")
+	recEvilRef := httptest.NewRecorder()
+	handler.ServeHTTP(recEvilRef, reqEvilRef)
+
+	if recEvilRef.Code != http.StatusForbidden {
+		t.Errorf("expected 403 Forbidden for untrusted referer, got %d", recEvilRef.Code)
+	}
+
+	// 3. Trusted local origins MUST be allowed
+	for _, localOrigin := range []string{"http://localhost:8765", "http://127.0.0.1:8765", "wry://localhost", "tauri://localhost"} {
+		reqLocal := httptest.NewRequest("GET", "/api/health", nil)
+		reqLocal.Header.Set("Origin", localOrigin)
+		recLocal := httptest.NewRecorder()
+		handler.ServeHTTP(recLocal, reqLocal)
+
+		if recLocal.Code != http.StatusOK {
+			t.Errorf("expected 200 OK for local origin %s, got %d", localOrigin, recLocal.Code)
+		}
+		if recLocal.Header().Get("Access-Control-Allow-Origin") != localOrigin {
+			t.Errorf("expected Access-Control-Allow-Origin %s, got %s", localOrigin, recLocal.Header().Get("Access-Control-Allow-Origin"))
+		}
+	}
+}
+
 func TestHealthAndStatus(t *testing.T) {
 	srv, tempDir := setupTestServer(t)
 	defer os.RemoveAll(tempDir)

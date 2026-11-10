@@ -64,10 +64,25 @@ func NewServer(port int, host string, settings *config.Settings, harness *agent.
 	return s
 }
 
-// corsMiddleware provides Cross-Origin Resource Sharing headers for web, desktop, and mobile companion clients.
+// corsMiddleware provides Cross-Origin Resource Sharing headers for web, desktop, and mobile companion clients,
+// while strictly rejecting untrusted external browser origins on localhost to prevent CSRF / DNS rebinding RCE.
 func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
+		referer := r.Header.Get("Referer")
+
+		// On local interfaces (127.0.0.1 / localhost), reject external web origins/referers
+		if s.Host == "127.0.0.1" || s.Host == "localhost" {
+			if origin != "" && !isLocalOrigin(origin) {
+				http.Error(w, "Forbidden: Cross-origin access from untrusted external origin rejected", http.StatusForbidden)
+				return
+			}
+			if referer != "" && !isLocalReferer(referer) {
+				http.Error(w, "Forbidden: Cross-origin access from untrusted external referer rejected", http.StatusForbidden)
+				return
+			}
+		}
+
 		if origin != "" {
 			if s.Host == "127.0.0.1" || s.Host == "localhost" {
 				if isLocalOrigin(origin) {
@@ -92,13 +107,22 @@ func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 }
 
 func isLocalOrigin(origin string) bool {
-	if origin == "" || origin == "null" {
+	if origin == "" {
 		return true
 	}
 	if strings.HasPrefix(origin, "tauri://") || strings.HasPrefix(origin, "wry://") || strings.HasPrefix(origin, "vscode-webview://") {
 		return true
 	}
 	u, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+	h := u.Hostname()
+	return h == "127.0.0.1" || h == "localhost"
+}
+
+func isLocalReferer(referer string) bool {
+	u, err := url.Parse(referer)
 	if err != nil {
 		return false
 	}
