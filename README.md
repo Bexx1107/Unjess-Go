@@ -100,9 +100,8 @@ unjess/
 │       ├── skills/                 # Custom Skill Runner (SKILL.md)
 │       ├── tools/                  # Workspace Tools (read, edit, bash, search)
 │       └── updater/                # In-App SHA-256 Release Updater
-├── crates/                         # Rust Workspace
-│   ├── unjess-desktop/             # Rust Wry/Tao (WebView2) Desktop Wrapper (Unjess.exe)
-│   └── unjess-core/                # Legacy Rust prototype crate (retained for reference; active runtime is Go)
+├── crates/
+│   └── unjess-desktop/             # Rust Wry/Tao (WebView2) Desktop Wrapper (Unjess.exe)
 ├── build-all.ps1                   # Unified Cross-Compilation Build Script
 └── version.json                    # Release Metadata & Changelog
 ```
@@ -123,9 +122,9 @@ unjess/
    *Decision:* Rather than forcing users into a proprietary cloud subscription or single vendor, Unjess routes directly to Ollama (`/api/chat` for local GPU models and Ollama Cloud remote models) and native provider APIs (Anthropic Messages, OpenAI-compatible, Google Gemini).
    *Honest Trade-off:* Each provider uses different streaming semantics, tool schemas, and error structures, requiring separate adapter maintenance in `llm/`.
 
-4. **Tolerant Fuzzy Tool Repair vs Strict JSON Validation:**
-   *Decision:* LLMs frequently make minor syntax errors in tool call JSON (missing trailing brackets, unescaped characters). Unjess incorporates heuristic auto-repair and parameter aliasing so minor formatting glitches don't terminate the task loop.
-   *Honest Trade-off:* Heuristic repair is strictly scoped to parameter normalization and recoverable JSON formatting; destructive tools (`edit`, `bash`) prioritize strict schemas and error feedback to prevent accidental file corruption or malformed shell syntax.
+4. **Mechanical JSON Sanitization & Parameter Aliasing vs Schema Rejections:**
+   *Decision:* Small or local LLMs frequently emit minor syntax slips in tool calls (wrapping payloads in markdown code fences, trailing commas, or using intuitive parameter synonyms like `file_path` vs `path`). Unjess strips markdown wrappers, trims trailing commas, and normalizes known parameter aliases before execution.
+   *Honest Trade-off:* This pre-execution cleanup handles syntax slips, but does not invent missing arguments: if required parameters are missing or an edit target fails to match, the tool returns an explicit error to the LLM for self-correction rather than guessing arguments heuristically.
 
 5. **Terminal-First Workflow with an Optional Desktop Shell:**
    *Decision:* Designed primarily for developers working directly in terminal sessions and tmux who want fast keyboard-driven interaction, while providing a desktop window wrapper for visual status.
