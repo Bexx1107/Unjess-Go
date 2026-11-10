@@ -83,14 +83,14 @@ func BuiltinChangelog() []ChangelogEntry {
 		{
 			Version: "3.0.2",
 			Date:    "2026-11-07",
-			Title:   "Unjess v3.0.2 - Native Lightweight Autonomous Coding Assistant",
+			Title:   "Unjess v3.0.2 - Prototype Rewrite in Go and Rust Wry",
 			Tag:     "LATEST",
 			Changes: []string{
-				"Native Go daemon and Rust Wry desktop interface with minimal resource footprint",
-				"Full provider support: local offline models (Ollama, LM Studio) and cloud APIs (OpenAI, Anthropic, Google Gemini, DeepSeek, xAI)",
-				"Resilient agentic tool execution with automatic recovery and parameter repair",
-				"Model Context Protocol (MCP) and custom skills integration",
-				"Cross-session persistent memory and autonomous workspace management",
+				"Go daemon (unjessd) and Rust Wry desktop wrapper with ~10 MB combined footprint",
+				"Multi-provider routing: local/cloud Ollama and direct provider APIs (Anthropic, OpenAI, Gemini)",
+				"ReAct agent loop with fuzzy JSON argument auto-repair for common LLM syntax slip-ups",
+				"Model Context Protocol (MCP) client and custom skills execution",
+				"Persistent file-based workspace memory and session tracking",
 			},
 		},
 	}
