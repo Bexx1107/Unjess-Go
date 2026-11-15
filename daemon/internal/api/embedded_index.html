@@ -1076,7 +1076,13 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                   <div>
                     <label class="block text-slate-400 mb-1">Ollama Cloud Base URL</label>
-                    <input id="settings-ollama-api-url" type="text" placeholder="https://ollama.com" class="w-full bg-slate-900 border border-unjessBorder rounded-lg p-2 text-white font-mono text-xs focus:outline-none focus:border-slate-500 select-text">
+                    <div class="flex space-x-2">
+                      <input id="settings-ollama-api-url" type="text" placeholder="https://ollama.com" class="flex-1 bg-slate-900 border border-unjessBorder rounded-lg p-2 text-white font-mono text-xs focus:outline-none focus:border-slate-500 select-text">
+                      <button id="btn-test-ollama-api" type="button" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-unjessBorder text-unjessCyan hover:text-white font-mono text-xs transition flex items-center space-x-1 flex-shrink-0" title="Test & Fetch models from Ollama Cloud">
+                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                        <span>Fetch</span>
+                      </button>
+                    </div>
                   </div>
                   <div>
                     <label class="block text-slate-400 mb-1">LM Studio Server URL</label>
@@ -3029,9 +3035,10 @@
     // -------------------------------------------------------------------------
     // 2. OLLAMA & MODEL DISCOVERY (Backend + Direct Ollama Fallback)
     // -------------------------------------------------------------------------
-    async function fetchAndSyncModels(customOllamaUrl = '', customOllamaKey = '', customLlamaCppUrl = '', customLMStudioUrl = '') {
+    async function fetchAndSyncModels(customOllamaUrl = '', customOllamaKey = '', customLlamaCppUrl = '', customLMStudioUrl = '', customOllamaApiUrl = '') {
       const endpoint = (customOllamaUrl || state.ollamaUrl || 'http://localhost:11434').trim();
       const apiKey = (customOllamaKey !== undefined ? customOllamaKey : state.ollamaApiKey).trim();
+      const ollamaApiUrl = (customOllamaApiUrl || document.getElementById('settings-ollama-api-url')?.value || state.settings?.ollama_api_base_url || 'https://ollama.com').trim();
       const llamaUrl = (customLlamaCppUrl || document.getElementById('settings-llamacpp-url')?.value || state.settings?.llamacpp_base_url || 'http://localhost:8080').trim();
       const lmStudioUrl = (customLMStudioUrl || document.getElementById('settings-lmstudio-url')?.value || state.settings?.lmstudio_base_url || 'http://localhost:1234').trim();
       const badge = document.getElementById('ollama-connection-badge');
@@ -3043,6 +3050,8 @@
       let discovered = [];
       let defaultModel = '';
       let isOnline = false;
+      let ollamaOnline = false;
+      let ollamaApiOnline = false;
       let errMsg = '';
 
       // 1. Try via Unjess backend /api/studio/models
@@ -3051,6 +3060,7 @@
           endpoint,
           key: apiKey,
           ollama_url: endpoint,
+          ollama_api_url: ollamaApiUrl,
           ollama_key: apiKey,
           llamacpp_url: llamaUrl,
           lmstudio_url: lmStudioUrl
@@ -3058,6 +3068,8 @@
         const resp = await fetch(`${API_BASE}/api/studio/models?${qs.toString()}`);
         if (resp.ok) {
           const data = await resp.json();
+          ollamaOnline = !!data.ollama_online;
+          ollamaApiOnline = !!data.ollama_api_online;
           if (data.status === 'online') {
             isOnline = true;
           } else if (data.error) {
@@ -3146,7 +3158,7 @@
         setModel(state.models[0].id, false);
       }
 
-      return { isOnline, count: discovered.length, errMsg };
+      return { isOnline, ollamaOnline, ollamaApiOnline, count: discovered.length, errMsg };
     }
 
     function modelSupportsEffort(modelId, provider = '') {
@@ -10590,7 +10602,7 @@ function openNewChatModal(initialMode = 'quick') {
         });
         if (resp.ok) {
           if (payload.default_model) setModel(payload.default_model);
-          await fetchAndSyncModels(payload.ollama_base_url, payload.ollama_api_key);
+          await fetchAndSyncModels(payload.ollama_base_url, payload.ollama_api_key, '', '', payload.ollama_api_base_url);
           loadNetworkInfo();
           if (btnText) btnText.textContent = 'Saved Successfully';
           if (statusMsg) statusMsg.textContent = 'Saved to ~/.unjess/config.yaml & keys.yaml';
@@ -12257,10 +12269,27 @@ function openNewChatModal(initialMode = 'quick') {
         const statusMsg = document.getElementById('settings-status-msg');
         if (statusMsg) statusMsg.textContent = `Fetching models from ${url}...`;
         const res = await fetchAndSyncModels(url, key);
+        const ollamaModels = (state.models || []).filter(m => m.provider === 'Ollama' || m.provider === 'Ollama Cloud');
         if (statusMsg) {
-          statusMsg.textContent = res.isOnline
-            ? `Loaded ${res.count} Ollama models from ${url}`
-            : `Could not reach Ollama at ${url} (${res.errMsg || 'check server'})`;
+          statusMsg.textContent = res.ollamaOnline
+            ? `Loaded ${ollamaModels.length} Ollama models from ${url}`
+            : `Could not reach Ollama at ${url} (${res.errMsg || 'check server or URL'})`;
+        }
+      });
+
+      // Settings: Test & Fetch Ollama Cloud Models button
+      document.getElementById('btn-test-ollama-api')?.addEventListener('click', async () => {
+        const apiUrl = (document.getElementById('settings-ollama-api-url')?.value || '').trim() || 'https://ollama.com';
+        const key = (document.getElementById('settings-ollama-key')?.value || '').trim();
+        state.ollamaApiKey = key;
+        const statusMsg = document.getElementById('settings-status-msg');
+        if (statusMsg) statusMsg.textContent = `Fetching Ollama Cloud models from ${apiUrl}...`;
+        const res = await fetchAndSyncModels('', key, '', '', apiUrl);
+        const cloudModels = (state.models || []).filter(m => m.provider === 'Ollama Cloud');
+        if (statusMsg) {
+          statusMsg.textContent = res.ollamaApiOnline
+            ? `Connected to Ollama Cloud (${cloudModels.length} live models from ${apiUrl})`
+            : (key ? `Could not reach Ollama Cloud at ${apiUrl} (check base URL or API key)` : 'Enter your Ollama Cloud API Key first under API Keys');
         }
       });
 

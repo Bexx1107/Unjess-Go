@@ -81,10 +81,21 @@ type VersionManifest struct {
 func BuiltinChangelog() []ChangelogEntry {
 	return []ChangelogEntry{
 		{
+			Version: "3.0.3",
+			Date:    "2026-11-15",
+			Title:   "Unjess v3.0.3 - Ollama Cloud Routing & Live Model Discovery Fix",
+			Tag:     "LATEST",
+			Changes: []string{
+				"Preserved explicit ollama-api provider in DetectProvider so :cloud and hosted Ollama Cloud models route to OllamaAPIBaseURL instead of local Ollama or Qwen",
+				"Added live Ollama Cloud (/api/tags) Bearer-authenticated model discovery and normalized Ollama Cloud base URL handling",
+				"Added dedicated Ollama Cloud Base URL Fetch button and accurate per-endpoint model counts in Settings",
+			},
+		},
+		{
 			Version: "3.0.2",
 			Date:    "2026-11-07",
 			Title:   "Unjess v3.0.2 - Prototype Rewrite in Go and Rust Wry",
-			Tag:     "LATEST",
+			Tag:     "UPDATE",
 			Changes: []string{
 				"Go daemon (unjessd) and Rust Wry desktop wrapper with ~10 MB combined footprint",
 				"Multi-provider routing: local/cloud Ollama and direct provider APIs (Anthropic, OpenAI, Gemini)",

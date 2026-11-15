@@ -171,7 +171,7 @@ var KeyEnvMap = map[string][]string{
 	"cerebras":   {"cerebras", "CEREBRAS_API_KEY"},
 	"kimi":       {"kimi", "moonshot", "MOONSHOT_API_KEY", "KIMI_API_KEY"},
 	"qwen":       {"qwen", "dashscope", "DASHSCOPE_API_KEY", "QWEN_API_KEY"},
-	"ollama-api": {"ollama-api", "OLLAMA_API_KEY"},
+	"ollama-api": {"ollama-api", "ollama", "OLLAMA_API_KEY"},
 }
 
 // CloudProviderModels contains October 2026 fallback models for each cloud provider when live API discovery is unreachable.
@@ -596,12 +596,19 @@ func DiscoverModels(s *Settings, overrideOllamaURL string, overrideOllamaKey str
 			allKeys[k] = v
 		}
 	}
+	if overrideKey := strings.TrimSpace(overrideOllamaKey); overrideKey != "" && overrideKey != "ollama" {
+		allKeys["ollama-api"] = overrideKey
+	}
 
 	for _, prov := range ProviderOrder {
 		aliases := KeyEnvMap[prov]
 		hasKey := false
 		for _, alias := range aliases {
-			if allKeys[alias] != "" || os.Getenv(alias) != "" {
+			val := strings.TrimSpace(allKeys[alias])
+			if val == "" {
+				val = strings.TrimSpace(os.Getenv(alias))
+			}
+			if val != "" && val != "ollama" {
 				hasKey = true
 				break
 			}
@@ -617,8 +624,9 @@ func DiscoverModels(s *Settings, overrideOllamaURL string, overrideOllamaKey str
 	liveModelsByProvider := make(map[string][]map[string]any)
 
 	baseURLs := map[string]string{
-		"kimi": s.KimiBaseURL,
-		"qwen": s.QwenBaseURL,
+		"kimi":       s.KimiBaseURL,
+		"qwen":       s.QwenBaseURL,
+		"ollama-api": s.OllamaAPIBaseURL,
 	}
 
 	for _, prov := range configuredProviders {
@@ -734,9 +742,12 @@ func DiscoverModels(s *Settings, overrideOllamaURL string, overrideOllamaKey str
 		retErr = errorMsg
 	}
 
+	ollamaAPIOnline := len(liveModelsByProvider["ollama-api"]) > 0
+
 	return map[string]any{
 		"status":               status,
 		"ollama_online":        ollamaOnline,
+		"ollama_api_online":    ollamaAPIOnline,
 		"endpoint":             cleanURL,
 		"models":               parsedModels,
 		"default_model":        defaultModel,
@@ -862,7 +873,7 @@ func geminiModelPriority(id string) int {
 // fetchLiveCloudModels calls the provider's official models API to discover active models in real time.
 func fetchLiveCloudModels(prov string, apiKey string, baseURLs map[string]string) []map[string]any {
 	apiKey = strings.TrimSpace(apiKey)
-	if apiKey == "" {
+	if apiKey == "" || apiKey == "ollama" {
 		return nil
 	}
 
@@ -1150,6 +1161,71 @@ func fetchLiveCloudModels(prov string, apiKey string, baseURLs map[string]string
 				}
 				return idI < idJ
 			})
+		}
+
+	case "ollama-api":
+		apiBase := strings.TrimSpace(baseURLs["ollama-api"])
+		if apiBase == "" {
+			apiBase = "https://ollama.com"
+		}
+		if !strings.HasPrefix(apiBase, "http://") && !strings.HasPrefix(apiBase, "https://") {
+			apiBase = "https://" + apiBase
+		}
+		apiBase = strings.TrimRight(apiBase, "/")
+		apiBase = strings.TrimSuffix(apiBase, "/api/chat")
+		apiBase = strings.TrimSuffix(apiBase, "/api/tags")
+		apiBase = strings.TrimSuffix(apiBase, "/v1")
+		apiBase = strings.TrimSuffix(apiBase, "/api")
+
+		req, err := http.NewRequest("GET", apiBase+"/api/tags", nil)
+		if err != nil {
+			return nil
+		}
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+		resp, err := client.Do(req)
+		if err != nil || resp.StatusCode != http.StatusOK {
+			return nil
+		}
+		defer resp.Body.Close()
+
+		var oData struct {
+			Models []struct {
+				Name    string `json:"name"`
+				Model   string `json:"model"`
+				Details struct {
+					Family        string `json:"family"`
+					ParameterSize string `json:"parameter_size"`
+				} `json:"details"`
+			} `json:"models"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&oData); err == nil && len(oData.Models) > 0 {
+			for _, m := range oData.Models {
+				id := strings.TrimSpace(m.Name)
+				if id == "" {
+					id = strings.TrimSpace(m.Model)
+				}
+				if id == "" {
+					continue
+				}
+				lowID := strings.ToLower(id)
+				hasThinking := strings.Contains(lowID, "deepseek") ||
+					strings.Contains(lowID, "kimi") ||
+					strings.Contains(lowID, "glm") ||
+					strings.Contains(lowID, "qwq") ||
+					strings.Contains(lowID, "r1") ||
+					strings.Contains(lowID, "gpt-oss")
+				results = append(results, map[string]any{
+					"id":              id,
+					"name":            id + " (Ollama Cloud)",
+					"raw_name":        id,
+					"provider":        "Ollama Cloud",
+					"desc":            fmt.Sprintf("Ollama Cloud model (%s)", apiBase),
+					"has_tools":       true,
+					"has_thinking":    hasThinking,
+					"supports_effort": true,
+					"is_cloud":        true,
+				})
+			}
 		}
 	}
 

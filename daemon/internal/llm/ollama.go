@@ -127,7 +127,7 @@ func streamOllama(ctx context.Context, opts ChatOptions, cb StreamCallbacks) (*C
 	if opts.Provider == "ollama-api" {
 		baseURL = opts.OllamaAPIBaseURL
 		if baseURL == "" {
-			baseURL = getBaseURL(opts, "ollama-api", "https://api.ollama.com")
+			baseURL = getBaseURL(opts, "ollama-api", "https://ollama.com")
 		}
 		apiKey = getAPIKey(opts, "ollama-api", "OLLAMA_API_KEY")
 	} else {
@@ -137,8 +137,14 @@ func streamOllama(ctx context.Context, opts ChatOptions, cb StreamCallbacks) (*C
 		apiKey = getAPIKey(opts, "ollama", "OLLAMA_API_KEY")
 	}
 
+	baseURL = strings.TrimSpace(baseURL)
+	if baseURL != "" && !strings.HasPrefix(baseURL, "http://") && !strings.HasPrefix(baseURL, "https://") {
+		baseURL = "https://" + baseURL
+	}
 	baseURL = strings.TrimRight(baseURL, "/")
+	baseURL = strings.TrimSuffix(baseURL, "/api/chat")
 	baseURL = strings.TrimSuffix(baseURL, "/v1")
+	baseURL = strings.TrimSuffix(baseURL, "/api")
 	chatEndpoint := baseURL + "/api/chat"
 
 	preparedMessages := prepareOllamaMessages(opts)

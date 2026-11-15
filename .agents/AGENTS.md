@@ -1,7 +1,7 @@
 # Unjess Project Rules
 
 ## Project Context
-This is **Unjess (`v3.0.2`)**, a native autonomous AI coding and security engineering harness built in **Go (`daemon/`)** and **Rust (`crates/`)**.
+This is **Unjess (`v3.0.3`)**, a native autonomous AI coding and security engineering harness built in **Go (`daemon/`)** and **Rust (`crates/`)**.
 - Desktop shell: `crates/unjess-desktop` (`Unjess.exe`, Rust Wry/Tao WebView2)
 - Core Rust crate: `crates/unjess-core`
 - Backend daemon: `daemon/cmd/unjessd` (`unjessd.exe`, Go 1.22+)

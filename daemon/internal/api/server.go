@@ -488,13 +488,17 @@ func (s *Server) handleSaveSettings(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 	ollamaURL := r.URL.Query().Get("ollama_url")
+	ollamaAPIURL := r.URL.Query().Get("ollama_api_url")
 	ollamaKey := r.URL.Query().Get("ollama_key")
 	llamacppURL := r.URL.Query().Get("llamacpp_url")
 	lmstudioURL := r.URL.Query().Get("lmstudio_url")
 
 	cfg := s.Settings
-	if llamacppURL != "" || lmstudioURL != "" {
+	if ollamaAPIURL != "" || llamacppURL != "" || lmstudioURL != "" {
 		copyCfg := *s.Settings
+		if ollamaAPIURL != "" {
+			copyCfg.OllamaAPIBaseURL = ollamaAPIURL
+		}
 		if llamacppURL != "" {
 			copyCfg.LlamaCppBaseURL = llamacppURL
 		}

@@ -35,6 +35,12 @@ func TestDetectProvider(t *testing.T) {
 		// :cloud suffix
 		{"deepseek-v4.1-flash:cloud", "", "ollama"},
 		{"qwen2.5-coder:cloud", "openai", "ollama"},
+		{"deepseek-v4.1-flash:cloud", "ollama-api", "ollama-api"},
+		{"deepseek-v4.1-flash:1017", "ollama-api", "ollama-api"},
+		{"deepseek-v4.1-flash", "ollama-api", "ollama-api"},
+		{"glm-5.3-flash", "ollama-api", "ollama-api"},
+		{"kimi-k3.1-pro", "ollama-api", "ollama-api"},
+		{"openai/gpt-4o", "ollama-api", "openai"},
 
 		// gpt-, o1, o3 prefixes
 		{"gpt-4o-mini", "", "openai"},

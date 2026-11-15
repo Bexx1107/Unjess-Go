@@ -45,7 +45,7 @@ func TestBuiltinChangelog(t *testing.T) {
 		t.Fatalf("expected at least 1 changelog entry, got %d", len(cl))
 	}
 
-	expectedVersions := []string{"3.0.2"}
+	expectedVersions := []string{"3.0.3", "3.0.2"}
 	for i, ver := range expectedVersions {
 		if cl[i].Version != ver {
 			t.Errorf("entry %d: expected version %s, got %s", i, ver, cl[i].Version)

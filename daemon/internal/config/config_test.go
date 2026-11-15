@@ -344,6 +344,44 @@ func TestDiscoverModelsWithMockOllama(t *testing.T) {
 	}
 }
 
+func TestDiscoverModelsWithOllamaCloud(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/tags" && r.Header.Get("Authorization") == "Bearer test-ollama-cloud-key" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"models": [
+					{"name": "deepseek-v4.1-flash", "model": "deepseek-v4.1-flash"},
+					{"name": "glm-5.3-flash", "model": "glm-5.3-flash"}
+				]
+			}`))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer ts.Close()
+
+	s := NewDefaultSettings()
+	s.OllamaBaseURL = "http://127.0.0.1:59998" // unreachable local server
+	s.OllamaAPIBaseURL = ts.URL
+
+	res := DiscoverModels(s, "", "test-ollama-cloud-key")
+	if res["ollama_api_online"] != true {
+		t.Fatalf("expected ollama_api_online true, got %v", res["ollama_api_online"])
+	}
+	models, _ := res["models"].([]map[string]any)
+	foundCloud := false
+	for _, m := range models {
+		if m["id"] == "deepseek-v4.1-flash" && m["provider"] == "Ollama Cloud" {
+			foundCloud = true
+			break
+		}
+	}
+	if !foundCloud {
+		t.Errorf("expected deepseek-v4.1-flash with provider Ollama Cloud in models list")
+	}
+}
+
 func TestGetNetworkInfo(t *testing.T) {
 	s := NewDefaultSettings()
 	s.MobilePort = 8080

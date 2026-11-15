@@ -211,9 +211,10 @@ func DetectProvider(model string, configuredProvider string) string {
 		return "llamacpp"
 	}
 
-	// 3. If configuredProvider is explicitly a local server (llamacpp or lmstudio), retain it!
-	// Do not let model naming heuristics (like 'qwen' or 'mistral' in a local GGUF) hijack local server execution to cloud APIs.
-	if normConfigured == "llamacpp" || normConfigured == "lmstudio" {
+	// 3. If configuredProvider is explicitly a local server or Ollama Cloud API, retain it!
+	// Do not let model naming heuristics (e.g. ':cloud' forcing local 'ollama', or 'deepseek-v4'/'glm-5' hijacking to 'qwen')
+	// override an explicit provider selection.
+	if normConfigured == "llamacpp" || normConfigured == "lmstudio" || normConfigured == "ollama-api" {
 		return normConfigured
 	}
 
