@@ -81,10 +81,21 @@ type VersionManifest struct {
 func BuiltinChangelog() []ChangelogEntry {
 	return []ChangelogEntry{
 		{
+			Version: "3.0.5",
+			Date:    "2026-11-15",
+			Title:   "Unjess v3.0.5 - Fresh Desktop Shell Build, Resource Version & Installer Sync",
+			Tag:     "LATEST",
+			Changes: []string{
+				"Rebuilt Unjess.exe desktop shell and embedded UI fallback from current source instead of legacy v2.9.0/v3.0.0 assets",
+				"Updated Windows PE resource version metadata in Unjess.exe, unjessd.exe, and unjess-cli.exe from v2.9.6/v3.0.4 to v3.0.5",
+				"Synchronized installer scripts, version manifests, and Caddy/unjess.si release redirects with SHA-256 verified v3.0.5 binaries",
+			},
+		},
+		{
 			Version: "3.0.4",
 			Date:    "2026-11-15",
 			Title:   "Unjess v3.0.4 - Ollama API UI Rename & Provider Selection Persistence Fix",
-			Tag:     "LATEST",
+			Tag:     "UPDATE",
 			Changes: []string{
 				"Renamed 'Ollama Cloud' labels to 'Ollama API' across Settings, model selectors, and backend model discovery",
 				"Fixed setModel() and Save All Settings resetting Active LLM Provider from ollama-api back to local ollama when selecting hosted Ollama API models",

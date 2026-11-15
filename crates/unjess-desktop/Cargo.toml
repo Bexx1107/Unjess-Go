@@ -1,6 +1,6 @@
 [package]
 name = "unjess-desktop"
-version = "0.1.0"
+version = "3.0.5"
 edition = "2024"
 
 [dependencies]
