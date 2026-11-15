@@ -176,6 +176,8 @@ func DetectProvider(model string, configuredProvider string) string {
 		normConfigured = "llamacpp"
 	case "lm studio":
 		normConfigured = "lmstudio"
+	case "ollama api", "ollama cloud":
+		normConfigured = "ollama-api"
 	}
 
 	// 1. If model has explicit provider/model prefix (for known or custom providers), split and return provider.

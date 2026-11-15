@@ -1013,7 +1013,7 @@
                     <label class="block text-slate-300 font-medium mb-1">Active LLM Provider</label>
                     <select id="settings-provider" class="w-full bg-slate-900 border border-unjessBorder rounded-lg p-2 text-white font-mono text-xs focus:outline-none focus:border-slate-500">
                       <option value="ollama">Ollama (Local Server)</option>
-                      <option value="ollama-api">Ollama Cloud (ollama.com)</option>
+                      <option value="ollama-api">Ollama API (ollama.com)</option>
                       <option value="google">Google Gemini</option>
                       <option value="openai">OpenAI</option>
                       <option value="anthropic">Anthropic</option>
@@ -1075,10 +1075,10 @@
                 </h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                   <div>
-                    <label class="block text-slate-400 mb-1">Ollama Cloud Base URL</label>
+                    <label class="block text-slate-400 mb-1">Ollama API Base URL</label>
                     <div class="flex space-x-2">
                       <input id="settings-ollama-api-url" type="text" placeholder="https://ollama.com" class="flex-1 bg-slate-900 border border-unjessBorder rounded-lg p-2 text-white font-mono text-xs focus:outline-none focus:border-slate-500 select-text">
-                      <button id="btn-test-ollama-api" type="button" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-unjessBorder text-unjessCyan hover:text-white font-mono text-xs transition flex items-center space-x-1 flex-shrink-0" title="Test & Fetch models from Ollama Cloud">
+                      <button id="btn-test-ollama-api" type="button" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-unjessBorder text-unjessCyan hover:text-white font-mono text-xs transition flex items-center space-x-1 flex-shrink-0" title="Test & Fetch models from Ollama API">
                         <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
                         <span>Fetch</span>
                       </button>
@@ -1128,11 +1128,11 @@
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                  <!-- Ollama Cloud -->
+                  <!-- Ollama API -->
                   <div>
-                    <label class="block text-slate-300 font-medium mb-1">Ollama Cloud API Key</label>
+                    <label class="block text-slate-300 font-medium mb-1">Ollama API Key</label>
                     <div class="relative">
-                      <input id="settings-ollama-key" type="password" placeholder="Optional Bearer token for Ollama Cloud..." class="w-full bg-slate-900 border border-unjessBorder rounded-lg p-2 pr-9 text-white font-mono text-xs focus:outline-none focus:border-slate-500 select-text">
+                      <input id="settings-ollama-key" type="password" placeholder="Bearer token for Ollama API (ollama.com)..." class="w-full bg-slate-900 border border-unjessBorder rounded-lg p-2 pr-9 text-white font-mono text-xs focus:outline-none focus:border-slate-500 select-text">
                       <button type="button" onclick="togglePasswordVisibility('settings-ollama-key')" class="absolute right-2 top-2 text-slate-500 hover:text-white" title="Show/Hide Key">
                         <i data-lucide="eye" class="w-4 h-4"></i>
                       </button>
@@ -3079,8 +3079,8 @@
             discovered = data.models.map(m => ({
               id: m.id,
               name: m.name || m.id,
-              provider: m.provider || (m.is_cloud ? 'Ollama Cloud' : 'Ollama'),
-              desc: m.desc || `${m.provider || (m.is_cloud ? 'Ollama Cloud' : 'Ollama Server')} (${m.id})`,
+              provider: m.provider || (m.is_cloud ? 'Ollama API' : 'Ollama'),
+              desc: m.desc || `${m.provider || (m.is_cloud ? 'Ollama API' : 'Ollama Server')} (${m.id})`,
               is_cloud: !!m.is_cloud,
               has_tools: m.has_tools !== false,
               has_thinking: !!m.has_thinking,
@@ -3156,6 +3156,14 @@
         setModel(remembered, false);
       } else if (state.models.length > 0) {
         setModel(state.models[0].id, false);
+      }
+
+      const hasOllamaKey = Boolean((document.getElementById('settings-ollama-key')?.value || state.ollamaApiKey || state.settings?.ollama_api_key || '').trim());
+      if (hasOllamaKey && !ollamaOnline && ollamaApiOnline && (!state.selectedProvider || state.selectedProvider === 'ollama')) {
+        state.selectedProvider = 'ollama-api';
+        if (state.settings) state.settings.provider = 'ollama-api';
+        const provSelect = document.getElementById('settings-provider');
+        if (provSelect) provSelect.value = 'ollama-api';
       }
 
       return { isOnline, ollamaOnline, ollamaApiOnline, count: discovered.length, errMsg };
@@ -3245,6 +3253,26 @@
     }
     window.setReasoningEffort = setReasoningEffort;
 
+    function normalizeProviderId(providerLabel, isCloud = false) {
+      const low = String(providerLabel || '').trim().toLowerCase();
+      if (!low) return '';
+      if (low === 'llama.cpp' || low === 'llamacpp') return 'llamacpp';
+      if (low.includes('lm studio') || low === 'lmstudio') return 'lmstudio';
+      if (low === 'ollama api' || low === 'ollama cloud' || low === 'ollama-api' || (low === 'ollama' && isCloud)) return 'ollama-api';
+      if (low === 'ollama') return 'ollama';
+      if (low === 'google') return 'google';
+      if (low === 'openai') return 'openai';
+      if (low === 'anthropic') return 'anthropic';
+      if (low === 'groq') return 'groq';
+      if (low === 'mistral') return 'mistral';
+      if (low === 'xai') return 'xai';
+      if (low === 'cerebras') return 'cerebras';
+      if (low === 'openrouter') return 'openrouter';
+      if (low.includes('kimi')) return 'kimi';
+      if (low.includes('qwen')) return 'qwen';
+      return low;
+    }
+
     function setModel(modelId, persist = true) {
       if (!modelId) return;
       state.selectedModel = modelId;
@@ -3254,33 +3282,14 @@
         localStorage.setItem('unjess_last_selected_model', modelId);
       } catch (e) {}
 
-      if (persist) {
-        // Asynchronously persist selected model to ~/.unjess/config.yaml
-        fetch(`${API_BASE}/api/studio/settings`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ default_model: modelId })
-        }).catch(() => {});
-      }
-
       const mObj = state.models.find(m => m.id === modelId) || { id: modelId, name: modelId, desc: 'Selected language model' };
 
       let matchedProvider = '';
       if (mObj && mObj.provider) {
-        if (mObj.provider === 'llama.cpp') matchedProvider = 'llamacpp';
-        else if (mObj.provider.toLowerCase().includes('lm studio')) matchedProvider = 'lmstudio';
-        else if (mObj.provider === 'Ollama' || mObj.provider === 'Ollama Cloud') matchedProvider = 'ollama';
-        else if (mObj.provider === 'Google') matchedProvider = 'google';
-        else if (mObj.provider === 'OpenAI') matchedProvider = 'openai';
-        else if (mObj.provider === 'Anthropic') matchedProvider = 'anthropic';
-        else if (mObj.provider === 'Groq') matchedProvider = 'groq';
-        else if (mObj.provider === 'Mistral') matchedProvider = 'mistral';
-        else if (mObj.provider === 'xAI') matchedProvider = 'xai';
-        else if (mObj.provider === 'Cerebras') matchedProvider = 'cerebras';
-        else if (mObj.provider === 'OpenRouter') matchedProvider = 'openrouter';
-        else if (mObj.provider.includes('Kimi')) matchedProvider = 'kimi';
-        else if (mObj.provider.includes('Qwen')) matchedProvider = 'qwen';
-        else matchedProvider = mObj.provider.toLowerCase();
+        matchedProvider = normalizeProviderId(mObj.provider, Boolean(mObj.is_cloud));
+      }
+      if (matchedProvider === 'ollama' && state.selectedProvider === 'ollama-api') {
+        matchedProvider = 'ollama-api';
       }
       if (matchedProvider) {
         state.selectedProvider = matchedProvider;
@@ -8198,7 +8207,7 @@ function openNewChatModal(initialMode = 'quick') {
               </h3>
             </div>
             <p class="text-[11px] text-zinc-400">
-              Choose which model each subagent should run on (e.g. local Ollama, Ollama Cloud, Gemini Argon/Flash, Anthropic, OpenAI):
+              Choose which model each subagent should run on (e.g. local Ollama, Ollama API, Gemini Argon/Flash, Anthropic, OpenAI):
             </p>
           </div>
           <div class="flex items-center space-x-2 flex-shrink-0 pl-3">
@@ -9437,14 +9446,12 @@ function openNewChatModal(initialMode = 'quick') {
       Object.values(state.tools).forEach(t => { enabledToolsMap[t.id] = t.enabled; });
 
       const activeModelObj = state.models.find(m => m.id === state.selectedModel);
-      let activeProvider = state.selectedProvider || '';
-      if (!activeProvider && activeModelObj && activeModelObj.provider) {
-        if (activeModelObj.provider === 'llama.cpp') activeProvider = 'llamacpp';
-        else if (activeModelObj.provider.toLowerCase().includes('lm studio')) activeProvider = 'lmstudio';
-        else activeProvider = activeModelObj.provider.toLowerCase();
-      }
-      if (!activeProvider && state.settings && state.settings.provider) {
-        activeProvider = state.settings.provider;
+      const modelProviderId = activeModelObj ? normalizeProviderId(activeModelObj.provider, Boolean(activeModelObj.is_cloud)) : '';
+      let activeProvider = '';
+      if (state.selectedProvider === 'ollama-api' && (!modelProviderId || modelProviderId === 'ollama' || modelProviderId === 'ollama-api')) {
+        activeProvider = 'ollama-api';
+      } else {
+        activeProvider = modelProviderId || state.selectedProvider || (state.settings && state.settings.provider) || '';
       }
 
       const reqBodyStr = JSON.stringify({
@@ -10397,15 +10404,29 @@ function openNewChatModal(initialMode = 'quick') {
           if (el && val !== undefined && val !== null) el.checked = Boolean(val);
         };
 
+        state.selectedProvider = s.provider || 'ollama';
         setVal('settings-provider', s.provider || 'ollama');
         const provSelect = document.getElementById('settings-provider');
         if (provSelect && !provSelect.dataset.listenerAttached) {
           provSelect.dataset.listenerAttached = 'true';
           provSelect.addEventListener('change', (e) => {
+            const newProv = e.target.value || 'ollama';
+            state.selectedProvider = newProv;
+            if (state.settings) state.settings.provider = newProv;
+            const updatePayload = { provider: newProv };
+            const currentObj = (state.models || []).find(m => m.id === state.selectedModel);
+            const currentProv = currentObj ? normalizeProviderId(currentObj.provider, Boolean(currentObj.is_cloud)) : '';
+            if (currentProv !== newProv) {
+              const firstMatch = (state.models || []).find(m => normalizeProviderId(m.provider, Boolean(m.is_cloud)) === newProv);
+              if (firstMatch) {
+                updatePayload.default_model = firstMatch.id;
+                setModel(firstMatch.id, false);
+              }
+            }
             fetch(`${API_BASE}/api/studio/settings`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ provider: e.target.value })
+              body: JSON.stringify(updatePayload)
             }).then(() => {
               fetchAndSyncModels();
             }).catch(() => {});
@@ -10601,8 +10622,24 @@ function openNewChatModal(initialMode = 'quick') {
           body: JSON.stringify(payload)
         });
         if (resp.ok) {
-          if (payload.default_model) setModel(payload.default_model);
-          await fetchAndSyncModels(payload.ollama_base_url, payload.ollama_api_key, '', '', payload.ollama_api_base_url);
+          state.selectedProvider = payload.provider || 'ollama';
+          if (!state.settings) state.settings = {};
+          state.settings.provider = state.selectedProvider;
+          state.settings.ollama_api_key = payload.ollama_api_key;
+          state.settings.ollama_api_base_url = payload.ollama_api_base_url;
+          if (payload.default_model) setModel(payload.default_model, false);
+          const syncRes = await fetchAndSyncModels(payload.ollama_base_url, payload.ollama_api_key, '', '', payload.ollama_api_base_url);
+          const hasKey = Boolean((payload.ollama_api_key || '').trim());
+          if (hasKey && syncRes && !syncRes.ollamaOnline && syncRes.ollamaApiOnline && (state.selectedProvider === 'ollama' || !state.selectedProvider)) {
+            state.selectedProvider = 'ollama-api';
+            state.settings.provider = 'ollama-api';
+            setVal('settings-provider', 'ollama-api');
+            await fetch(`${API_BASE}/api/studio/settings`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ provider: 'ollama-api' })
+            }).catch(() => {});
+          }
           loadNetworkInfo();
           if (btnText) btnText.textContent = 'Saved Successfully';
           if (statusMsg) statusMsg.textContent = 'Saved to ~/.unjess/config.yaml & keys.yaml';
@@ -12269,7 +12306,7 @@ function openNewChatModal(initialMode = 'quick') {
         const statusMsg = document.getElementById('settings-status-msg');
         if (statusMsg) statusMsg.textContent = `Fetching models from ${url}...`;
         const res = await fetchAndSyncModels(url, key);
-        const ollamaModels = (state.models || []).filter(m => m.provider === 'Ollama' || m.provider === 'Ollama Cloud');
+        const ollamaModels = (state.models || []).filter(m => m.provider === 'Ollama' || m.provider === 'Ollama API' || m.provider === 'Ollama Cloud');
         if (statusMsg) {
           statusMsg.textContent = res.ollamaOnline
             ? `Loaded ${ollamaModels.length} Ollama models from ${url}`
@@ -12277,19 +12314,19 @@ function openNewChatModal(initialMode = 'quick') {
         }
       });
 
-      // Settings: Test & Fetch Ollama Cloud Models button
+      // Settings: Test & Fetch Ollama API Models button
       document.getElementById('btn-test-ollama-api')?.addEventListener('click', async () => {
         const apiUrl = (document.getElementById('settings-ollama-api-url')?.value || '').trim() || 'https://ollama.com';
         const key = (document.getElementById('settings-ollama-key')?.value || '').trim();
         state.ollamaApiKey = key;
         const statusMsg = document.getElementById('settings-status-msg');
-        if (statusMsg) statusMsg.textContent = `Fetching Ollama Cloud models from ${apiUrl}...`;
+        if (statusMsg) statusMsg.textContent = `Fetching Ollama API models from ${apiUrl}...`;
         const res = await fetchAndSyncModels('', key, '', '', apiUrl);
-        const cloudModels = (state.models || []).filter(m => m.provider === 'Ollama Cloud');
+        const cloudModels = (state.models || []).filter(m => m.provider === 'Ollama API' || m.provider === 'Ollama Cloud');
         if (statusMsg) {
           statusMsg.textContent = res.ollamaApiOnline
-            ? `Connected to Ollama Cloud (${cloudModels.length} live models from ${apiUrl})`
-            : (key ? `Could not reach Ollama Cloud at ${apiUrl} (check base URL or API key)` : 'Enter your Ollama Cloud API Key first under API Keys');
+            ? `Connected to Ollama API (${cloudModels.length} live models from ${apiUrl})`
+            : (key ? `Could not reach Ollama API at ${apiUrl} (check base URL or API key)` : 'Enter your Ollama API Key first under API Keys');
         }
       });
 

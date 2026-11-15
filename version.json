@@ -1,31 +1,42 @@
 {
-  "version": "3.0.3",
+  "version": "3.0.4",
   "published_at": "2026-11-15",
   "channel": "stable",
-  "download_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.3/Unjess.exe",
-  "installer_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.3/Unjess-Setup.exe",
-  "webview2_loader_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.3/WebView2Loader.dll",
-  "daemon_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.3/unjessd.exe",
-  "cli_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.3/unjess-cli.exe",
-  "desktop_linux_amd64_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.3/unjess-linux-desktop-amd64",
+  "download_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.4/Unjess.exe",
+  "installer_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.4/Unjess-Setup.exe",
+  "webview2_loader_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.4/WebView2Loader.dll",
+  "daemon_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.4/unjessd.exe",
+  "cli_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.4/unjess-cli.exe",
+  "desktop_linux_amd64_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.4/unjess-linux-desktop-amd64",
   "desktop_linux_amd64_sha256": "a6a9277da812c104b17d4be8d06b6c050c1368004823a96e5cccc8d94908275c",
-  "cli_linux_amd64_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.3/unjess-linux-amd64",
-  "cli_linux_arm64_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.3/unjess-linux-arm64",
-  "daemon_linux_amd64_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.3/unjessd-linux-amd64",
-  "daemon_linux_arm64_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.3/unjessd-linux-arm64",
+  "cli_linux_amd64_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.4/unjess-linux-amd64",
+  "cli_linux_arm64_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.4/unjess-linux-arm64",
+  "daemon_linux_amd64_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.4/unjessd-linux-amd64",
+  "daemon_linux_arm64_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.4/unjessd-linux-arm64",
   "sha256": "43d40e69c607a9f1d46c79688e6571c4763311a25b09a6ac841f4c2fc54e4745",
-  "installer_sha256": "82066576fe32554d125c745857001cb6fbb5254053886516fd1e4261b0be54c1",
-  "daemon_sha256": "35ec13517406dff78648a09f7ef8a6fdcbee4de8c0495068bea2cda01f33a5dc",
-  "cli_sha256": "84e35397665fedccd731543214313dd85d44a129a4f511b07aac923f1362434f",
+  "installer_sha256": "727e8f7590599e670d30efcc14097fee6cc73d7df9188876784650b97fe33268",
+  "daemon_sha256": "660ff2ea213510131621084b30e9ef407c7f3063c9d58969b4e5fe2e57855f6b",
+  "cli_sha256": "f254a955632406047b884105bde1f9ebc97cc6a31710517edcf24e83f20f7b7a",
   "desktop_sha256": "43d40e69c607a9f1d46c79688e6571c4763311a25b09a6ac841f4c2fc54e4745",
   "webview2_loader_sha256": "86545b66cdb0603bc26b626fb9ad610cb6e71f28d468f5ea66df23b03dda96d5",
-  "notes": "Unjess v3.0.3 - Fix Ollama Cloud (ollama-api) routing, live /api/tags model discovery, and Settings Test & Fetch button.",
+  "notes": "Unjess v3.0.4 - Rename 'Ollama Cloud' to 'Ollama API', fix provider selection persistence when saving/selecting Ollama API models, and add :cloud fallback when local Ollama is offline.",
   "changelog": [
+    {
+      "version": "3.0.4",
+      "date": "2026-11-15",
+      "title": "Unjess v3.0.4 - Ollama API UI Rename & Provider Selection Persistence Fix",
+      "tag": "LATEST",
+      "changes": [
+        "Renamed 'Ollama Cloud' labels to 'Ollama API' across Settings, model selectors, and backend model discovery",
+        "Fixed setModel() and Save All Settings resetting Active LLM Provider from ollama-api back to local ollama when selecting hosted Ollama API models",
+        "Preserved ollama-api selection across syncs/saves when an Ollama API key is configured, and added automatic :cloud fallback to OllamaAPIBaseURL when local Ollama is offline"
+      ]
+    },
     {
       "version": "3.0.3",
       "date": "2026-11-15",
       "title": "Unjess v3.0.3 - Ollama Cloud Routing & Live Model Discovery Fix",
-      "tag": "LATEST",
+      "tag": "UPDATE",
       "changes": [
         "Preserved explicit ollama-api provider in DetectProvider so :cloud and hosted Ollama Cloud models route to OllamaAPIBaseURL instead of local Ollama or Qwen",
         "Added live Ollama Cloud (/api/tags) Bearer-authenticated model discovery and normalized Ollama Cloud base URL handling",
@@ -46,11 +57,11 @@
       ]
     }
   ],
-  "cli_linux_amd64_sha256": "20738c9273b25b42577380df0f089a5c0e0c4057db806bfffee25c26612a3c33",
-  "cli_linux_arm64_sha256": "6063713d733fd64a17bba2aa69949a2b7931ebc922633c03c59e7cfe9c206539",
-  "daemon_linux_amd64_sha256": "6c74b610652a40c8629dfc27b00b0ba8b5277bb73b2693e6edd77a30e1f94198",
-  "daemon_linux_arm64_sha256": "cf26d0027b199566837189aa54935b03ae626346e98c9fc0de72d27d2b760b4d",
-  "cli_windows_amd64_sha256": "84e35397665fedccd731543214313dd85d44a129a4f511b07aac923f1362434f",
-  "daemon_windows_amd64_sha256": "35ec13517406dff78648a09f7ef8a6fdcbee4de8c0495068bea2cda01f33a5dc",
-  "setup_windows_amd64_sha256": "82066576fe32554d125c745857001cb6fbb5254053886516fd1e4261b0be54c1"
+  "cli_linux_amd64_sha256": "490b57391731ce04c94a1e12498573837cbf4c19b7c64ba6b27262e8f988e3bd",
+  "cli_linux_arm64_sha256": "a495498e55db6b014fde4717226ed35f9eee6a82f84d2725f3f1467fa4df85cc",
+  "daemon_linux_amd64_sha256": "c16b271425f90e64e7de9f12962fb7af9bfbc35e5cfb240e24d0ddcb61140444",
+  "daemon_linux_arm64_sha256": "8fdcd4afc428dcd71912eddec52afa75ce58723132204496420a5e744e06272a",
+  "cli_windows_amd64_sha256": "f254a955632406047b884105bde1f9ebc97cc6a31710517edcf24e83f20f7b7a",
+  "daemon_windows_amd64_sha256": "660ff2ea213510131621084b30e9ef407c7f3063c9d58969b4e5fe2e57855f6b",
+  "setup_windows_amd64_sha256": "727e8f7590599e670d30efcc14097fee6cc73d7df9188876784650b97fe33268"
 }

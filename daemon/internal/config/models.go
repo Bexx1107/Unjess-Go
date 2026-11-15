@@ -246,11 +246,11 @@ var CloudProviderModels = map[string][]map[string]any{
 		{"id": "qwen3.7-max", "name": "Qwen 3.7 Max", "provider": "Qwen", "desc": "Alibaba Qwen 3.7 Max model", "has_tools": true, "has_thinking": true, "supports_effort": true, "is_cloud": true},
 	},
 	"ollama-api": {
-		{"id": "deepseek-v4-pro:cloud", "name": "DeepSeek V4 Pro (Cloud)", "provider": "Ollama Cloud", "desc": "Hosted Ollama Cloud model", "has_tools": true, "has_thinking": true, "supports_effort": true, "is_cloud": true},
-		{"id": "deepseek-v4.1-flash:cloud", "name": "DeepSeek V4.1 Flash (Cloud)", "provider": "Ollama Cloud", "desc": "Hosted Ollama Cloud model", "has_tools": true, "has_thinking": true, "supports_effort": true, "is_cloud": true},
-		{"id": "kimi-k3:cloud", "name": "Kimi K3 (Cloud)", "provider": "Ollama Cloud", "desc": "Hosted Ollama Cloud model", "has_tools": true, "has_thinking": true, "supports_effort": true, "is_cloud": true},
-		{"id": "glm-5.3:cloud", "name": "GLM 5.3 (Cloud)", "provider": "Ollama Cloud", "desc": "Hosted Ollama Cloud model", "has_tools": true, "has_thinking": true, "supports_effort": true, "is_cloud": true},
-		{"id": "mistral-large-4:cloud", "name": "Mistral Large 4 (Cloud)", "provider": "Ollama Cloud", "desc": "Hosted Ollama Cloud model", "has_tools": true, "has_thinking": true, "supports_effort": true, "is_cloud": true},
+		{"id": "deepseek-v4-pro:cloud", "name": "DeepSeek V4 Pro (Ollama API)", "provider": "Ollama API", "desc": "Hosted Ollama API model", "has_tools": true, "has_thinking": true, "supports_effort": true, "is_cloud": true},
+		{"id": "deepseek-v4.1-flash:cloud", "name": "DeepSeek V4.1 Flash (Ollama API)", "provider": "Ollama API", "desc": "Hosted Ollama API model", "has_tools": true, "has_thinking": true, "supports_effort": true, "is_cloud": true},
+		{"id": "kimi-k3:cloud", "name": "Kimi K3 (Ollama API)", "provider": "Ollama API", "desc": "Hosted Ollama API model", "has_tools": true, "has_thinking": true, "supports_effort": true, "is_cloud": true},
+		{"id": "glm-5.3:cloud", "name": "GLM 5.3 (Ollama API)", "provider": "Ollama API", "desc": "Hosted Ollama API model", "has_tools": true, "has_thinking": true, "supports_effort": true, "is_cloud": true},
+		{"id": "mistral-large-4:cloud", "name": "Mistral Large 4 (Ollama API)", "provider": "Ollama API", "desc": "Hosted Ollama API model", "has_tools": true, "has_thinking": true, "supports_effort": true, "is_cloud": true},
 	},
 }
 
@@ -397,12 +397,12 @@ func DiscoverModels(s *Settings, overrideOllamaURL string, overrideOllamaKey str
 						desc = "Local model (GGUF)"
 					}
 					if isCloud {
-						desc = "Ollama Cloud model"
+						desc = "Ollama API model"
 					}
 
 					providerName := "Ollama"
 					if isCloud {
-						providerName = "Ollama Cloud"
+						providerName = "Ollama API"
 					}
 
 					parsedModels = append(parsedModels, map[string]any{
@@ -1216,10 +1216,10 @@ func fetchLiveCloudModels(prov string, apiKey string, baseURLs map[string]string
 					strings.Contains(lowID, "gpt-oss")
 				results = append(results, map[string]any{
 					"id":              id,
-					"name":            id + " (Ollama Cloud)",
+					"name":            id + " (Ollama API)",
 					"raw_name":        id,
-					"provider":        "Ollama Cloud",
-					"desc":            fmt.Sprintf("Ollama Cloud model (%s)", apiBase),
+					"provider":        "Ollama API",
+					"desc":            fmt.Sprintf("Ollama API model (%s)", apiBase),
 					"has_tools":       true,
 					"has_thinking":    hasThinking,
 					"supports_effort": true,

@@ -36,6 +36,8 @@ func TestDetectProvider(t *testing.T) {
 		{"deepseek-v4.1-flash:cloud", "", "ollama"},
 		{"qwen2.5-coder:cloud", "openai", "ollama"},
 		{"deepseek-v4.1-flash:cloud", "ollama-api", "ollama-api"},
+		{"deepseek-v4.1-flash:cloud", "Ollama API", "ollama-api"},
+		{"deepseek-v4.1-flash:cloud", "Ollama Cloud", "ollama-api"},
 		{"deepseek-v4.1-flash:1017", "ollama-api", "ollama-api"},
 		{"deepseek-v4.1-flash", "ollama-api", "ollama-api"},
 		{"glm-5.3-flash", "ollama-api", "ollama-api"},
@@ -665,5 +667,57 @@ func TestOllamaVisionFallback(t *testing.T) {
 		if !strings.Contains(content, "[Note: Active model does not support raw image input") {
 			t.Errorf("expected fallback note appended to message content, got: %s", content)
 		}
+	}
+}
+
+func TestOllamaAPIRoutingAndCloudFallback(t *testing.T) {
+	var seenAuth string
+	var seenModel string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/chat" {
+			http.NotFound(w, r)
+			return
+		}
+		seenAuth = r.Header.Get("Authorization")
+		var payload map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&payload)
+		seenModel, _ = payload["model"].(string)
+		w.Header().Set("Content-Type", "application/x-ndjson")
+		fmt.Fprintln(w, `{"message": {"role": "assistant", "content": "Hello from Ollama API!"}, "done": true}`)
+	}))
+	defer ts.Close()
+
+	// 1. Explicit ollama-api provider with non-:cloud model name routes directly to OllamaAPIBaseURL
+	res, err := ChatStream(context.Background(), ChatOptions{
+		Model:            "gemma4:31b",
+		Provider:         "ollama-api",
+		OllamaBaseURL:    "http://127.0.0.1:59997",
+		OllamaAPIBaseURL: ts.URL,
+		APIKeys:          map[string]string{"ollama-api": "test-key-123"},
+		Messages:         []Message{{Role: "user", Content: "hi"}},
+	}, StreamCallbacks{})
+	if err != nil {
+		t.Fatalf("explicit ollama-api ChatStream failed: %v", err)
+	}
+	if res.Content != "Hello from Ollama API!" || seenAuth != "Bearer test-key-123" || seenModel != "gemma4:31b" {
+		t.Errorf("unexpected explicit ollama-api result: content=%q auth=%q model=%q", res.Content, seenAuth, seenModel)
+	}
+
+	// 2. :cloud model with unreachable local Ollama falls back to OllamaAPIBaseURL when key is set
+	seenAuth = ""
+	seenModel = ""
+	resFallback, err := ChatStream(context.Background(), ChatOptions{
+		Model:            "deepseek-v4.1-flash:cloud",
+		Provider:         "ollama",
+		OllamaBaseURL:    "http://127.0.0.1:59997",
+		OllamaAPIBaseURL: ts.URL,
+		APIKeys:          map[string]string{"ollama-api": "test-key-123"},
+		Messages:         []Message{{Role: "user", Content: "hi"}},
+	}, StreamCallbacks{})
+	if err != nil {
+		t.Fatalf(":cloud fallback ChatStream failed: %v", err)
+	}
+	if resFallback.Content != "Hello from Ollama API!" || seenAuth != "Bearer test-key-123" || seenModel != "deepseek-v4.1-flash:cloud" {
+		t.Errorf("unexpected :cloud fallback result: content=%q auth=%q model=%q", resFallback.Content, seenAuth, seenModel)
 	}
 }

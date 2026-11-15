@@ -81,10 +81,21 @@ type VersionManifest struct {
 func BuiltinChangelog() []ChangelogEntry {
 	return []ChangelogEntry{
 		{
+			Version: "3.0.4",
+			Date:    "2026-11-15",
+			Title:   "Unjess v3.0.4 - Ollama API UI Rename & Provider Selection Persistence Fix",
+			Tag:     "LATEST",
+			Changes: []string{
+				"Renamed 'Ollama Cloud' labels to 'Ollama API' across Settings, model selectors, and backend model discovery",
+				"Fixed setModel() and Save All Settings resetting Active LLM Provider from ollama-api back to local ollama when selecting hosted Ollama API models",
+				"Preserved ollama-api selection across syncs/saves when an Ollama API key is configured, and added automatic :cloud fallback to OllamaAPIBaseURL when local Ollama is offline",
+			},
+		},
+		{
 			Version: "3.0.3",
 			Date:    "2026-11-15",
 			Title:   "Unjess v3.0.3 - Ollama Cloud Routing & Live Model Discovery Fix",
-			Tag:     "LATEST",
+			Tag:     "UPDATE",
 			Changes: []string{
 				"Preserved explicit ollama-api provider in DetectProvider so :cloud and hosted Ollama Cloud models route to OllamaAPIBaseURL instead of local Ollama or Qwen",
 				"Added live Ollama Cloud (/api/tags) Bearer-authenticated model discovery and normalized Ollama Cloud base URL handling",

@@ -372,13 +372,13 @@ func TestDiscoverModelsWithOllamaCloud(t *testing.T) {
 	models, _ := res["models"].([]map[string]any)
 	foundCloud := false
 	for _, m := range models {
-		if m["id"] == "deepseek-v4.1-flash" && m["provider"] == "Ollama Cloud" {
+		if m["id"] == "deepseek-v4.1-flash" && m["provider"] == "Ollama API" {
 			foundCloud = true
 			break
 		}
 	}
 	if !foundCloud {
-		t.Errorf("expected deepseek-v4.1-flash with provider Ollama Cloud in models list")
+		t.Errorf("expected deepseek-v4.1-flash with provider Ollama API in models list")
 	}
 }
 

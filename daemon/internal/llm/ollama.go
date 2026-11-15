@@ -120,6 +120,18 @@ func prepareOllamaTools(tools []map[string]any) []any {
 	return prepared
 }
 
+func normalizeOllamaBaseURL(raw string) string {
+	u := strings.TrimSpace(raw)
+	if u != "" && !strings.HasPrefix(u, "http://") && !strings.HasPrefix(u, "https://") {
+		u = "https://" + u
+	}
+	u = strings.TrimRight(u, "/")
+	u = strings.TrimSuffix(u, "/api/chat")
+	u = strings.TrimSuffix(u, "/v1")
+	u = strings.TrimSuffix(u, "/api")
+	return u
+}
+
 func streamOllama(ctx context.Context, opts ChatOptions, cb StreamCallbacks) (*ChatResult, error) {
 	baseURL := opts.OllamaBaseURL
 	var apiKey string
@@ -137,14 +149,7 @@ func streamOllama(ctx context.Context, opts ChatOptions, cb StreamCallbacks) (*C
 		apiKey = getAPIKey(opts, "ollama", "OLLAMA_API_KEY")
 	}
 
-	baseURL = strings.TrimSpace(baseURL)
-	if baseURL != "" && !strings.HasPrefix(baseURL, "http://") && !strings.HasPrefix(baseURL, "https://") {
-		baseURL = "https://" + baseURL
-	}
-	baseURL = strings.TrimRight(baseURL, "/")
-	baseURL = strings.TrimSuffix(baseURL, "/api/chat")
-	baseURL = strings.TrimSuffix(baseURL, "/v1")
-	baseURL = strings.TrimSuffix(baseURL, "/api")
+	baseURL = normalizeOllamaBaseURL(baseURL)
 	chatEndpoint := baseURL + "/api/chat"
 
 	preparedMessages := prepareOllamaMessages(opts)
@@ -208,6 +213,36 @@ func streamOllama(ctx context.Context, opts ChatOptions, cb StreamCallbacks) (*C
 
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
+			// If a :cloud model failed to connect to local Ollama and an Ollama API key is available,
+			// transparently retry against OllamaAPIBaseURL (default https://ollama.com).
+			if opts.Provider != "ollama-api" && strings.HasSuffix(strings.ToLower(strings.TrimSpace(opts.Model)), ":cloud") {
+				cloudKey := getAPIKey(opts, "ollama-api", "OLLAMA_API_KEY")
+				if cloudKey != "" && cloudKey != "ollama" {
+					cloudBase := opts.OllamaAPIBaseURL
+					if cloudBase == "" {
+						cloudBase = getBaseURL(opts, "ollama-api", "https://ollama.com")
+					}
+					cloudBase = normalizeOllamaBaseURL(cloudBase)
+					if cloudBase != "" && cloudBase != baseURL {
+						if cloudReq, rErr := http.NewRequestWithContext(ctx, "POST", cloudBase+"/api/chat", bytes.NewReader(bodyBytes)); rErr == nil {
+							cloudReq.Header.Set("Content-Type", "application/json")
+							cloudReq.Header.Set("User-Agent", "Unjess-Daemon/1.0")
+							cloudReq.Header.Set("Authorization", "Bearer "+cloudKey)
+							if cloudResp, cErr := http.DefaultClient.Do(cloudReq); cErr == nil {
+								baseURL = cloudBase
+								chatEndpoint = cloudBase + "/api/chat"
+								apiKey = cloudKey
+								if cloudResp.StatusCode != http.StatusOK {
+									errBytes, _ := io.ReadAll(cloudResp.Body)
+									_ = cloudResp.Body.Close()
+									return cloudResp, errBytes, nil
+								}
+								return cloudResp, nil, nil
+							}
+						}
+					}
+				}
+			}
 			return nil, nil, fmt.Errorf("cannot connect to Ollama at %s: %w", baseURL, err)
 		}
 		if resp.StatusCode != http.StatusOK {
