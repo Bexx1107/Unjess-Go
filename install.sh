@@ -8,7 +8,7 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 echo -e "${CYAN}==================================================${NC}"
-echo -e "  UNJESS — Universal Agentic Coding Harness v3.0.5 "
+echo -e "  UNJESS — Universal Agentic Coding Harness v3.0.6 "
 echo -e "${CYAN}==================================================${NC}"
 echo ""
 
@@ -30,8 +30,8 @@ fi
 
 TARGET_DIR="$HOME/.unjess/bin"
 TARGET_EXE="$TARGET_DIR/unjess-gui"
-DOWNLOAD_URL="https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.5/unjess-linux-desktop-amd64"
-EXPECTED_HASH="6eb59c7be6a36654878d2d3e57f66002ce1acac9135c6024c3f3aa08ea18ecf8"
+DOWNLOAD_URL="https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.6/unjess-linux-desktop-amd64"
+EXPECTED_HASH="19daafe9a457fd10517d167a3a19860a1f6811bde4afa65a8851760a4314807f"
 TEMP_FILE="$(mktemp -t unjess-desktop.XXXXXX)"
 
 echo -e "${GRAY}Downloading Unjess Desktop GUI for Linux from https://unjess.si...${NC}"

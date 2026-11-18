@@ -69,9 +69,10 @@ type VersionManifest struct {
 	Version      string           `json:"version"`
 	PublishedAt  string           `json:"published_at"`
 	Channel      string           `json:"channel"`
-	DownloadURL  string           `json:"download_url"`
-	InstallerURL string           `json:"installer_url"`
-	DaemonURL    string           `json:"daemon_url"`
+	DownloadURL       string           `json:"download_url"`
+	InstallerURL      string           `json:"installer_url"`
+	WebView2LoaderURL string           `json:"webview2_loader_url,omitempty"`
+	DaemonURL         string           `json:"daemon_url"`
 	SHA256       string           `json:"sha256,omitempty"`
 	Notes        string           `json:"notes"`
 	Changelog    []ChangelogEntry `json:"changelog"`
@@ -81,10 +82,21 @@ type VersionManifest struct {
 func BuiltinChangelog() []ChangelogEntry {
 	return []ChangelogEntry{
 		{
+			Version: "3.0.6",
+			Date:    "2026-11-18",
+			Title:   "Unjess v3.0.6 - Bundle WebView2Loader.dll in Windows Installer & Portable ZIP",
+			Tag:     "LATEST",
+			Changes: []string{
+				"Embedded WebView2Loader.dll inside Unjess-Setup.exe so Unjess.exe launches cleanly after installation without missing DLL errors",
+				"Added dynamic Windows Known-Folder Desktop shortcut resolution (supports OneDrive Desktop redirection) and explicit install path confirmation",
+				"Published self-contained Unjess-Portable-win64.zip with Unjess.exe, WebView2Loader.dll, unjessd.exe, and unjess-cli.exe side-by-side",
+			},
+		},
+		{
 			Version: "3.0.5",
 			Date:    "2026-11-15",
 			Title:   "Unjess v3.0.5 - Fresh Desktop Shell Build, Resource Version & Installer Sync",
-			Tag:     "LATEST",
+			Tag:     "UPDATE",
 			Changes: []string{
 				"Rebuilt Unjess.exe desktop shell and embedded UI fallback from current source instead of legacy v2.9.0/v3.0.0 assets",
 				"Updated Windows PE resource version metadata in Unjess.exe, unjessd.exe, and unjess-cli.exe from v2.9.6/v3.0.4 to v3.0.5",
@@ -274,6 +286,7 @@ func CheckForUpdates(updateURL string, autoUpdateEnabled bool) map[string]any {
 		"update_server_url":   updateURL,
 		"download_url":        manifest.DownloadURL,
 		"installer_url":       manifest.InstallerURL,
+		"webview2_loader_url": manifest.WebView2LoaderURL,
 		"daemon_url":          manifest.DaemonURL,
 		"published_at":        manifest.PublishedAt,
 		"notes":               manifest.Notes,
@@ -442,6 +455,14 @@ func ApplyUpdate(updateURL string) (map[string]any, error) {
 				if cliURL != daemonURL && cliURL != "" {
 					_ = stageBinary(cliURL, siblingCli, "unjess-cli.exe")
 				}
+			}
+			siblingWebView2 := filepath.Join(desktopDir, "WebView2Loader.dll")
+			wv2URL, _ := info["webview2_loader_url"].(string)
+			if wv2URL == "" {
+				wv2URL = strings.Replace(daemonURL, "unjessd.exe", "WebView2Loader.dll", 1)
+			}
+			if wv2URL != daemonURL && wv2URL != "" {
+				_ = stageBinary(wv2URL, siblingWebView2, "WebView2Loader.dll")
 			}
 		}
 	}

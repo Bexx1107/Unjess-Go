@@ -168,6 +168,21 @@ try {
         }
     }
 
+    # Ensure WebView2Loader.dll is staged for installer embedding
+    $stagedWebView2 = Join-Path $installerCmdDir "WebView2Loader.dll"
+    if (-not (Test-Path $stagedWebView2)) {
+        $distWebView2 = Join-Path $distDir "WebView2Loader.dll"
+        if (Test-Path $distWebView2) {
+            Copy-Item $distWebView2 $stagedWebView2 -Force
+        } else {
+            $cargoWebView2 = Get-ChildItem -Path (Join-Path $cratesDir "target\release\build") -Filter "WebView2Loader.dll" -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.DirectoryName -like "*\x64" } | Select-Object -First 1
+            if ($cargoWebView2) {
+                Copy-Item $cargoWebView2.FullName $stagedWebView2 -Force
+                Copy-Item $cargoWebView2.FullName $distWebView2 -Force
+            }
+        }
+    }
+
     # Build installer
     $setupExe = Join-Path $distDir "Unjess-Setup.exe"
     & go build -trimpath -ldflags="-s -w -H=windowsgui -buildid=" -o $setupExe ./cmd/installer
@@ -177,6 +192,7 @@ try {
     # Clean up staged installer binaries
     Remove-Item (Join-Path $installerCmdDir "unjess-cli.exe") -Force -ErrorAction SilentlyContinue
     Remove-Item (Join-Path $installerCmdDir "unjessd.exe") -Force -ErrorAction SilentlyContinue
+    Remove-Item (Join-Path $installerCmdDir "WebView2Loader.dll") -Force -ErrorAction SilentlyContinue
 } finally {
     Pop-Location
 }

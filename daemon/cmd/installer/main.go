@@ -27,6 +27,9 @@ var embeddedCliExe []byte
 //go:embed Unjess-Uninstall.exe
 var embeddedUninstallExe []byte
 
+//go:embed WebView2Loader.dll
+var embeddedWebView2Loader []byte
+
 //go:embed unjess_icon.ico
 var embeddedIcon []byte
 
@@ -122,16 +125,24 @@ func main() {
 	}
 
 	targetExe := filepath.Join(installDir, "Unjess.exe")
+	targetWebView2 := filepath.Join(installDir, "WebView2Loader.dll")
 	targetDaemon := filepath.Join(installDir, "unjessd.exe")
 	targetCli := filepath.Join(installDir, "unjess-cli.exe")
 	targetCmd := filepath.Join(installDir, "njss.cmd")
 	targetUninstall := filepath.Join(installDir, "Unjess-Uninstall.exe")
 	targetIcon := filepath.Join(installDir, "unjess_icon.ico")
 
-	// 3. Write embedded files (both GUI and daemon are placed side-by-side, eliminating runtime dropper pattern)
+	// 3. Write embedded files (both GUI, WebView2Loader.dll, and daemon are placed side-by-side)
 	if err := os.WriteFile(targetExe, embeddedUnjessExe, 0755); err != nil {
 		if !silent {
 			messageBox("Unjess Setup Error", fmt.Sprintf("Failed to write %s: %v", targetExe, err), MB_OK|MB_ICONERROR)
+		}
+		os.Exit(1)
+	}
+
+	if err := os.WriteFile(targetWebView2, embeddedWebView2Loader, 0755); err != nil {
+		if !silent {
+			messageBox("Unjess Setup Error", fmt.Sprintf("Failed to write %s: %v", targetWebView2, err), MB_OK|MB_ICONERROR)
 		}
 		os.Exit(1)
 	}
@@ -146,7 +157,12 @@ func main() {
 	}
 
 	if len(embeddedCliExe) > 0 {
-		_ = os.WriteFile(targetCli, embeddedCliExe, 0755)
+		if err := os.WriteFile(targetCli, embeddedCliExe, 0755); err != nil {
+			if !silent {
+				messageBox("Unjess Setup Error", fmt.Sprintf("Failed to write %s: %v", targetCli, err), MB_OK|MB_ICONERROR)
+			}
+			os.Exit(1)
+		}
 		_ = os.WriteFile(targetCmd, []byte("@echo off\r\n\"%~dp0unjess-cli.exe\" %*\r\n"), 0755)
 	}
 
@@ -159,9 +175,23 @@ func main() {
 
 	_ = os.WriteFile(targetIcon, embeddedIcon, 0644)
 
-	// 4. Create Desktop & Start Menu shortcuts
-	if userProfile := os.Getenv("USERPROFILE"); userProfile != "" {
-		desktopShortcut := filepath.Join(userProfile, "Desktop", "Unjess.lnk")
+	// 4. Create Desktop (supports OneDrive/known-folder redirection) & Start Menu shortcuts
+	desktopCmd := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", "[Environment]::GetFolderPath('Desktop')")
+	desktopCmd.SysProcAttr = &syscall.SysProcAttr{
+		HideWindow:    true,
+		CreationFlags: CREATE_NO_WINDOW,
+	}
+	var desktopDir string
+	if out, err := desktopCmd.Output(); err == nil {
+		desktopDir = strings.TrimSpace(string(out))
+	}
+	if desktopDir == "" {
+		if userProfile := os.Getenv("USERPROFILE"); userProfile != "" {
+			desktopDir = filepath.Join(userProfile, "Desktop")
+		}
+	}
+	if desktopDir != "" {
+		desktopShortcut := filepath.Join(desktopDir, "Unjess.lnk")
 		createShortcut(desktopShortcut, targetExe, installDir, targetIcon, "Unjess - Autonomous AI Coding Harness")
 	}
 
@@ -198,7 +228,7 @@ func main() {
 	if !silent {
 		messageBox(
 			"Unjess Setup",
-			fmt.Sprintf("Unjess v%s has been installed successfully!\n\nClick OK to launch Unjess.", version.Current),
+			fmt.Sprintf("Unjess v%s has been installed successfully!\n\nInstall Location:\n%s\n\nClick OK to launch Unjess.", version.Current, installDir),
 			MB_OK|MB_ICONINFORMATION,
 		)
 	}

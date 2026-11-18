@@ -58,6 +58,7 @@ bin/
 codrive/
 .unjess/
 *.exe
+*.dll
 *.zip
 daemon/unjessd
 daemon/unjess-linux-amd64

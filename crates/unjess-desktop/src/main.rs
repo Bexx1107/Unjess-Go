@@ -153,10 +153,35 @@ fn try_spawn_server() -> Option<Child> {
     cmd.spawn().ok()
 }
 
+#[cfg(windows)]
+fn show_windows_error_box(title: &str, message: &str) {
+    use std::ffi::OsStr;
+    use std::os::windows::ffi::OsStrExt;
+    unsafe extern "system" {
+        fn MessageBoxW(hwnd: *mut core::ffi::c_void, text: *const u16, caption: *const u16, u_type: u32) -> i32;
+    }
+    let to_wide = |s: &str| -> Vec<u16> {
+        OsStr::new(s).encode_wide().chain(std::iter::once(0)).collect()
+    };
+    let text_w = to_wide(message);
+    let title_w = to_wide(title);
+    const MB_OK_ICONERROR: u32 = 0x0000_0010;
+    unsafe {
+        let _ = MessageBoxW(core::ptr::null_mut(), text_w.as_ptr(), title_w.as_ptr(), MB_OK_ICONERROR);
+    }
+}
+
 fn main() {
     if let Err(err) = run() {
         eprintln!("Unjess Desktop Error: {err}");
         let _ = std::fs::write("unjess-error.log", format!("Error: {err}\n"));
+        #[cfg(windows)]
+        {
+            let msg = format!(
+                "Unjess Desktop failed to start:\n\n{err}\n\nIf WebView2 initialization failed, ensure Microsoft Edge WebView2 Runtime is installed and WebView2Loader.dll is next to Unjess.exe."
+            );
+            show_windows_error_box("Unjess Desktop Error", &msg);
+        }
     }
 }
 
