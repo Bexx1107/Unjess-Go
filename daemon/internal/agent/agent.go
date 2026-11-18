@@ -3597,7 +3597,14 @@ func (hm *HarnessManager) executeSubagentLoop(parentCtx context.Context, sr *Sub
 		provider := sr.Provider
 		sr.mu.Unlock()
 
-		compactMessagesSmartly(messages)
+		if hm.settings == nil || hm.settings.EnableCompaction {
+			subOverride := 0
+			if hm.settings != nil {
+				subOverride = hm.settings.ContextWindowOverride
+			}
+			_, s1, s2 := computeCompactionBudgets(model, subOverride)
+			compactMessagesSmartlyWithThresholds(messages, s1, s2)
+		}
 
 		chatOpts := llm.ChatOptions{
 			Model:                 model,
@@ -4919,7 +4926,19 @@ func (hm *HarnessManager) RunAgentTurn(ctx context.Context, req ChatTurnRequest)
 	conv["turns"] = append(turns, userTurn)
 	conv["updated_at"] = time.Now().Unix()
 	_ = hm.saveStateLocked()
+	turnCountNow := len(conv["turns"].([]any))
+	enableAutoHistoryCompact := hm.settings != nil && hm.settings.EnableCompaction
 	hm.mu.Unlock()
+
+	if enableAutoHistoryCompact && turnCountNow > 25 {
+		if _, cErr := hm.CompactConversation(convID); cErr == nil {
+			hm.mu.RLock()
+			if refreshed := hm.findConversationLocked(convID); refreshed != nil {
+				conv = refreshed
+			}
+			hm.mu.RUnlock()
+		}
+	}
 
 	mcpMgr := mcp.NewManager(wsPath)
 	mcpMgr.ConnectAll()
@@ -5257,7 +5276,16 @@ func (hm *HarnessManager) RunAgentTurn(ctx context.Context, req ChatTurnRequest)
 		maxIter = hm.settings.MaxIterations
 	}
 
+	enableCompaction := true
+	ctxOverride := 0
+	if hm.settings != nil {
+		enableCompaction = hm.settings.EnableCompaction
+		ctxOverride = hm.settings.ContextWindowOverride
+	}
+	autoCompactTokens, stage1Chars, stage2Chars := computeCompactionBudgets(model, ctxOverride)
+
 	var totalTokensIn, totalTokensOut int
+	var lastPromptTokens int
 	var finalAssistantText string
 	var lastCommentary string
 	var loopErr error
@@ -5270,6 +5298,8 @@ func (hm *HarnessManager) RunAgentTurn(ctx context.Context, req ChatTurnRequest)
 	var preExitScratchCleanDone bool
 	var consecutiveTextNudges int
 	var maxTokenRecoveries int
+	var autoCompactsThisTurn int
+	var contextOverflowRecoveries int
 
 	for iter := 0; iter < maxIter; iter++ {
 		if turnCtx.Err() != nil || live.Aborted {
@@ -5281,10 +5311,53 @@ func (hm *HarnessManager) RunAgentTurn(ctx context.Context, req ChatTurnRequest)
 			toolDefs = buildActiveToolDefinitions(turnMode, effectivePrompt, len(llmImages) > 0, executor.UnlockedDeferredTools, mcpTools, disabledTools)
 		}
 
-		// #1 KV-Cache-Friendly Intra-Turn Context Compaction
-		// Never wipe recent file reads at turn 3. Only micro-compact exact superseded file reads,
-		// and only run token-threshold compaction when approaching the context window limit.
-		compactMessagesSmartly(messages)
+		// #1 KV-Cache-Friendly Intra-Turn Context Compaction & Dynamic Auto-Compact
+		if enableCompaction {
+			compactMessagesSmartlyWithThresholds(messages, stage1Chars, stage2Chars)
+
+			estTokens := estimateMessagesTokens(systemPrompt, messages)
+			if lastPromptTokens > estTokens {
+				estTokens = lastPromptTokens
+			}
+			if estTokens >= autoCompactTokens && len(messages) > 6 && autoCompactsThisTurn < 3 {
+				compactBaseOpts := llm.ChatOptions{
+					Model:                 model,
+					Provider:              provider,
+					SystemPrompt:          systemPrompt,
+					Messages:              messages,
+					Tools:                 toolDefs,
+					TimeoutSec:            hm.settings.LLMTimeout,
+					ContextWindowOverride: ctxOverride,
+					MaxTokens:             1800,
+					ReasoningEffort:       "low",
+					OllamaBaseURL:         hm.settings.OllamaBaseURL,
+					OllamaAPIBaseURL:      hm.settings.OllamaAPIBaseURL,
+					APIKeys:               hm.getAPIKeysSnapshot(),
+					BaseURLs: map[string]string{
+						"ollama":     hm.settings.OllamaBaseURL,
+						"ollama-api": hm.settings.OllamaAPIBaseURL,
+						"llamacpp":   hm.settings.LlamaCppBaseURL,
+						"lmstudio":   hm.settings.LMStudioBaseURL,
+						"kimi":       hm.settings.KimiBaseURL,
+						"qwen":       hm.settings.QwenBaseURL,
+					},
+				}
+				compacted, summaryUsed, beforeTok, afterTok := compactLiveLoopMessages(turnCtx, compactBaseOpts, messages, systemPrompt, false)
+				if summaryUsed {
+					messages = compacted
+					autoCompactsThisTurn++
+					lastPromptTokens = 0
+					hm.liveMu.Lock()
+					live.PlanningSteps = append(live.PlanningSteps, map[string]any{
+						"id":     "step_compact_" + generateID(6),
+						"type":   "compaction",
+						"text":   fmt.Sprintf("Auto-compacted context (~%dk → ~%dk tokens, limit budget %dk)", beforeTok/1000, afterTok/1000, autoCompactTokens/1000),
+						"status": "completed",
+					})
+					hm.liveMu.Unlock()
+				}
+			}
+		}
 
 		chatOpts := llm.ChatOptions{
 			Model:                 model,
@@ -5388,6 +5461,23 @@ func (hm *HarnessManager) RunAgentTurn(ctx context.Context, req ChatTurnRequest)
 		res, err := llm.ChatStream(turnCtx, chatOpts, callbacks)
 		thinkDur := time.Since(iterStart).Seconds()
 		if err != nil {
+			if isContextLengthError(err) && contextOverflowRecoveries < 2 && len(messages) > 4 {
+				contextOverflowRecoveries++
+				compacted, summaryUsed, beforeTok, afterTok := compactLiveLoopMessages(turnCtx, chatOpts, messages, systemPrompt, true)
+				if summaryUsed {
+					messages = compacted
+					lastPromptTokens = 0
+					hm.liveMu.Lock()
+					live.PlanningSteps = append(live.PlanningSteps, map[string]any{
+						"id":     "step_compact_overflow_" + generateID(6),
+						"type":   "compaction",
+						"text":   fmt.Sprintf("Recovered from context overflow (~%dk → ~%dk tokens, attempt %d/2)", beforeTok/1000, afterTok/1000, contextOverflowRecoveries),
+						"status": "completed",
+					})
+					hm.liveMu.Unlock()
+					continue
+				}
+			}
 			loopErr = err
 			hm.liveMu.Lock()
 			if thinkStepIdx >= 0 && thinkStepIdx < len(live.PlanningSteps) {
@@ -5401,6 +5491,9 @@ func (hm *HarnessManager) RunAgentTurn(ctx context.Context, req ChatTurnRequest)
 
 		totalTokensIn += res.InputTokens
 		totalTokensOut += res.OutputTokens
+		if res.InputTokens > 0 {
+			lastPromptTokens = res.InputTokens
+		}
 
 		thoughtContent := strings.TrimSpace(res.Thinking)
 		if thoughtContent == "" {
@@ -6704,13 +6797,281 @@ func buildWarmPrefixCompactionRequest(baseOpts llm.ChatOptions) llm.ChatOptions 
 	return req
 }
 
-// compactMessagesSmartly performs Two-Stage KV-cache-friendly intra-turn context management:
+// findConversationLocked returns the conversation map with the matching ID while hm.mu is held.
+func (hm *HarnessManager) findConversationLocked(convID string) map[string]any {
+	convs, _ := hm.state["conversations"].([]any)
+	for _, c := range convs {
+		if cm, ok := c.(map[string]any); ok && cm["id"] == convID {
+			return cm
+		}
+	}
+	return nil
+}
+
+// computeCompactionBudgets calculates model-aware intra-turn pruning thresholds (in chars)
+// and full auto-compaction trigger ceiling (in tokens, capped at 250k to prevent context rot on 1M+ windows).
+func computeCompactionBudgets(model string, contextOverride int) (autoCompactTokens int, stage1Chars int, stage2Chars int) {
+	limit := GetModelContextLimit(model, contextOverride)
+	if limit <= 0 {
+		limit = 32768
+	}
+
+	autoCompactTokens = int(float64(limit) * 0.65)
+	if autoCompactTokens > 250000 {
+		autoCompactTokens = 250000
+	}
+	if autoCompactTokens < 16000 {
+		autoCompactTokens = 16000
+	}
+
+	// Stage-1 tool pruning: ~30% of window (in chars, ~4 chars/token), clamped [100k, 400k]
+	stage1Chars = int(float64(limit) * 4.0 * 0.30)
+	if stage1Chars < 100000 {
+		stage1Chars = 100000
+	}
+	if stage1Chars > 400000 {
+		stage1Chars = 400000
+	}
+
+	// Stage-2 fallback pruning: ~45% of window (in chars), clamped [160k, 600k]
+	stage2Chars = int(float64(limit) * 4.0 * 0.45)
+	if stage2Chars < 160000 {
+		stage2Chars = 160000
+	}
+	if stage2Chars > 600000 {
+		stage2Chars = 600000
+	}
+	return autoCompactTokens, stage1Chars, stage2Chars
+}
+
+// estimateMessagesTokens approximates total input tokens for systemPrompt + messages (~4 chars/token + images).
+func estimateMessagesTokens(systemPrompt string, messages []llm.Message) int {
+	totalChars := len(systemPrompt)
+	imageTokens := 0
+	for i := range messages {
+		totalChars += len(messages[i].Content) + len(messages[i].Thinking)
+		for _, tc := range messages[i].ToolCalls {
+			totalChars += len(tc.Name) + 64
+			for k, v := range tc.Arguments {
+				totalChars += len(k) + len(fmt.Sprint(v))
+			}
+		}
+		imageTokens += len(messages[i].Images) * 1024
+	}
+	return (totalChars / 4) + imageTokens
+}
+
+// isContextLengthError detects provider context/prompt-too-long overflow errors across OpenAI, Anthropic, Gemini, and Ollama.
+func isContextLengthError(err error) bool {
+	if err == nil {
+		return false
+	}
+	low := strings.ToLower(err.Error())
+	patterns := []string{
+		"context_length_exceeded",
+		"maximum context length",
+		"context window",
+		"prompt is too long",
+		"too many tokens",
+		"exceeds the maximum",
+		"input length",
+		"token limit exceeded",
+		"request too large",
+	}
+	for _, pat := range patterns {
+		if strings.Contains(low, pat) {
+			return true
+		}
+	}
+	return false
+}
+
+// findSafeTailStart adjusts a desired tail slice start index backward so we never orphan a tool response
+// from its preceding assistant tool_calls message.
+func findSafeTailStart(messages []llm.Message, minKeep int) int {
+	n := len(messages)
+	if n <= minKeep {
+		return 0
+	}
+	start := n - minKeep
+	if start < 1 {
+		start = 1
+	}
+	for start > 1 && messages[start].Role == "tool" {
+		start--
+	}
+	return start
+}
+
+// buildDeterministicSummaryFromMessages extracts key decisions, touched files, commands, and user prompts
+// without making an LLM request (used as overflow/offline fallback).
+func buildDeterministicSummaryFromMessages(older []llm.Message) string {
+	var userMsgs []string
+	var filesList []string
+	filesSeen := make(map[string]bool)
+	var cmds []string
+	var lastAssistant string
+
+	for _, m := range older {
+		switch m.Role {
+		case "user":
+			c := strings.TrimSpace(m.Content)
+			if c != "" {
+				if len(c) > 350 {
+					c = c[:350] + "..."
+				}
+				userMsgs = append(userMsgs, "- "+c)
+			}
+		case "assistant":
+			if txt := strings.TrimSpace(m.Content); txt != "" {
+				if len(txt) > 500 {
+					txt = txt[:500] + "..."
+				}
+				lastAssistant = txt
+			}
+			for _, tc := range m.ToolCalls {
+				if tc.Name == "read_file" || tc.Name == "edit_file" || tc.Name == "write_file" {
+					if p, ok := tc.Arguments["path"].(string); ok && p != "" && !filesSeen[p] {
+						filesSeen[p] = true
+						filesList = append(filesList, fmt.Sprintf("- `%s` (%s)", p, tc.Name))
+					}
+				} else if tc.Name == "run_command" {
+					if cmd, ok := tc.Arguments["command"].(string); ok && cmd != "" {
+						if len(cmd) > 120 {
+							cmd = cmd[:120] + "..."
+						}
+						cmds = append(cmds, "- `"+cmd+"`")
+					}
+				}
+			}
+		}
+	}
+
+	var sb strings.Builder
+	sb.WriteString("<summary>\n### 1. Primary Request and Intent\n")
+	if len(userMsgs) > 0 {
+		sb.WriteString(userMsgs[0] + "\n\n")
+	} else {
+		sb.WriteString("- Ongoing coding session.\n\n")
+	}
+	sb.WriteString("### 3. Files and Code Sections Examined or Modified\n")
+	if len(filesList) > 0 {
+		if len(filesList) > 25 {
+			filesList = filesList[len(filesList)-25:]
+		}
+		sb.WriteString(strings.Join(filesList, "\n") + "\n\n")
+	} else {
+		sb.WriteString("- (None recorded in older turns)\n\n")
+	}
+	sb.WriteString("### 5. Problem Solving & Verifications Executed\n")
+	if len(cmds) > 0 {
+		if len(cmds) > 15 {
+			cmds = cmds[len(cmds)-15:]
+		}
+		sb.WriteString(strings.Join(cmds, "\n") + "\n\n")
+	} else {
+		sb.WriteString("- (None recorded in older turns)\n\n")
+	}
+	sb.WriteString("### 6. All User Messages\n")
+	if len(userMsgs) > 0 {
+		if len(userMsgs) > 12 {
+			userMsgs = userMsgs[len(userMsgs)-12:]
+		}
+		sb.WriteString(strings.Join(userMsgs, "\n") + "\n\n")
+	} else {
+		sb.WriteString("- (None)\n\n")
+	}
+	sb.WriteString("### 8. Current Work & Next Step\n")
+	if lastAssistant != "" {
+		sb.WriteString(lastAssistant + "\n")
+	} else {
+		sb.WriteString("- Continue from preserved recent messages.\n")
+	}
+	sb.WriteString("</summary>")
+	return sb.String()
+}
+
+// compactLiveLoopMessages compacts older loop messages into a structured summary checkpoint while preserving
+// the original user prompt and recent coherent tool-call/result pairs. When emergencyDeterministicOnly is false,
+// it uses buildWarmPrefixCompactionRequest to generate a semantic LLM summary and falls back to deterministic extraction.
+func compactLiveLoopMessages(ctx context.Context, baseOpts llm.ChatOptions, messages []llm.Message, systemPrompt string, emergencyDeterministicOnly bool) ([]llm.Message, bool, int, int) {
+	minKeepTail := 6
+	if emergencyDeterministicOnly {
+		minKeepTail = 2
+	}
+	if len(messages) <= minKeepTail+1 {
+		return messages, false, 0, 0
+	}
+
+	beforeTokens := estimateMessagesTokens(systemPrompt, messages)
+	tailStart := findSafeTailStart(messages, minKeepTail)
+	if tailStart <= 1 {
+		return messages, false, beforeTokens, beforeTokens
+	}
+
+	older := messages[:tailStart]
+	tail := messages[tailStart:]
+
+	summaryText := ""
+	if !emergencyDeterministicOnly {
+		warmReq := buildWarmPrefixCompactionRequest(baseOpts)
+		warmCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
+		res, err := llm.ChatStream(warmCtx, warmReq, llm.StreamCallbacks{})
+		cancel()
+		if err == nil {
+			cand := strings.TrimSpace(res.Content)
+			if startIdx := strings.Index(cand, "<summary>"); startIdx != -1 {
+				if endIdx := strings.Index(cand[startIdx:], "</summary>"); endIdx != -1 {
+					cand = cand[startIdx : startIdx+endIdx+len("</summary>")]
+				}
+			}
+			if len(cand) > 40 {
+				summaryText = cand
+			}
+		}
+	}
+
+	if summaryText == "" {
+		summaryText = buildDeterministicSummaryFromMessages(older)
+	}
+
+	// Preserve original task prompt cleanly alongside compacted summary checkpoint
+	initialTask := strings.TrimSpace(messages[0].Content)
+	if len(initialTask) > 2500 {
+		initialTask = initialTask[:2500] + "\n... [truncated]"
+	}
+	checkpointContent := fmt.Sprintf("[Initial User Task]:\n%s\n\n[Auto-Compacted Context Summary — earlier turns compressed to preserve working memory]:\n%s", initialTask, summaryText)
+
+	compacted := make([]llm.Message, 0, len(tail)+2)
+	compacted = append(compacted, llm.Message{
+		Role:    "user",
+		Content: checkpointContent,
+	})
+	if len(tail) > 0 && tail[0].Role == "user" {
+		compacted = append(compacted, llm.Message{
+			Role:    "assistant",
+			Content: "Understood. Continuing from the compacted context checkpoint.",
+		})
+	}
+	compacted = append(compacted, tail...)
+
+	afterTokens := estimateMessagesTokens(systemPrompt, compacted)
+	return compacted, true, beforeTokens, afterTokens
+}
+
+// compactMessagesSmartly performs Two-Stage KV-cache-friendly intra-turn context management
+// using baseline 100k / 160k character thresholds.
+func compactMessagesSmartly(messages []llm.Message) {
+	compactMessagesSmartlyWithThresholds(messages, 100000, 160000)
+}
+
+// compactMessagesSmartlyWithThresholds performs Two-Stage KV-cache-friendly intra-turn context management:
 //  0. Multimodal Image Offload: Offloads base64 image payloads from older messages beyond the last 2 image turns.
 //  1. Superseded File-Read Micro-Compaction: Compacts an older read_file output only if the exact same file range header appears in a newer read_file.
-//  2. Stage-1 Model-Free Tool-Result Pruner (dsh parity): When total chars > 100,000, prunes older tool outputs > 8192 chars to 4096 head + 1024 tail.
-//     If Stage-1 brings total chars below the Stage-2 threshold (160,000), Stage-2 aggressive compaction is skipped entirely.
-//  3. Stage-2 Fallback Compaction: Only runs if context still exceeds 160,000 chars after Stage-1 pruning.
-func compactMessagesSmartly(messages []llm.Message) {
+//  2. Stage-1 Model-Free Tool-Result Pruner (dsh parity): When total chars > stage1CharThreshold, prunes older tool outputs > 8192 chars to 4096 head + 1024 tail.
+//     If Stage-1 brings total chars below the Stage-2 threshold (stage2CharThreshold), Stage-2 aggressive compaction is skipped entirely.
+//  3. Stage-2 Fallback Compaction: Only runs if context still exceeds stage2CharThreshold after Stage-1 pruning.
+func compactMessagesSmartlyWithThresholds(messages []llm.Message, stage1CharThreshold int, stage2CharThreshold int) {
 	// Rule 0: Offload older image attachments beyond the newest 2 image-bearing messages
 	offloadOlderImages(messages)
 
@@ -6753,7 +7114,9 @@ func compactMessagesSmartly(messages []llm.Message) {
 	}
 
 	// Stage 1: Model-Free Tool-Result Pruner (4096 head + 1024 tail for tool results > 8192 chars older than last 6 tool calls)
-	const stage1CharThreshold = 100000
+	if stage1CharThreshold <= 0 {
+		stage1CharThreshold = 100000
+	}
 	if totalChars > stage1CharThreshold && len(toolIndices) > 6 {
 		stage1Older := toolIndices[:len(toolIndices)-6]
 		for _, idx := range stage1Older {
@@ -6768,7 +7131,9 @@ func compactMessagesSmartly(messages []llm.Message) {
 	}
 
 	// Stage 2: Aggressive compaction (only if Stage 1 did not reclaim enough budget)
-	const stage2CharThreshold = 160000
+	if stage2CharThreshold <= 0 {
+		stage2CharThreshold = 160000
+	}
 	if totalChars <= stage2CharThreshold || len(toolIndices) <= 8 {
 		return
 	}

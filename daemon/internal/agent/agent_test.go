@@ -1891,3 +1891,84 @@ func TestTwoStageCompactionAndEightSectionCheckpoint(t *testing.T) {
 		}
 	}
 }
+
+func TestModelAwareCompactionBudgetsAndOverflowRecovery(t *testing.T) {
+	// 1. Model-aware budgets: cap autoCompact at 250k on 1M models to prevent context rot
+	autoFlash, s1Flash, s2Flash := computeCompactionBudgets("deepseek-v4.1-flash:cloud", 0)
+	if autoFlash != 250000 {
+		t.Errorf("expected deepseek-v4.1-flash autoCompactTokens capped at 250000, got %d", autoFlash)
+	}
+	if s1Flash != 400000 || s2Flash != 600000 {
+		t.Errorf("expected 1M model pruning thresholds 400k/600k chars, got %d/%d", s1Flash, s2Flash)
+	}
+
+	autoGemini, _, _ := computeCompactionBudgets("gemini-3.1-pro", 0)
+	if autoGemini != 250000 {
+		t.Errorf("expected gemini autoCompactTokens capped at 250000, got %d", autoGemini)
+	}
+
+	autoClaude, s1Claude, s2Claude := computeCompactionBudgets("claude-sonnet-5-5", 0)
+	if autoClaude != 130000 {
+		t.Errorf("expected 200k Claude autoCompactTokens = 130000 (65%%), got %d", autoClaude)
+	}
+	if s1Claude != 240000 || s2Claude != 360000 {
+		t.Errorf("expected 200k Claude pruning thresholds 240k/360k chars, got %d/%d", s1Claude, s2Claude)
+	}
+
+	autoSmall, s1Small, s2Small := computeCompactionBudgets("llama3.2:latest", 0)
+	if autoSmall != 21299 {
+		t.Errorf("expected 32768 model autoCompactTokens = 21299, got %d", autoSmall)
+	}
+	if s1Small != 100000 || s2Small != 160000 {
+		t.Errorf("expected small model baseline floor 100k/160k chars, got %d/%d", s1Small, s2Small)
+	}
+
+	// 2. Context overflow error detection across providers
+	for _, errMsg := range []string{
+		"context_length_exceeded: maximum context length is 200000",
+		"prompt is too long: 215000 tokens > 200000 maximum",
+		"exceeds the maximum number of tokens allowed",
+	} {
+		if !isContextLengthError(fmt.Errorf("%s", errMsg)) {
+			t.Errorf("expected isContextLengthError=true for %q", errMsg)
+		}
+	}
+	if isContextLengthError(fmt.Errorf("rate limit 429 exceeded")) {
+		t.Errorf("expected rate limit error not to be flagged as context overflow")
+	}
+
+	// 3. findSafeTailStart & compactLiveLoopMessages never orphan a tool response from its assistant tool_calls
+	msgs := []llm.Message{
+		{Role: "user", Content: "Fix auth bug across handlers"},
+		{Role: "assistant", ToolCalls: []llm.ToolCall{{ID: "c1", Name: "read_file", Arguments: map[string]any{"path": "a.go"}}}},
+		{Role: "tool", ToolCallID: "c1", ToolName: "read_file", Content: "package a"},
+		{Role: "assistant", Content: "Analyzed a.go", ToolCalls: []llm.ToolCall{{ID: "c2", Name: "edit_file", Arguments: map[string]any{"path": "b.go"}}}},
+		{Role: "tool", ToolCallID: "c2", ToolName: "edit_file", Content: "updated b.go"},
+		{Role: "user", Content: "Now verify tests"},
+		{Role: "assistant", ToolCalls: []llm.ToolCall{{ID: "c3", Name: "run_command", Arguments: map[string]any{"command": "go test ./..."}}}},
+		{Role: "tool", ToolCallID: "c3", ToolName: "run_command", Content: "ok"},
+	}
+	// tailStart for minKeep=2 would land on index 6 (assistant), minKeep=1 would land on index 7 (tool) -> must walk back to 6!
+	if safe := findSafeTailStart(msgs, 1); safe != 6 {
+		t.Errorf("expected findSafeTailStart(minKeep=1) to pull back to assistant tool_call index 6, got %d", safe)
+	}
+
+	compacted, ok, beforeTok, afterTok := compactLiveLoopMessages(
+		t.Context(),
+		llm.ChatOptions{},
+		msgs,
+		"system",
+		true,
+	)
+	if !ok {
+		t.Fatalf("expected compactLiveLoopMessages to compact history")
+	}
+	if compacted[0].Role != "user" || !strings.Contains(compacted[0].Content, "[Initial User Task]") || !strings.Contains(compacted[0].Content, "a.go") {
+		t.Errorf("expected initial user task and summarized file path preserved, got:\n%s", compacted[0].Content)
+	}
+	if compacted[1].Role == "tool" {
+		t.Errorf("compacted messages orphaned a tool role immediately after checkpoint user message")
+	}
+	_ = beforeTok
+	_ = afterTok
+}

@@ -82,10 +82,21 @@ type VersionManifest struct {
 func BuiltinChangelog() []ChangelogEntry {
 	return []ChangelogEntry{
 		{
+			Version: "3.0.7",
+			Date:    "2026-11-18",
+			Title:   "Unjess v3.0.7 - Model-Aware Auto-Compaction, 250k Context Ceiling & Overflow Recovery",
+			Tag:     "LATEST",
+			Changes: []string{
+				"Wired model-aware auto-compaction honoring enable_compaction (~65% of model context, capped at 250k tokens on 1M+ windows like DeepSeek V4.1 Flash and Gemini)",
+				"Connected KV-cache-friendly warm-prefix LLM summarization (with deterministic 8-section fallback) and auto-compacts conversation history beyond 24 turns instead of dropping turns silently",
+				"Scaled intra-turn tool pruning thresholds proportionally per model and added automatic context_length_exceeded overflow recovery",
+			},
+		},
+		{
 			Version: "3.0.6",
 			Date:    "2026-11-18",
 			Title:   "Unjess v3.0.6 - Bundle WebView2Loader.dll in Windows Installer & Portable ZIP",
-			Tag:     "LATEST",
+			Tag:     "UPDATE",
 			Changes: []string{
 				"Embedded WebView2Loader.dll inside Unjess-Setup.exe so Unjess.exe launches cleanly after installation without missing DLL errors",
 				"Added dynamic Windows Known-Folder Desktop shortcut resolution (supports OneDrive Desktop redirection) and explicit install path confirmation",
