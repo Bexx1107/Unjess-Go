@@ -61,13 +61,21 @@
       --unjess-accent: #7dd3fc;
       --unjess-accent-glow: rgba(125, 211, 252, 0.15);
     }
-    [data-turn-role="user"], [data-turn-role="agent"] {
-      content-visibility: auto;
-      contain-intrinsic-size: 100px 300px;
-    }
     #messages-container {
       content-visibility: visible;
-      contain: layout style;
+      contain: style;
+      overflow-anchor: none;
+    }
+    .sidebar-chevron {
+      transform: rotate(0deg);
+    }
+    .sidebar-chevron.is-collapsed {
+      transform: rotate(-90deg);
+    }
+    @media (prefers-reduced-motion: no-preference) {
+      .sidebar-chevron {
+        transition: transform 0.18s ease;
+      }
     }
     #chat-input-textarea {
       min-height: 32px;
@@ -151,7 +159,7 @@
       </div>
       <button id="btn-header-version" type="button" class="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono bg-zinc-900/90 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700/60 transition cursor-pointer select-none" title="Unjess Version & Updates (Click to check)">
         <span id="header-version-dot" class="hidden w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
-        <span id="header-version-text">v3.0.7</span>
+        <span id="header-version-text">v3.0.8</span>
       </button>
       <span id="backend-status-pill" class="hidden">
         <span id="backend-status-dot"></span>
@@ -286,25 +294,37 @@
         
         <!-- SECTION 1: PROJECTS -->
         <div>
-          <div class="flex items-center justify-between px-2 mb-2 text-[11px] font-medium text-zinc-400 tracking-wide">
-            <span>Projects</span>
-            <div class="flex items-center space-x-1">
+          <div class="flex items-center justify-between px-1.5 mb-1.5 text-[11px] font-medium text-zinc-400 tracking-wide">
+            <button id="btn-toggle-projects-section" type="button" aria-expanded="true" aria-controls="projects-tree-container" class="flex items-center space-x-1.5 px-1 py-0.5 -ml-0.5 rounded hover:text-zinc-200 hover:bg-zinc-800/60 transition flex-1 min-w-0 text-left cursor-pointer" title="Collapse or expand all project folders">
+              <span id="projects-section-chevron" class="sidebar-chevron inline-flex items-center justify-center flex-shrink-0 text-zinc-500">
+                <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+              </span>
+              <span class="truncate">Projects</span>
+              <span id="projects-section-count" class="text-[10px] font-mono text-zinc-500 flex-shrink-0"></span>
+            </button>
+            <div class="flex items-center space-x-0.5 flex-shrink-0">
               <button id="btn-add-workspace" type="button" class="text-zinc-400 hover:text-white p-1 rounded hover:bg-zinc-800/80 transition" title="Add Project Workspace">
                 <i data-lucide="folder-plus" class="w-3.5 h-3.5"></i>
               </button>
             </div>
           </div>
 
-          <div id="projects-tree-container" class="space-y-3">
+          <div id="projects-tree-container" class="space-y-2">
             <!-- Dynamic Projects -> Conversations tree rendered via JS -->
           </div>
         </div>
 
         <!-- SECTION 2: QUICK CHATS -->
         <div class="pt-2 border-t border-white/5">
-          <div class="flex items-center justify-between px-2 mb-1.5 text-[11px] font-medium text-zinc-400 tracking-wide">
-            <span>Quick Chats</span>
-            <button id="btn-add-conversation" type="button" class="text-zinc-400 hover:text-white p-1 rounded hover:bg-zinc-800/80 transition" title="New Quick Chat">
+          <div class="flex items-center justify-between px-1.5 mb-1.5 text-[11px] font-medium text-zinc-400 tracking-wide">
+            <button id="btn-toggle-quick-chats-section" type="button" aria-expanded="true" aria-controls="quick-chats-list-container" class="flex items-center space-x-1.5 px-1 py-0.5 -ml-0.5 rounded hover:text-zinc-200 hover:bg-zinc-800/60 transition flex-1 min-w-0 text-left cursor-pointer" title="Collapse or expand Quick Chats">
+              <span id="quick-chats-section-chevron" class="sidebar-chevron inline-flex items-center justify-center flex-shrink-0 text-zinc-500">
+                <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+              </span>
+              <span class="truncate">Quick Chats</span>
+              <span id="quick-chats-section-count" class="text-[10px] font-mono text-zinc-500 flex-shrink-0"></span>
+            </button>
+            <button id="btn-add-conversation" type="button" class="text-zinc-400 hover:text-white p-1 rounded hover:bg-zinc-800/80 transition flex-shrink-0" title="New Quick Chat">
               <i data-lucide="plus" class="w-3.5 h-3.5"></i>
             </button>
           </div>
@@ -1719,7 +1739,7 @@
                   <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-unjessBorder pb-4">
                     <div class="space-y-1">
                       <div class="flex items-center space-x-2.5">
-                        <span id="update-current-version-title" class="text-sm font-bold text-white tracking-tight">Unjess v3.0.7</span>
+                        <span id="update-current-version-title" class="text-sm font-bold text-white tracking-tight">Unjess v3.0.8</span>
                         <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-900 text-zinc-300 border border-zinc-700/60">
                           Go + Rust Native Engine • unjess.si
                         </span>
@@ -1731,7 +1751,7 @@
                       <!-- Status Pill -->
                       <span id="update-check-status-badge" class="px-2.5 py-1 rounded-full text-[11px] font-mono flex items-center space-x-1.5 bg-zinc-900 border border-zinc-700/60 text-zinc-300">
                         <span id="update-status-badge-dot" class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                        <span id="update-status-badge-text">Up to date (v3.0.7)</span>
+                        <span id="update-status-badge-text">Up to date (v3.0.8)</span>
                       </span>
 
                       <!-- Check for Updates Button -->
@@ -2563,6 +2583,16 @@
       rightInspectorOpen: window.innerWidth >= 1024,
       leftSidebarWidth: parseInt(localStorage.getItem('unjess_left_sidebar_width') || '245', 10),
       rightInspectorWidth: parseInt(localStorage.getItem('unjess_right_inspector_width') || '320', 10),
+      collapsedProjectFolders: (() => {
+        try {
+          const parsed = JSON.parse(localStorage.getItem('unjess_collapsed_project_folders') || '{}');
+          return (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {};
+        } catch (e) {
+          return {};
+        }
+      })(),
+      projectsSectionCollapsed: localStorage.getItem('unjess_projects_section_collapsed') === 'true',
+      quickChatsSectionCollapsed: localStorage.getItem('unjess_quick_chats_section_collapsed') === 'true',
 
       tools: {
         filesystem: { id: 'filesystem', name: 'File system', desc: 'Read, write, edit disk files', icon: 'folder', enabled: true },
@@ -3625,8 +3655,56 @@
       return (p || '').replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
     }
 
+    function saveSidebarCollapseState() {
+      try {
+        localStorage.setItem('unjess_collapsed_project_folders', JSON.stringify(state.collapsedProjectFolders || {}));
+        localStorage.setItem('unjess_projects_section_collapsed', String(Boolean(state.projectsSectionCollapsed)));
+        localStorage.setItem('unjess_quick_chats_section_collapsed', String(Boolean(state.quickChatsSectionCollapsed)));
+      } catch (e) {}
+    }
+
+    function toggleProjectsSection() {
+      state.projectsSectionCollapsed = !Boolean(state.projectsSectionCollapsed);
+      saveSidebarCollapseState();
+      renderSidebarProjectsTree();
+    }
+
+    function toggleQuickChatsSection() {
+      state.quickChatsSectionCollapsed = !Boolean(state.quickChatsSectionCollapsed);
+      saveSidebarCollapseState();
+      renderSidebarProjectsTree();
+    }
+
+    function toggleProjectFolderCollapse(wsPath) {
+      const wsNorm = normPath(wsPath);
+      if (!wsNorm) return;
+      state.collapsedProjectFolders = state.collapsedProjectFolders || {};
+      if (state.collapsedProjectFolders[wsNorm]) {
+        delete state.collapsedProjectFolders[wsNorm];
+      } else {
+        state.collapsedProjectFolders[wsNorm] = true;
+      }
+      saveSidebarCollapseState();
+      renderSidebarProjectsTree();
+    }
+
+    function expandSidebarForWorkspace(wsPath) {
+      const wsNorm = normPath(wsPath);
+      state.projectsSectionCollapsed = false;
+      if (wsNorm && state.collapsedProjectFolders && state.collapsedProjectFolders[wsNorm]) {
+        delete state.collapsedProjectFolders[wsNorm];
+      }
+      saveSidebarCollapseState();
+    }
+
+    function expandQuickChatsSection() {
+      state.quickChatsSectionCollapsed = false;
+      saveSidebarCollapseState();
+    }
+
     async function createNewConversationInWorkspace(ws) {
       if (!ws || !ws.path) return;
+      expandSidebarForWorkspace(ws.path);
       const title = 'New Coding Session';
       try {
         const resp = await fetch(`${API_BASE}/api/harness/conversations`, {
@@ -3658,6 +3736,7 @@
             } else {
               state.conversations.unshift(data.conversation);
             }
+            expandSidebarForWorkspace(data.conversation.workspace || ws.path);
             selectConversation(data.conversation.id);
           }
           renderSidebarProjectsTree();
@@ -3683,6 +3762,7 @@
       state.activeWorkspace = ws.path;
       state.activeWorkspaceName = ws.name || ws.path.split(/[/\\]/).filter(Boolean).pop() || 'workspace';
       updateWorkspaceUI(ws.path);
+      expandSidebarForWorkspace(ws.path);
       selectConversation(newConv.id);
       renderSidebarProjectsTree();
       switchNavTab('chat');
@@ -3706,6 +3786,7 @@
       }
 
       state.expandedProjects = state.expandedProjects || {};
+      state.collapsedProjectFolders = state.collapsedProjectFolders || {};
 
       // 1. Build list of named project workspaces
       const allWorkspaces = Array.isArray(state.workspaces) ? state.workspaces : [];
@@ -3741,192 +3822,241 @@
         }
       });
 
+      // Always map workspace conversations first so collapsed Projects never leak into Quick Chats
       const matchedConvIds = new Set();
+      const wsConvsByNorm = new Map();
+      projectWorkspaces.forEach(ws => {
+        const wsNorm = normPath(ws.path);
+        const wsConvs = (state.conversations || []).filter(conv => {
+          if (normPath(conv.workspace) === wsNorm) {
+            matchedConvIds.add(conv.id);
+            return true;
+          }
+          return false;
+        });
+        wsConvsByNorm.set(wsNorm, wsConvs);
+      });
+
+      // Sync Projects section header collapse state
+      const projectsCollapsed = Boolean(state.projectsSectionCollapsed);
+      const projectsToggleBtn = document.getElementById('btn-toggle-projects-section');
+      const projectsChevronEl = document.getElementById('projects-section-chevron');
+      const projectsCountEl = document.getElementById('projects-section-count');
+      if (projectsToggleBtn) projectsToggleBtn.setAttribute('aria-expanded', String(!projectsCollapsed));
+      if (projectsChevronEl) projectsChevronEl.classList.toggle('is-collapsed', projectsCollapsed);
+      if (projectsCountEl) {
+        projectsCountEl.textContent = projectsCollapsed && projectWorkspaces.length > 0 ? `(${projectWorkspaces.length})` : '';
+      }
 
       // 2. Render Projects Tree
       if (projectsContainer) {
+        projectsContainer.classList.toggle('hidden', projectsCollapsed);
         projectsContainer.innerHTML = '';
 
-        if (projectWorkspaces.length === 0) {
-          projectsContainer.innerHTML = `
-            <div class="px-2 py-1.5 text-[11px] text-zinc-500 font-mono">
-              No project workspaces open. Click "+" above to add a folder.
-            </div>
-          `;
-        } else {
-          projectWorkspaces.forEach(ws => {
-            const wsNorm = normPath(ws.path);
-            const isWsActive = wsNorm === normPath(state.activeWorkspace);
-
-            // Find all conversations belonging to this workspace
-            const wsConvs = (state.conversations || []).filter(conv => {
-              if (normPath(conv.workspace) === wsNorm) {
-                matchedConvIds.add(conv.id);
-                return true;
-              }
-              return false;
-            });
-
-            const projectBlock = document.createElement('div');
-            projectBlock.className = 'space-y-0.5';
-
-            // Project Folder Header Row
-            const folderRow = document.createElement('div');
-            folderRow.className = `group flex items-center justify-between px-2 py-1 rounded-lg cursor-pointer transition select-none ${
-              isWsActive ? 'text-white font-semibold' : 'hover:bg-zinc-800/30'
-            }`;
-
-            const wsDisplayName = ws.name || ws.path.split(/[/\\]/).filter(Boolean).pop() || 'project';
-            folderRow.innerHTML = `
-              <div class="flex items-center space-x-2 min-w-0 pr-1 flex-1">
-                <i data-lucide="folder" class="w-3.5 h-3.5 ${isWsActive ? 'text-emerald-400 fill-emerald-400/20' : 'text-zinc-500'} flex-shrink-0"></i>
-                <span class="truncate text-xs font-medium ${isWsActive ? 'text-white font-semibold' : 'text-zinc-400 group-hover:text-zinc-200'}" title="${escapeHtml(ws.path)}">
-                  ${escapeHtml(wsDisplayName)}
-                </span>
-              </div>
-              <div class="flex items-center space-x-1 flex-shrink-0">
-                <button type="button" class="btn-new-conv-in-ws text-zinc-400 hover:text-white p-0.5 rounded hover:bg-zinc-700/60 transition" title="New conversation in ${escapeHtml(wsDisplayName)}">
-                  <i data-lucide="plus" class="w-3.5 h-3.5"></i>
-                </button>
+        if (!projectsCollapsed) {
+          if (projectWorkspaces.length === 0) {
+            projectsContainer.innerHTML = `
+              <div class="px-2 py-1.5 text-[11px] text-zinc-500 font-mono">
+                No project workspaces open. Click "+" above to add a folder.
               </div>
             `;
+          } else {
+            projectWorkspaces.forEach(ws => {
+              const wsNorm = normPath(ws.path);
+              const isWsActive = wsNorm === normPath(state.activeWorkspace);
+              const wsConvs = wsConvsByNorm.get(wsNorm) || [];
+              const isFolderCollapsed = Boolean(state.collapsedProjectFolders[wsNorm]);
 
-            folderRow.addEventListener('click', (e) => {
-              if (e.target.closest('.btn-new-conv-in-ws')) {
-                e.stopPropagation();
-                createNewConversationInWorkspace(ws);
-                return;
-              }
-              selectWorkspace(ws);
-            });
+              const projectBlock = document.createElement('div');
+              projectBlock.className = 'space-y-0.5';
 
-            projectBlock.appendChild(folderRow);
+              // Project Folder Header Row
+              const folderRow = document.createElement('div');
+              folderRow.className = `group flex items-center justify-between px-1.5 py-1 rounded-lg cursor-pointer transition select-none ${
+                isWsActive ? 'text-white font-semibold' : 'hover:bg-zinc-800/30'
+              }`;
 
-            // Nested Conversations List under the Folder
-            const nestedContainer = document.createElement('div');
-            nestedContainer.className = 'pl-4 mt-0.5 space-y-0.5';
+              const wsDisplayName = ws.name || ws.path.split(/[/\\]/).filter(Boolean).pop() || 'project';
+              folderRow.innerHTML = `
+                <div class="flex items-center space-x-1.5 min-w-0 pr-1 flex-1">
+                  <button type="button" class="btn-toggle-folder-collapse p-0.5 -ml-0.5 rounded text-zinc-500 hover:text-zinc-200 hover:bg-zinc-700/60 transition flex-shrink-0 cursor-pointer" aria-expanded="${!isFolderCollapsed}" title="${isFolderCollapsed ? 'Expand' : 'Collapse'} ${escapeHtml(wsDisplayName)} chats">
+                    <span class="sidebar-chevron ${isFolderCollapsed ? 'is-collapsed' : ''} inline-flex items-center justify-center">
+                      <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+                    </span>
+                  </button>
+                  <i data-lucide="folder" class="w-3.5 h-3.5 ${isWsActive ? 'text-emerald-400 fill-emerald-400/20' : 'text-zinc-500'} flex-shrink-0"></i>
+                  <span class="truncate text-xs font-medium ${isWsActive ? 'text-white font-semibold' : 'text-zinc-400 group-hover:text-zinc-200'}" title="${escapeHtml(ws.path)}">
+                    ${escapeHtml(wsDisplayName)}
+                  </span>
+                </div>
+                <div class="flex items-center space-x-1 flex-shrink-0">
+                  ${isFolderCollapsed && wsConvs.length > 0 ? `<span class="text-[10px] font-mono text-zinc-500 px-1 rounded bg-zinc-800/70" title="${wsConvs.length} chat(s) hidden">${wsConvs.length}</span>` : ''}
+                  <button type="button" class="btn-new-conv-in-ws text-zinc-400 hover:text-white p-0.5 rounded hover:bg-zinc-700/60 transition" title="New conversation in ${escapeHtml(wsDisplayName)}">
+                    <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                  </button>
+                </div>
+              `;
 
-            if (wsConvs.length === 0) {
-              if (isWsActive) {
-                nestedContainer.innerHTML = `<div class="px-2 py-1 text-[11px] text-zinc-500 font-mono select-none">No conversations yet</div>`;
-                projectBlock.appendChild(nestedContainer);
-              }
-            } else {
-              const isExpanded = Boolean(state.expandedProjects[ws.path]);
-              const visibleConvs = isExpanded ? wsConvs : wsConvs.slice(0, 6);
-
-              visibleConvs.forEach(conv => {
-                const isConvActive = conv.id === state.activeConvId;
-                const convRow = document.createElement('div');
-                convRow.className = isConvActive
-                  ? 'group flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-zinc-800/90 text-white font-medium cursor-pointer transition'
-                  : 'group flex items-center justify-between px-2.5 py-1.2 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50 cursor-pointer transition';
-
-                const timeLabel = formatRelativeTime(conv.updated_at || conv.created_at);
-                convRow.innerHTML = `
-                  <span class="truncate pr-2 text-[12px]">${escapeHtml(conv.title || 'New Coding Session')}</span>
-                  <div class="flex items-center space-x-1 flex-shrink-0">
-                    <span class="text-[11px] text-zinc-500 group-hover:hidden flex-shrink-0 font-mono">${timeLabel}</span>
-                    <button type="button" class="hidden group-hover:inline-flex text-zinc-400 hover:text-zinc-200 p-0.5 rounded transition btn-rename-conv" title="Rename conversation">
-                      <i data-lucide="edit-2" class="w-3 h-3"></i>
-                    </button>
-                    <button type="button" class="hidden group-hover:inline-flex text-zinc-400 hover:text-red-400 p-0.5 rounded transition btn-delete-conv" title="Delete conversation">
-                      <i data-lucide="trash-2" class="w-3 h-3"></i>
-                    </button>
-                  </div>
-                `;
-
-                convRow.addEventListener('click', (e) => {
-                  if (e.target.closest('.btn-rename-conv')) {
-                    e.stopPropagation();
-                    renameConversation(conv.id, e);
-                    return;
-                  }
-                  if (e.target.closest('.btn-delete-conv')) {
-                    e.stopPropagation();
-                    deleteConversation(conv.id, e);
-                    return;
-                  }
-                  selectConversation(conv.id);
-                });
-                convRow.addEventListener('dblclick', (e) => {
+              folderRow.addEventListener('click', (e) => {
+                if (e.target.closest('.btn-new-conv-in-ws')) {
                   e.stopPropagation();
-                  renameConversation(conv.id, e);
-                });
-
-                nestedContainer.appendChild(convRow);
+                  createNewConversationInWorkspace(ws);
+                  return;
+                }
+                if (e.target.closest('.btn-toggle-folder-collapse')) {
+                  e.stopPropagation();
+                  toggleProjectFolderCollapse(ws.path);
+                  return;
+                }
+                if (wsConvs.length > 0 || isWsActive) {
+                  toggleProjectFolderCollapse(ws.path);
+                  return;
+                }
+                selectWorkspace(ws);
               });
 
-              if (wsConvs.length > 6) {
-                const expandBtn = document.createElement('button');
-                expandBtn.type = 'button';
-                expandBtn.className = 'px-2.5 py-1 text-[11px] text-zinc-500 hover:text-zinc-300 transition block text-left';
-                expandBtn.textContent = isExpanded ? 'Show less' : `See all (${wsConvs.length})`;
-                expandBtn.addEventListener('click', (e) => {
-                  e.stopPropagation();
-                  state.expandedProjects[ws.path] = !state.expandedProjects[ws.path];
-                  renderSidebarProjectsTree();
-                });
-                nestedContainer.appendChild(expandBtn);
-              }
-            }
+              projectBlock.appendChild(folderRow);
 
-            projectBlock.appendChild(nestedContainer);
-            projectsContainer.appendChild(projectBlock);
-          });
+              // Nested Conversations List under the Folder (omitted when collapsed)
+              if (!isFolderCollapsed) {
+                const nestedContainer = document.createElement('div');
+                nestedContainer.className = 'pl-5 mt-0.5 space-y-0.5';
+
+                if (wsConvs.length === 0) {
+                  if (isWsActive) {
+                    nestedContainer.innerHTML = `<div class="px-2 py-1 text-[11px] text-zinc-500 font-mono select-none">No conversations yet</div>`;
+                    projectBlock.appendChild(nestedContainer);
+                  }
+                } else {
+                  const isExpanded = Boolean(state.expandedProjects[ws.path]);
+                  const visibleConvs = isExpanded ? wsConvs : wsConvs.slice(0, 6);
+
+                  visibleConvs.forEach(conv => {
+                    const isConvActive = conv.id === state.activeConvId;
+                    const convRow = document.createElement('div');
+                    convRow.className = isConvActive
+                      ? 'group flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-zinc-800/90 text-white font-medium cursor-pointer transition'
+                      : 'group flex items-center justify-between px-2.5 py-1.2 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50 cursor-pointer transition';
+
+                    const timeLabel = formatRelativeTime(conv.updated_at || conv.created_at);
+                    convRow.innerHTML = `
+                      <span class="truncate pr-2 text-[12px]">${escapeHtml(conv.title || 'New Coding Session')}</span>
+                      <div class="flex items-center space-x-1 flex-shrink-0">
+                        <span class="text-[11px] text-zinc-500 group-hover:hidden flex-shrink-0 font-mono">${timeLabel}</span>
+                        <button type="button" class="hidden group-hover:inline-flex text-zinc-400 hover:text-zinc-200 p-0.5 rounded transition btn-rename-conv" title="Rename conversation">
+                          <i data-lucide="edit-2" class="w-3 h-3"></i>
+                        </button>
+                        <button type="button" class="hidden group-hover:inline-flex text-zinc-400 hover:text-red-400 p-0.5 rounded transition btn-delete-conv" title="Delete conversation">
+                          <i data-lucide="trash-2" class="w-3 h-3"></i>
+                        </button>
+                      </div>
+                    `;
+
+                    convRow.addEventListener('click', (e) => {
+                      if (e.target.closest('.btn-rename-conv')) {
+                        e.stopPropagation();
+                        renameConversation(conv.id, e);
+                        return;
+                      }
+                      if (e.target.closest('.btn-delete-conv')) {
+                        e.stopPropagation();
+                        deleteConversation(conv.id, e);
+                        return;
+                      }
+                      selectConversation(conv.id);
+                    });
+                    convRow.addEventListener('dblclick', (e) => {
+                      e.stopPropagation();
+                      renameConversation(conv.id, e);
+                    });
+
+                    nestedContainer.appendChild(convRow);
+                  });
+
+                  if (wsConvs.length > 6) {
+                    const expandBtn = document.createElement('button');
+                    expandBtn.type = 'button';
+                    expandBtn.className = 'px-2.5 py-1 text-[11px] text-zinc-500 hover:text-zinc-300 transition block text-left';
+                    expandBtn.textContent = isExpanded ? 'Show less' : `See all (${wsConvs.length})`;
+                    expandBtn.addEventListener('click', (e) => {
+                      e.stopPropagation();
+                      state.expandedProjects[ws.path] = !state.expandedProjects[ws.path];
+                      renderSidebarProjectsTree();
+                    });
+                    nestedContainer.appendChild(expandBtn);
+                  }
+                  projectBlock.appendChild(nestedContainer);
+                }
+              }
+
+              projectsContainer.appendChild(projectBlock);
+            });
+          }
         }
       }
 
       // 3. Render Quick Chats Section
+      const quickConvs = (state.conversations || []).filter(conv => !matchedConvIds.has(conv.id));
+      const quickCollapsed = Boolean(state.quickChatsSectionCollapsed);
+      const quickToggleBtn = document.getElementById('btn-toggle-quick-chats-section');
+      const quickChevronEl = document.getElementById('quick-chats-section-chevron');
+      const quickCountEl = document.getElementById('quick-chats-section-count');
+      if (quickToggleBtn) quickToggleBtn.setAttribute('aria-expanded', String(!quickCollapsed));
+      if (quickChevronEl) quickChevronEl.classList.toggle('is-collapsed', quickCollapsed);
+      if (quickCountEl) {
+        quickCountEl.textContent = quickCollapsed && quickConvs.length > 0 ? `(${quickConvs.length})` : '';
+      }
+
       if (quickContainer) {
+        quickContainer.classList.toggle('hidden', quickCollapsed);
         quickContainer.innerHTML = '';
 
-        const quickConvs = (state.conversations || []).filter(conv => !matchedConvIds.has(conv.id));
+        if (!quickCollapsed) {
+          if (quickConvs.length === 0) {
+            quickContainer.innerHTML = `<div class="px-2 py-1 text-[11px] text-zinc-600 select-none">No quick chats yet</div>`;
+          } else {
+            quickConvs.forEach(conv => {
+              const isConvActive = conv.id === state.activeConvId;
+              const convRow = document.createElement('div');
+              convRow.className = isConvActive
+                ? 'group flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-zinc-800/90 text-white font-medium cursor-pointer transition'
+                : 'group flex items-center justify-between px-2.5 py-1.2 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50 cursor-pointer transition';
 
-        if (quickConvs.length === 0) {
-          quickContainer.innerHTML = `<div class="px-2 py-1 text-[11px] text-zinc-600 select-none">No quick chats yet</div>`;
-        } else {
-          quickConvs.forEach(conv => {
-            const isConvActive = conv.id === state.activeConvId;
-            const convRow = document.createElement('div');
-            convRow.className = isConvActive
-              ? 'group flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-zinc-800/90 text-white font-medium cursor-pointer transition'
-              : 'group flex items-center justify-between px-2.5 py-1.2 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50 cursor-pointer transition';
+              const timeLabel = formatRelativeTime(conv.updated_at || conv.created_at);
+              convRow.innerHTML = `
+                <span class="truncate pr-2 text-[12px]">${escapeHtml(conv.title || 'Quick Chat')}</span>
+                <div class="flex items-center space-x-1 flex-shrink-0">
+                  <span class="text-[11px] text-zinc-500 group-hover:hidden flex-shrink-0 font-mono">${timeLabel}</span>
+                  <button type="button" class="hidden group-hover:inline-flex text-zinc-400 hover:text-zinc-200 p-0.5 rounded transition btn-rename-conv" title="Rename conversation">
+                    <i data-lucide="edit-2" class="w-3 h-3"></i>
+                  </button>
+                  <button type="button" class="hidden group-hover:inline-flex text-zinc-400 hover:text-red-400 p-0.5 rounded transition btn-delete-conv" title="Delete conversation">
+                    <i data-lucide="trash-2" class="w-3 h-3"></i>
+                  </button>
+                </div>
+              `;
 
-            const timeLabel = formatRelativeTime(conv.updated_at || conv.created_at);
-            convRow.innerHTML = `
-              <span class="truncate pr-2 text-[12px]">${escapeHtml(conv.title || 'Quick Chat')}</span>
-              <div class="flex items-center space-x-1 flex-shrink-0">
-                <span class="text-[11px] text-zinc-500 group-hover:hidden flex-shrink-0 font-mono">${timeLabel}</span>
-                <button type="button" class="hidden group-hover:inline-flex text-zinc-400 hover:text-zinc-200 p-0.5 rounded transition btn-rename-conv" title="Rename conversation">
-                  <i data-lucide="edit-2" class="w-3 h-3"></i>
-                </button>
-                <button type="button" class="hidden group-hover:inline-flex text-zinc-400 hover:text-red-400 p-0.5 rounded transition btn-delete-conv" title="Delete conversation">
-                  <i data-lucide="trash-2" class="w-3 h-3"></i>
-                </button>
-              </div>
-            `;
-
-            convRow.addEventListener('click', (e) => {
-              if (e.target.closest('.btn-rename-conv')) {
+              convRow.addEventListener('click', (e) => {
+                if (e.target.closest('.btn-rename-conv')) {
+                  e.stopPropagation();
+                  renameConversation(conv.id, e);
+                  return;
+                }
+                if (e.target.closest('.btn-delete-conv')) {
+                  e.stopPropagation();
+                  deleteConversation(conv.id, e);
+                  return;
+                }
+                selectConversation(conv.id);
+              });
+              convRow.addEventListener('dblclick', (e) => {
                 e.stopPropagation();
                 renameConversation(conv.id, e);
-                return;
-              }
-              if (e.target.closest('.btn-delete-conv')) {
-                e.stopPropagation();
-                deleteConversation(conv.id, e);
-                return;
-              }
-              selectConversation(conv.id);
-            });
-            convRow.addEventListener('dblclick', (e) => {
-              e.stopPropagation();
-              renameConversation(conv.id, e);
-            });
+              });
 
-            quickContainer.appendChild(convRow);
-          });
+              quickContainer.appendChild(convRow);
+            });
+          }
         }
       }
 
@@ -4760,9 +4890,68 @@
     }
     window.showAllConversationHistory = showAllConversationHistory;
 
+    let _chatStickToBottom = true;
+    let _chatScrollProgrammatic = false;
+    let _chatScrollToken = 0;
+
+    function ensureMessagesScrollListener(container) {
+      if (!container || container._chatScrollBound) return;
+      container._chatScrollBound = true;
+      container.addEventListener('scroll', () => {
+        if (_chatScrollProgrammatic) return;
+        const distFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+        _chatStickToBottom = distFromBottom <= 120;
+      }, { passive: true });
+      container.addEventListener('wheel', (e) => {
+        if (e.deltaY < 0) {
+          _chatStickToBottom = false;
+          _chatScrollProgrammatic = false;
+        }
+      }, { passive: true });
+      container.addEventListener('touchstart', () => {
+        _chatScrollProgrammatic = false;
+      }, { passive: true });
+    }
+
+    function scrollMessagesToBottom(container) {
+      if (!container) return;
+      const token = ++_chatScrollToken;
+      _chatStickToBottom = true;
+      _chatScrollProgrammatic = true;
+      container.scrollTop = container.scrollHeight;
+      requestAnimationFrame(() => {
+        if (token !== _chatScrollToken) return;
+        if (_chatStickToBottom) {
+          container.scrollTop = container.scrollHeight;
+        }
+        requestAnimationFrame(() => {
+          if (token !== _chatScrollToken) return;
+          if (_chatStickToBottom) {
+            container.scrollTop = container.scrollHeight;
+          }
+          _chatScrollProgrammatic = false;
+        });
+      });
+    }
+
+    function restoreMessagesScrollTop(container, targetScrollTop) {
+      if (!container) return;
+      const token = ++_chatScrollToken;
+      _chatScrollProgrammatic = true;
+      const maxTop = Math.max(0, container.scrollHeight - container.clientHeight);
+      container.scrollTop = Math.min(Math.max(0, targetScrollTop), maxTop);
+      requestAnimationFrame(() => {
+        if (token !== _chatScrollToken) return;
+        const maxTop2 = Math.max(0, container.scrollHeight - container.clientHeight);
+        container.scrollTop = Math.min(Math.max(0, targetScrollTop), maxTop2);
+        _chatScrollProgrammatic = false;
+      });
+    }
+
     function renderMessages(forceScroll = false) {
       const container = document.getElementById('messages-container');
       if (!container) return;
+      ensureMessagesScrollListener(container);
 
       const conv = getActiveConversation();
       const currentConvId = conv ? conv.id : '';
@@ -4777,9 +4966,11 @@
         return;
       }
 
-      // Smart scroll detection: check if user is already near bottom (<= 120px)
+      // Smart scroll detection: preserve explicit stickiness or user-scrolled offset
+      const prevScrollTop = container.scrollTop;
       const threshold = 120;
       const isNearBottom = (container.scrollHeight - container.scrollTop - container.clientHeight) <= threshold;
+      const shouldStick = Boolean(forceScroll || _chatStickToBottom || isNearBottom);
 
       captureInnerScrollStates(container);
 
@@ -4806,6 +4997,7 @@
         }
       });
 
+      _chatScrollProgrammatic = true;
       container.innerHTML = '';
       lastRenderedTurnsFingerprint = currentFingerprint;
       lastRenderedConvId = currentConvId;
@@ -4856,8 +5048,10 @@
         `;
         container.appendChild(emptyState);
         lucide.createIcons();
-        if (forceScroll || isNearBottom) {
-          container.scrollTop = container.scrollHeight;
+        if (shouldStick) {
+          scrollMessagesToBottom(container);
+        } else {
+          restoreMessagesScrollTop(container, prevScrollTop);
         }
         return;
       }
@@ -4934,8 +5128,10 @@
 
       updateRunningSubagentsBar();
       lucide.createIcons({ root: container });
-      if (forceScroll || isNearBottom) {
-        container.scrollTop = container.scrollHeight;
+      if (shouldStick) {
+        scrollMessagesToBottom(container);
+      } else {
+        restoreMessagesScrollTop(container, prevScrollTop);
       }
       if (typeof renderRightInspector === 'function') {
         renderRightInspector();
@@ -4946,6 +5142,7 @@
       if (!pendingTurn) return;
       const container = document.getElementById('messages-container');
       if (!container) return;
+      ensureMessagesScrollListener(container);
 
       const conv = getActiveConversation();
       if (!conv || !conv.turns) return;
@@ -4999,8 +5196,10 @@
         return;
       }
 
+      const prevScrollTop = container.scrollTop;
       const threshold = 120;
       const isNearBottom = (container.scrollHeight - container.scrollTop - container.clientHeight) <= threshold;
+      const shouldStick = Boolean(_chatStickToBottom || isNearBottom);
 
       // Fast path: if only thinking or text tokens streamed in (structure unchanged), update in-place without rebuilding DOM!
       if (liveCard._lastStructSig === structSig) {
@@ -5041,8 +5240,8 @@
             : '';
         }
         liveCard._lastContentSig = currentContentSig;
-        if (isNearBottom) {
-          container.scrollTop = container.scrollHeight;
+        if (shouldStick) {
+          scrollMessagesToBottom(container);
         }
         return;
       }
@@ -5070,6 +5269,7 @@
         }
       });
 
+      _chatScrollProgrammatic = true;
       liveCard.innerHTML = buildAgentTurnInnerHtml(pendingTurn, turnIdx, openDetailsKeys, closedDetailsKeys, openPlanningKeys);
       bindAgentCardEvents(liveCard);
       liveCard._lastStructSig = structSig;
@@ -5081,8 +5281,10 @@
         lucide.createIcons({ root: liveCard });
       }
 
-      if (isNearBottom) {
-        container.scrollTop = container.scrollHeight;
+      if (shouldStick) {
+        scrollMessagesToBottom(container);
+      } else {
+        restoreMessagesScrollTop(container, prevScrollTop);
       }
 
       if (typeof renderRightInspector === 'function') {
@@ -7227,7 +7429,8 @@
       updateRunningSubagentsBar();
 
       renderConversations();
-      renderMessages();
+      _chatStickToBottom = true;
+      renderMessages(true);
       switchNavTab('chat');
     }
 
@@ -7875,6 +8078,9 @@ function openNewChatModal(initialMode = 'quick') {
           if (data.conversation) {
             if (mode !== 'quick') {
               data.conversation.mode = 'workspace';
+              expandSidebarForWorkspace(data.conversation.workspace || data.active_workspace || state.activeWorkspace);
+            } else {
+              expandQuickChatsSection();
             }
             const existingIdx = state.conversations.findIndex(c => c.id === data.conversation.id);
             if (existingIdx !== -1) {
@@ -7894,6 +8100,11 @@ function openNewChatModal(initialMode = 'quick') {
       }
 
       // Local fallback
+      if (mode === 'quick') {
+        expandQuickChatsSection();
+      } else {
+        expandSidebarForWorkspace(state.activeWorkspace);
+      }
       const newConv = {
         id: 'conv_' + Date.now().toString(36),
         title: title || `Session in ${state.activeWorkspaceName}`,
@@ -7981,7 +8192,8 @@ function openNewChatModal(initialMode = 'quick') {
         renderSubagentTranscript();
         updateRunningSubagentsBar();
         renderSidebarProjectsTree();
-        renderMessages();
+        _chatStickToBottom = true;
+        renderMessages(true);
       } else {
         await createNewConversationInWorkspace(ws);
         return;
@@ -9371,6 +9583,7 @@ function openNewChatModal(initialMode = 'quick') {
         text: ''
       };
       conv.turns.push(pendingTurn);
+      _chatStickToBottom = true;
       renderMessages(true);
 
       // Poll /api/harness/live every 450ms so tool calls, diffs, and streamed text render in real time!
@@ -9597,10 +9810,11 @@ function openNewChatModal(initialMode = 'quick') {
       }
 
       if (myRunId === activeTurnRunId) {
+        const shouldStickAtFinish = _chatStickToBottom;
         activeChatAbortController = null;
-        renderConversations();
-        renderMessages();
         resetSendButtonUI();
+        renderConversations();
+        renderMessages(shouldStickAtFinish);
         pollWatchdogStatus(false).catch(() => {});
       }
     }
@@ -10725,10 +10939,21 @@ function openNewChatModal(initialMode = 'quick') {
       if (!Array.isArray(changelog) || changelog.length === 0) {
         changelog = [
           {
+            version: "3.0.8",
+            date: "2026-11-20",
+            title: "Unjess v3.0.8 - Collapsible Sidebar Folders & Sections + Finish-Reply Scroll Fix",
+            tag: "LATEST",
+            changes: [
+              "Made individual project folders collapsible so nested conversations under each workspace can be toggled cleanly with persistent state",
+              "Added collapsible Projects and Quick Chats section headers to hide sidebar clutter while preserving workspace conversation grouping",
+              "Fixed chat viewport jumping up to the user prompt or top of thread when AI finishes replying (removed off-layout content-visibility sizing drift, added overflow-anchor: none, and tracked user scroll intent)"
+            ]
+          },
+          {
             version: "3.0.7",
             date: "2026-11-18",
             title: "Unjess v3.0.7 - Model-Aware Auto-Compaction, 250k Context Ceiling & Overflow Recovery",
-            tag: "LATEST",
+            tag: "UPDATE",
             changes: [
               "Wired model-aware auto-compaction honoring enable_compaction (~65% of model context, capped at 250k tokens on 1M+ windows)",
               "Connected warm-prefix LLM summarization and automatic >24 turn conversation compaction without silent turn drops",
@@ -11071,7 +11296,7 @@ function openNewChatModal(initialMode = 'quick') {
         if (resp && resp.ok) {
           const data = await resp.json();
           state.updates = data;
-          const currentVer = data.current_version || '3.0.7';
+          const currentVer = data.current_version || '3.0.8';
           const latestVer = data.latest_version || currentVer;
           const isAvailable = Boolean(data.update_available);
           state.updateAvailable = isAvailable;
@@ -12012,7 +12237,8 @@ function openNewChatModal(initialMode = 'quick') {
       renderConversations();
       renderWorkflows();
       renderAgents();
-      renderMessages();
+      _chatStickToBottom = true;
+      renderMessages(true);
       syncAgentModeUI();
       syncPromptModifiersUI(true);
       populateBrowserHtmlDropdown();
@@ -12054,6 +12280,8 @@ function openNewChatModal(initialMode = 'quick') {
         }
       });
 
+      document.getElementById('btn-toggle-projects-section')?.addEventListener('click', toggleProjectsSection);
+      document.getElementById('btn-toggle-quick-chats-section')?.addEventListener('click', toggleQuickChatsSection);
       document.getElementById('btn-create-project-dropdown')?.addEventListener('click', promptAddWorkspace);
       document.getElementById('btn-add-workspace')?.addEventListener('click', promptAddWorkspace);
       document.getElementById('btn-add-conversation')?.addEventListener('click', () => openNewChatModal('quick'));

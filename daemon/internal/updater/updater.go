@@ -82,10 +82,21 @@ type VersionManifest struct {
 func BuiltinChangelog() []ChangelogEntry {
 	return []ChangelogEntry{
 		{
+			Version: "3.0.8",
+			Date:    "2026-11-20",
+			Title:   "Unjess v3.0.8 - Collapsible Sidebar Folders & Sections + Finish-Reply Scroll Fix",
+			Tag:     "LATEST",
+			Changes: []string{
+				"Made individual project folders collapsible so nested conversations under each workspace can be toggled cleanly with persistent state",
+				"Added collapsible Projects and Quick Chats section headers to hide sidebar clutter while preserving workspace conversation grouping",
+				"Fixed chat viewport jumping up to the user prompt or top of thread when AI finishes replying (removed off-layout content-visibility sizing drift, added overflow-anchor: none, and tracked user scroll intent)",
+			},
+		},
+		{
 			Version: "3.0.7",
 			Date:    "2026-11-18",
 			Title:   "Unjess v3.0.7 - Model-Aware Auto-Compaction, 250k Context Ceiling & Overflow Recovery",
-			Tag:     "LATEST",
+			Tag:     "UPDATE",
 			Changes: []string{
 				"Wired model-aware auto-compaction honoring enable_compaction (~65% of model context, capped at 250k tokens on 1M+ windows like DeepSeek V4.1 Flash and Gemini)",
 				"Connected KV-cache-friendly warm-prefix LLM summarization (with deterministic 8-section fallback) and auto-compacts conversation history beyond 24 turns instead of dropping turns silently",
