@@ -122,10 +122,11 @@ func hashBytesFNV1a(data []byte) uint64 {
 // ToolExecutor executes core agent tools safely within a workspace sandbox.
 type ToolExecutor struct {
 	WorkspacePath         string
-	CommandTimeoutSec     int
-	ReadOnly              bool
-	EnforceReadBeforeEdit bool
-	ProtectedPaths        []string
+	CommandTimeoutSec      int
+	ReadOnly               bool
+	EnforceReadBeforeEdit  bool
+	StrictWorkspaceSandbox bool
+	ProtectedPaths         []string
 	ToolCalls             []ToolCallRecord
 	FilesTouched          []FileTouch
 	Diffs                 []FileDiff
@@ -1071,10 +1072,10 @@ func CoreToolDefinitions() []map[string]any {
 		{
 			"type":        "function",
 			"name":        "memory_save",
-			"description": "Save a persistent cross-session memory (user preferences, project architecture, important facts, or decisions) to ~/.unjess/memory/memories.json so it is remembered across all future conversations and workspaces.",
+			"description": "Save a persistent memory (user preferences, project architecture, important facts, or decisions) to ~/.unjess/memory/memories.json. Defaults to the active workspace so project notes stay isolated; pass scope='global' only for user-wide preferences.",
 			"function": map[string]any{
 				"name":        "memory_save",
-				"description": "Save a persistent cross-session memory (user preferences, project architecture, important facts, or decisions) to ~/.unjess/memory/memories.json so it is remembered across all future conversations and workspaces.",
+				"description": "Save a persistent memory (user preferences, project architecture, important facts, or decisions) to ~/.unjess/memory/memories.json. Defaults to the active workspace so project notes stay isolated; pass scope='global' only for user-wide preferences.",
 				"parameters": map[string]any{
 					"type": "object",
 					"properties": map[string]any{
@@ -1092,7 +1093,7 @@ func CoreToolDefinitions() []map[string]any {
 						},
 						"scope": map[string]any{
 							"type":        "string",
-							"description": "Memory scope: 'global' (applies to all workspaces) or 'workspace' (tied to current workspace). Default is 'global'.",
+							"description": "Memory scope: 'workspace' (tied strictly to current workspace) or 'global' (applies to all workspaces, use only for user-wide preferences). Default is 'workspace'.",
 						},
 					},
 					"required": []string{"key", "content"},
@@ -1115,7 +1116,7 @@ func CoreToolDefinitions() []map[string]any {
 					},
 					"scope": map[string]any{
 						"type":        "string",
-						"description": "Memory scope: 'global' (applies to all workspaces) or 'workspace' (tied to current workspace). Default is 'global'.",
+						"description": "Memory scope: 'workspace' (tied strictly to current workspace) or 'global' (applies to all workspaces, use only for user-wide preferences). Default is 'workspace'.",
 					},
 				},
 				"required": []string{"key", "content"},
@@ -3036,33 +3037,79 @@ func expandHomeDir(p string) string {
 	return trimmed
 }
 
+func (t *ToolExecutor) resolveReadPath(targetPath string) (string, error) {
+	strict := t != nil && t.StrictWorkspaceSandbox
+	ws := ""
+	if t != nil {
+		ws = t.WorkspacePath
+	}
+	return resolveReadOrInspectPathWithMode(ws, targetPath, strict)
+}
+
+func (t *ToolExecutor) resolveWriteTargetPath(targetPath string) (string, error) {
+	strict := t != nil && t.StrictWorkspaceSandbox
+	ws := ""
+	if t != nil {
+		ws = t.WorkspacePath
+	}
+	return resolveWritePathWithMode(ws, targetPath, strict)
+}
+
+func (t *ToolExecutor) enforceLocalVisualTargetPath(tgt string) error {
+	if t == nil || !t.StrictWorkspaceSandbox {
+		return nil
+	}
+	trimmed := strings.TrimSpace(tgt)
+	lower := strings.ToLower(trimmed)
+	if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") {
+		return nil
+	}
+	rawLocal := trimmed
+	if strings.HasPrefix(lower, "file:///") {
+		rawLocal = trimmed[len("file://"):]
+		if len(rawLocal) >= 3 && rawLocal[0] == '/' && rawLocal[2] == ':' {
+			rawLocal = rawLocal[1:]
+		}
+	} else if strings.HasPrefix(lower, "file://") {
+		rawLocal = trimmed[len("file://"):]
+	}
+	_, err := t.resolveReadPath(rawLocal)
+	return err
+}
+
 func resolveReadOrInspectPath(wsPath, targetPath string) (string, error) {
+	return resolveReadOrInspectPathWithMode(wsPath, targetPath, false)
+}
+
+func resolveReadOrInspectPathWithMode(wsPath, targetPath string, strictSandbox bool) (string, error) {
 	expanded := expandHomeDir(targetPath)
 	cleanExpanded := filepath.Clean(expanded)
 
-	// Whitelist 1: Check if path targets the user's global ~/.unjess/skills or ~/.unjess/logs
+	// Whitelist 1: Check if path targets the user's global ~/.unjess/skills (always allowed) or ~/.unjess/logs (standard mode only)
 	if home, err := os.UserHomeDir(); err == nil && home != "" {
 		globalSkills := filepath.Clean(filepath.Join(home, ".unjess", "skills"))
-		globalLogs := filepath.Clean(filepath.Join(home, ".unjess", "logs"))
 		normTarget := strings.ToLower(cleanExpanded)
 		if normTarget == strings.ToLower(globalSkills) || strings.HasPrefix(normTarget, strings.ToLower(globalSkills)+string(filepath.Separator)) {
 			return cleanExpanded, nil
 		}
-		if normTarget == strings.ToLower(globalLogs) || strings.HasPrefix(normTarget, strings.ToLower(globalLogs)+string(filepath.Separator)) {
-			return cleanExpanded, nil
+		if !strictSandbox {
+			globalLogs := filepath.Clean(filepath.Join(home, ".unjess", "logs"))
+			if normTarget == strings.ToLower(globalLogs) || strings.HasPrefix(normTarget, strings.ToLower(globalLogs)+string(filepath.Separator)) {
+				return cleanExpanded, nil
+			}
 		}
 	}
 
 	// Whitelist 2: Check relative references to skills or logs (.unjess/skills, skills, .skills, .unjess/logs)
 	relTrimmed := strings.TrimLeft(targetPath, `/\`)
 	relSlash := filepath.ToSlash(relTrimmed)
-	if strings.HasPrefix(relSlash, ".unjess/skills") || strings.HasPrefix(relSlash, "skills") || strings.HasPrefix(relSlash, ".skills") || strings.HasPrefix(relSlash, ".unjess/logs") {
+	if strings.HasPrefix(relSlash, ".unjess/skills") || strings.HasPrefix(relSlash, "skills") || strings.HasPrefix(relSlash, ".skills") || (!strictSandbox && strings.HasPrefix(relSlash, ".unjess/logs")) {
 		// First check active workspace
 		wsCand := filepath.Join(wsPath, filepath.Clean(relTrimmed))
 		if _, err := os.Stat(wsCand); err == nil {
 			return wsCand, nil
 		}
-		// If not in workspace, check user global ~/.unjess/skills or ~/.unjess/logs
+		// If not in workspace, check user global ~/.unjess/skills (or ~/.unjess/logs when not strict)
 		if home, err := os.UserHomeDir(); err == nil && home != "" {
 			if strings.HasPrefix(relSlash, ".unjess/skills") || strings.HasPrefix(relSlash, "skills") || strings.HasPrefix(relSlash, ".skills") {
 				sub := strings.TrimPrefix(relSlash, ".unjess/skills")
@@ -3073,7 +3120,7 @@ func resolveReadOrInspectPath(wsPath, targetPath string) (string, error) {
 				if _, err := os.Stat(globalCand); err == nil {
 					return globalCand, nil
 				}
-			} else if strings.HasPrefix(relSlash, ".unjess/logs") {
+			} else if !strictSandbox && strings.HasPrefix(relSlash, ".unjess/logs") {
 				sub := strings.TrimPrefix(relSlash, ".unjess/logs")
 				sub = strings.TrimLeft(sub, "/")
 				globalCand := filepath.Join(home, ".unjess", "logs", filepath.FromSlash(sub))
@@ -3088,6 +3135,9 @@ func resolveReadOrInspectPath(wsPath, targetPath string) (string, error) {
 	if err == nil {
 		return safePath, nil
 	}
+	if strictSandbox {
+		return "", fmt.Errorf("access denied (Strict Workspace Sandbox is enabled): path '%s' is outside the active workspace '%s'", targetPath, wsPath)
+	}
 	if filepath.IsAbs(expanded) && !strings.Contains(expanded, "..") {
 		if sbErr := checkCommandSandbox(expanded, wsPath); sbErr == nil && !workspace.IsInternalUnjessDir(expanded) {
 			return filepath.Clean(expanded), nil
@@ -3097,25 +3147,34 @@ func resolveReadOrInspectPath(wsPath, targetPath string) (string, error) {
 }
 
 func resolveWritePath(wsPath, targetPath string) (string, error) {
+	return resolveWritePathWithMode(wsPath, targetPath, false)
+}
+
+func resolveWritePathWithMode(wsPath, targetPath string, strictSandbox bool) (string, error) {
 	expanded := expandHomeDir(targetPath)
 	cleanExpanded := filepath.Clean(expanded)
 
-	// Allow writes to ~/.unjess/skills and ~/.unjess/logs
-	if home, err := os.UserHomeDir(); err == nil && home != "" {
-		globalSkills := filepath.Clean(filepath.Join(home, ".unjess", "skills"))
-		globalLogs := filepath.Clean(filepath.Join(home, ".unjess", "logs"))
-		normTarget := strings.ToLower(cleanExpanded)
-		if strings.HasPrefix(normTarget, strings.ToLower(globalSkills)+string(filepath.Separator)) {
-			return cleanExpanded, nil
-		}
-		if strings.HasPrefix(normTarget, strings.ToLower(globalLogs)+string(filepath.Separator)) {
-			return cleanExpanded, nil
+	if !strictSandbox {
+		// Allow writes to ~/.unjess/skills and ~/.unjess/logs in standard mode
+		if home, err := os.UserHomeDir(); err == nil && home != "" {
+			globalSkills := filepath.Clean(filepath.Join(home, ".unjess", "skills"))
+			globalLogs := filepath.Clean(filepath.Join(home, ".unjess", "logs"))
+			normTarget := strings.ToLower(cleanExpanded)
+			if strings.HasPrefix(normTarget, strings.ToLower(globalSkills)+string(filepath.Separator)) {
+				return cleanExpanded, nil
+			}
+			if strings.HasPrefix(normTarget, strings.ToLower(globalLogs)+string(filepath.Separator)) {
+				return cleanExpanded, nil
+			}
 		}
 	}
 
 	safePath, err := workspace.ResolveSafePath(wsPath, expanded)
 	if err == nil {
 		return safePath, nil
+	}
+	if strictSandbox {
+		return "", fmt.Errorf("access denied (Strict Workspace Sandbox is enabled): cannot write to path '%s' outside the active workspace '%s'", targetPath, wsPath)
 	}
 	if filepath.IsAbs(expanded) && !strings.Contains(expanded, "..") {
 		if sbErr := checkCommandSandbox(expanded, wsPath); sbErr == nil && !workspace.IsInternalUnjessDir(expanded) {
@@ -3131,7 +3190,7 @@ func (t *ToolExecutor) executeReadFile(args map[string]any) (string, bool) {
 		return "Error: path is required", false
 	}
 
-	safePath, err := resolveReadOrInspectPath(t.WorkspacePath, relPath)
+	safePath, err := t.resolveReadPath(relPath)
 	if err != nil {
 		return fmt.Sprintf("Error: %v", err), false
 	}
@@ -3281,7 +3340,7 @@ func (t *ToolExecutor) executeWriteFile(ctx context.Context, args map[string]any
 	}
 	content := getString(args, "content", "code")
 
-	safePath, err := resolveWritePath(t.WorkspacePath, relPath)
+	safePath, err := t.resolveWriteTargetPath(relPath)
 	if err != nil {
 		return fmt.Sprintf("Error: %v", err), false
 	}
@@ -3403,7 +3462,7 @@ func (t *ToolExecutor) executeEditFile(ctx context.Context, args map[string]any)
 		return hunkErr.Error(), false
 	}
 
-	safePath, err := resolveWritePath(t.WorkspacePath, relPath)
+	safePath, err := t.resolveWriteTargetPath(relPath)
 	if err != nil {
 		return fmt.Sprintf("Error: %v", err), false
 	}
@@ -3479,7 +3538,7 @@ func (t *ToolExecutor) executeListDir(args map[string]any) (string, bool) {
 		p = "."
 	}
 
-	safePath, err := resolveReadOrInspectPath(t.WorkspacePath, p)
+	safePath, err := t.resolveReadPath(p)
 	if err != nil {
 		return fmt.Sprintf("Error: %v", err), false
 	}
@@ -3551,7 +3610,7 @@ func (t *ToolExecutor) executeGrepSearch(ctx context.Context, args map[string]an
 		targetRel = "."
 	}
 
-	safePath, err := resolveReadOrInspectPath(t.WorkspacePath, targetRel)
+	safePath, err := t.resolveReadPath(targetRel)
 	if err != nil {
 		return fmt.Sprintf("Error: %v", err), false
 	}
@@ -3642,7 +3701,7 @@ func (t *ToolExecutor) executeFindByName(args map[string]any) (string, bool) {
 
 	searchRoot := t.WorkspacePath
 	if pathArg := getString(args, "path", "dir", "directory"); strings.TrimSpace(pathArg) != "" {
-		resolved, err := resolveReadOrInspectPath(t.WorkspacePath, pathArg)
+		resolved, err := t.resolveReadPath(pathArg)
 		if err != nil {
 			return fmt.Sprintf("Error: %v", err), false
 		}
@@ -3735,7 +3794,172 @@ func checkCommandSandbox(command, workspaceRoot string) error {
 					return fmt.Errorf("access denied: destructive shell command against ~/.unjess/skills is prohibited")
 				}
 			}
-			idx = actualPos + len(".unjess")
+		idx = actualPos + len(".unjess")
+		}
+	}
+
+	return nil
+}
+
+func isASCIIAlpha(b byte) bool {
+	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z')
+}
+
+func splitShellTokens(command string) []string {
+	var tokens []string
+	var cur strings.Builder
+	inSingle := false
+	inDouble := false
+
+	flush := func() {
+		if cur.Len() > 0 {
+			tokens = append(tokens, cur.String())
+			cur.Reset()
+		}
+	}
+
+	for i := 0; i < len(command); i++ {
+		ch := command[i]
+		if ch == '\'' && !inDouble {
+			inSingle = !inSingle
+			continue
+		}
+		if ch == '"' && !inSingle {
+			inDouble = !inDouble
+			continue
+		}
+		if !inSingle && !inDouble {
+			switch ch {
+			case ' ', '\t', '\n', '\r', ';', '|', '&', '<', '>', '(', ')', '=', '`':
+				flush()
+				continue
+			}
+		}
+		cur.WriteByte(ch)
+	}
+	flush()
+	return tokens
+}
+
+func isAllowedSystemToolchainPath(normSlashLower string, isWindowsDrive bool) bool {
+	if isWindowsDrive {
+		allowed := []string{
+			"c:/windows",
+			"c:/program files",
+			"c:/program files (x86)",
+		}
+		for _, p := range allowed {
+			if normSlashLower == p || strings.HasPrefix(normSlashLower, p+"/") {
+				return true
+			}
+		}
+		return false
+	}
+	allowedPOSIX := []string{
+		"/usr",
+		"/bin",
+		"/sbin",
+		"/lib",
+		"/lib64",
+		"/dev",
+		"/proc",
+		"/etc/ssl",
+		"/opt/homebrew",
+		"/home/linuxbrew",
+	}
+	for _, p := range allowedPOSIX {
+		if normSlashLower == p || strings.HasPrefix(normSlashLower, p+"/") {
+			return true
+		}
+	}
+	return false
+}
+
+// checkStrictCommandSandbox inspects shell command tokens for path references outside workspaceRoot.
+func checkStrictCommandSandbox(command, workspaceRoot, workDir string) error {
+	if strings.TrimSpace(workspaceRoot) == "" {
+		return nil
+	}
+	baseDir := strings.TrimSpace(workDir)
+	if baseDir == "" {
+		baseDir = workspaceRoot
+	}
+
+	for _, rawTok := range splitShellTokens(command) {
+		tok := strings.TrimSpace(rawTok)
+		tok = strings.Trim(tok, `"'`)
+		if tok == "" {
+			continue
+		}
+		lower := strings.ToLower(tok)
+
+		// Skip standard URLs and SSH git remotes, but inspect file:// URLs.
+		if strings.HasPrefix(lower, "http://") ||
+			strings.HasPrefix(lower, "https://") ||
+			strings.HasPrefix(lower, "ws://") ||
+			strings.HasPrefix(lower, "wss://") ||
+			strings.HasPrefix(lower, "ftp://") ||
+			strings.HasPrefix(lower, "ssh://") ||
+			strings.HasPrefix(lower, "git+https://") ||
+			strings.HasPrefix(lower, "git+ssh://") {
+			continue
+		}
+		if strings.Contains(tok, "@") && strings.Contains(tok, ":") && !strings.HasPrefix(tok, "/") && !(len(tok) >= 2 && isASCIIAlpha(tok[0]) && tok[1] == ':') {
+			continue
+		}
+		if strings.HasPrefix(lower, "file://") {
+			tok = tok[len("file://"):]
+			if len(tok) >= 3 && tok[0] == '/' && tok[2] == ':' {
+				tok = tok[1:]
+			}
+			lower = strings.ToLower(tok)
+		}
+
+		// 1. Block home-directory (~) references unless resolved path stays inside workspaceRoot.
+		if tok == "~" || strings.HasPrefix(tok, "~/") || strings.HasPrefix(tok, `~\`) {
+			expanded := expandHomeDir(tok)
+			if _, err := workspace.ResolveSafePath(workspaceRoot, expanded); err != nil {
+				return fmt.Errorf("access denied (Strict Workspace Sandbox is enabled): shell command references path '%s' outside the active workspace '%s'", tok, workspaceRoot)
+			}
+			continue
+		}
+
+		// 2. Check Windows drive-letter or UNC paths.
+		if (len(tok) >= 2 && isASCIIAlpha(tok[0]) && tok[1] == ':') || strings.HasPrefix(tok, `\\`) {
+			if _, err := workspace.ResolveSafePath(workspaceRoot, tok); err == nil {
+				continue
+			}
+			normSlash := strings.ToLower(strings.ReplaceAll(filepath.Clean(tok), `\`, "/"))
+			if isAllowedSystemToolchainPath(normSlash, true) {
+				continue
+			}
+			return fmt.Errorf("access denied (Strict Workspace Sandbox is enabled): shell command references path '%s' outside the active workspace '%s'", tok, workspaceRoot)
+		}
+
+		// 3. Check POSIX absolute paths (/foo/...).
+		if strings.HasPrefix(tok, "/") && len(tok) >= 2 {
+			// Ignore short single-character Windows CLI flags such as /c, /s, /f, /q when not an existing directory/file.
+			if len(tok) == 2 && isASCIIAlpha(tok[1]) {
+				if _, statErr := os.Stat(tok); statErr != nil {
+					continue
+				}
+			}
+			if _, err := workspace.ResolveSafePath(workspaceRoot, tok); err == nil {
+				continue
+			}
+			normSlash := strings.ToLower(filepath.ToSlash(filepath.Clean(tok)))
+			if isAllowedSystemToolchainPath(normSlash, false) {
+				continue
+			}
+			return fmt.Errorf("access denied (Strict Workspace Sandbox is enabled): shell command references path '%s' outside the active workspace '%s'", tok, workspaceRoot)
+		}
+
+		// 4. Check parent traversal (..), allowing in-workspace parent steps such as ../sibling inside workspace.
+		if tok == ".." || strings.Contains(tok, "../") || strings.Contains(tok, `..\`) || strings.HasSuffix(tok, "/..") || strings.HasSuffix(tok, `\..`) {
+			cand := filepath.Clean(filepath.Join(baseDir, filepath.FromSlash(tok)))
+			if _, err := workspace.ResolveSafePath(workspaceRoot, cand); err != nil {
+				return fmt.Errorf("access denied (Strict Workspace Sandbox is enabled): shell command references path '%s' outside the active workspace '%s'", tok, workspaceRoot)
+			}
 		}
 	}
 
@@ -4108,7 +4332,12 @@ func (t *ToolExecutor) extractAndStripShellState(rawOutput string, baselineEnv m
 	if capturedPwd != "" {
 		normPwd := normalizeMsysPathOnWindows(capturedPwd)
 		if info, err := os.Stat(normPwd); err == nil && info.IsDir() {
-			if checkCommandSandbox(normPwd, t.WorkspacePath) == nil {
+			allowedCwd := checkCommandSandbox(normPwd, t.WorkspacePath) == nil
+			if allowedCwd && t.StrictWorkspaceSandbox {
+				_, wsErr := workspace.ResolveSafePath(t.WorkspacePath, normPwd)
+				allowedCwd = wsErr == nil
+			}
+			if allowedCwd {
 				if !explicitCwd || !strings.EqualFold(filepath.Clean(normPwd), filepath.Clean(initialWorkDir)) {
 					t.mu.Lock()
 					t.SessionCwd = filepath.Clean(normPwd)
@@ -4205,12 +4434,20 @@ func (t *ToolExecutor) executeRunCommand(ctx context.Context, args map[string]an
 
 	explicitCwd := false
 	if cwdArg := getString(args, "cwd", "workdir"); strings.TrimSpace(cwdArg) != "" {
-		resolved, err := resolveReadOrInspectPath(t.WorkspacePath, cwdArg)
+		resolved, err := t.resolveReadPath(cwdArg)
 		if err != nil {
 			return fmt.Sprintf("Error resolving cwd: %v", err), false
 		}
 		workDir = resolved
 		explicitCwd = true
+	}
+	if t.StrictWorkspaceSandbox {
+		if _, wsErr := workspace.ResolveSafePath(t.WorkspacePath, workDir); wsErr != nil {
+			return fmt.Sprintf("access denied (Strict Workspace Sandbox is enabled): working directory '%s' is outside active workspace '%s'", workDir, t.WorkspacePath), false
+		}
+		if err := checkStrictCommandSandbox(command, t.WorkspacePath, workDir); err != nil {
+			return err.Error(), false
+		}
 	}
 
 	timeoutSec := t.CommandTimeoutSec
@@ -4496,7 +4733,7 @@ func (t *ToolExecutor) executeStartTask(ctx context.Context, args map[string]any
 		return "Error: command is required", false
 	}
 	cwd := getString(args, "cwd", "workdir")
-	task, err := GetGlobalTaskManager().StartBackgroundTask(ctx, t.WorkspacePath, command, cwd)
+	task, err := GetGlobalTaskManager().StartBackgroundTaskWithOptions(ctx, t.WorkspacePath, command, cwd, t.StrictWorkspaceSandbox)
 	if err != nil {
 		return fmt.Sprintf("Error starting background task: %v", err), false
 	}
@@ -5331,9 +5568,9 @@ func (t *ToolExecutor) executeMemorySave(args map[string]any) (string, bool) {
 	category := getString(args, "category", "type")
 	scope := getString(args, "scope")
 
-	ws := "global"
-	if strings.EqualFold(scope, "workspace") {
-		ws = t.WorkspacePath
+	ws := strings.TrimSpace(t.WorkspacePath)
+	if strings.EqualFold(strings.TrimSpace(scope), "global") || ws == "" {
+		ws = "global"
 	}
 
 	var tags []string
@@ -6089,6 +6326,10 @@ func (t *ToolExecutor) executeViewImage(ctx context.Context, args map[string]any
 	var reports []string
 	anySuccess := false
 	for _, tgt := range targets {
+		if err := t.enforceLocalVisualTargetPath(tgt); err != nil {
+			reports = append(reports, fmt.Sprintf("- %s: Error (%v)", tgt, err))
+			continue
+		}
 		dataURI, report, err := frontier.CaptureVisualQA(ctx, t.WorkspacePath, tgt, 1280, 800)
 		if err != nil {
 			reports = append(reports, fmt.Sprintf("- %s: Error (%v)", tgt, err))
@@ -6121,6 +6362,9 @@ func (t *ToolExecutor) executeVisualQA(ctx context.Context, args map[string]any)
 	height := getInt(args, "height")
 	if height <= 0 {
 		height = 800
+	}
+	if err := t.enforceLocalVisualTargetPath(target); err != nil {
+		return fmt.Sprintf("Visual QA capture error: %v", err), false
 	}
 	dataURI, report, err := frontier.CaptureVisualQA(ctx, t.WorkspacePath, target, width, height)
 	if err != nil {

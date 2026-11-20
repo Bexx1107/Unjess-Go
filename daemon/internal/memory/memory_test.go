@@ -165,8 +165,11 @@ func TestFormatForSystemPrompt(t *testing.T) {
 
 	_, _ = SaveMemory("pref1", "preference", "user likes dark mode", "global", nil)
 	_, _ = SaveMemory("proj_local", "project", "building an awesome desktop client", "C:\\my\\app", nil)
+	_, _ = SaveMemory("proj_prefix_sibling", "project", "unrelated sibling project app2 secrets", "C:\\my\\app2", nil)
+	_, _ = SaveMemory("proj_other", "project", "unrelated Project Y backend details", "C:\\other\\proj", nil)
 
-	formatted := FormatForSystemPrompt("C:\\my\\app", 5)
+	// Normalize trailing slash / forward-slash differences while strictly rejecting siblings and unrelated workspaces
+	formatted := FormatForSystemPrompt("c:/my/app/", 10)
 	if !strings.Contains(formatted, "<cross_session_memory>") {
 		t.Errorf("expected <cross_session_memory> tag in:\n%s", formatted)
 	}
@@ -175,6 +178,53 @@ func TestFormatForSystemPrompt(t *testing.T) {
 	}
 	if !strings.Contains(formatted, "- [project] proj_local: building an awesome desktop client") {
 		t.Errorf("expected proj_local in output:\n%s", formatted)
+	}
+	if strings.Contains(formatted, "proj_prefix_sibling") || strings.Contains(formatted, "app2") {
+		t.Errorf("prefix sibling app2 leaked into C:\\my\\app prompt:\n%s", formatted)
+	}
+	if strings.Contains(formatted, "proj_other") || strings.Contains(formatted, "Project Y") {
+		t.Errorf("unrelated workspace Project Y leaked into C:\\my\\app prompt:\n%s", formatted)
+	}
+}
+
+func TestSearchAndSaveWorkspaceIsolation(t *testing.T) {
+	setupTestMemory(t)
+
+	// Same key in two workspaces must NOT overwrite each other
+	_, err := SaveMemory("architecture", "architecture", "Project X uses Go + SQLite", "/work/proj-x", nil)
+	if err != nil {
+		t.Fatalf("SaveMemory proj-x failed: %v", err)
+	}
+	_, err = SaveMemory("architecture", "architecture", "Project Y uses Rust + Postgres", "/work/proj-y", nil)
+	if err != nil {
+		t.Fatalf("SaveMemory proj-y failed: %v", err)
+	}
+	_, err = SaveMemory("editor_theme", "preference", "Always monochrome dark", "global", nil)
+	if err != nil {
+		t.Fatalf("SaveMemory global failed: %v", err)
+	}
+
+	all, err := LoadMemories()
+	if err != nil {
+		t.Fatalf("LoadMemories failed: %v", err)
+	}
+	if len(all) != 3 {
+		t.Fatalf("expected 3 isolated memories, got %d: %+v", len(all), all)
+	}
+
+	// Querying within proj-x must return proj-x architecture only (never proj-y)
+	resX := SearchMemories("Postgres", "", "/work/proj-x")
+	if len(resX) != 0 {
+		t.Errorf("expected 0 results for Project Y content inside Project X, got %+v", resX)
+	}
+	resXValid := SearchMemories("architecture", "", "/work/proj-x/")
+	if len(resXValid) != 1 || !strings.Contains(resXValid[0].Content, "Project X") {
+		t.Errorf("expected only Project X architecture in /work/proj-x/, got %+v", resXValid)
+	}
+	// Prefix-similar sibling (/work/proj-x2) must NOT match /work/proj-x
+	resX2 := SearchMemories("architecture", "", "/work/proj-x2")
+	if len(resX2) != 0 {
+		t.Errorf("expected 0 results for /work/proj-x inside /work/proj-x2, got %+v", resX2)
 	}
 }
 

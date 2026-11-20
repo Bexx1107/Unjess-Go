@@ -675,17 +675,22 @@ func TestSubagentEngine_SendFollowUp(t *testing.T) {
 
 func TestBuildRecentSessionsSummary(t *testing.T) {
 	hm, tempDir := setupTestManager(t)
+	otherDir := t.TempDir()
 
-	// Create 2 conversations with turns
+	// Create 2 conversations in tempDir (Project X) and 1 in otherDir (Project Y)
 	res1 := hm.CreateConversation("Go Daemon API", tempDir, "normal")
 	conv1, _ := res1["conversation"].(map[string]any)
 	id1, _ := conv1["id"].(string)
+
+	resOther := hm.CreateConversation("Unrelated Project Y Tasks", otherDir, "normal")
+	convOther, _ := resOther["conversation"].(map[string]any)
+	idOther, _ := convOther["id"].(string)
 
 	res2 := hm.CreateConversation("Rust Desktop UI", tempDir, "normal")
 	conv2, _ := res2["conversation"].(map[string]any)
 	id2, _ := conv2["id"].(string)
 
-	// Add turns to conv1 and conv2
+	// Add turns to conv1, convOther, and conv2
 	hm.mu.Lock()
 	convs, _ := hm.state["conversations"].([]any)
 	for _, c := range convs {
@@ -695,6 +700,10 @@ func TestBuildRecentSessionsSummary(t *testing.T) {
 				map[string]any{"role": "user", "text": "Build the Go daemon HTTP REST API"},
 				map[string]any{"role": "assistant", "text": "Implemented server routes and handlers."},
 			}
+		} else if cm["id"] == idOther {
+			cm["turns"] = []any{
+				map[string]any{"role": "user", "text": "Deploy unrelated Project Y billing DB"},
+			}
 		} else if cm["id"] == id2 {
 			cm["turns"] = []any{
 				map[string]any{"role": "user", "text": "Implement the Tauri/Wry webview shell"},
@@ -703,8 +712,8 @@ func TestBuildRecentSessionsSummary(t *testing.T) {
 	}
 	hm.mu.Unlock()
 
-	// Call buildRecentSessionsSummary excluding conv2
-	summary := hm.buildRecentSessionsSummary(id2, 5)
+	// Call buildRecentSessionsSummary scoped to tempDir, excluding conv2
+	summary := hm.buildRecentSessionsSummary(id2, tempDir, 5)
 	if !strings.Contains(summary, "<recent_sessions_context>") {
 		t.Errorf("expected <recent_sessions_context> in summary:\n%s", summary)
 	}
@@ -713,6 +722,9 @@ func TestBuildRecentSessionsSummary(t *testing.T) {
 	}
 	if strings.Contains(summary, "Rust Desktop UI") {
 		t.Errorf("current conversation (id2) should have been excluded from summary:\n%s", summary)
+	}
+	if strings.Contains(summary, "Unrelated Project Y Tasks") || strings.Contains(summary, "billing DB") {
+		t.Errorf("unrelated workspace Project Y leaked into Project X summary:\n%s", summary)
 	}
 }
 
@@ -1971,4 +1983,30 @@ func TestModelAwareCompactionBudgetsAndOverflowRecovery(t *testing.T) {
 	}
 	_ = beforeTok
 	_ = afterTok
+}
+
+func TestBuildHarnessConfigPrompt_StrictWorkspaceSandbox(t *testing.T) {
+	hm, _ := setupTestManager(t)
+
+	// 1. Default (StrictWorkspaceSandbox == false)
+	if hm.settings.StrictWorkspaceSandbox {
+		t.Fatalf("expected StrictWorkspaceSandbox false by default")
+	}
+	stdPrompt := hm.buildHarnessConfigPrompt("deepseek-v4.1-flash", "ollama-api", "Autonomous")
+	if !strings.Contains(stdPrompt, "Workspace Isolation: Standard") {
+		t.Errorf("expected Standard workspace isolation line when StrictWorkspaceSandbox=false, got:\n%s", stdPrompt)
+	}
+	if strings.Contains(stdPrompt, "STRICT SANDBOX ENABLED") {
+		t.Errorf("did not expect STRICT SANDBOX ENABLED in default prompt:\n%s", stdPrompt)
+	}
+
+	// 2. Enabled (StrictWorkspaceSandbox == true)
+	hm.settings.StrictWorkspaceSandbox = true
+	strictPrompt := hm.buildHarnessConfigPrompt("deepseek-v4.1-flash", "ollama-api", "Autonomous")
+	if !strings.Contains(strictPrompt, "STRICT SANDBOX ENABLED") {
+		t.Errorf("expected STRICT SANDBOX ENABLED when StrictWorkspaceSandbox=true, got:\n%s", strictPrompt)
+	}
+	if strings.Contains(strictPrompt, "when the user explicitly requests it") {
+		t.Errorf("did not expect cross-folder invite in strict sandbox prompt:\n%s", strictPrompt)
+	}
 }

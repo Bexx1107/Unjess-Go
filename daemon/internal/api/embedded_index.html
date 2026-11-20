@@ -159,7 +159,7 @@
       </div>
       <button id="btn-header-version" type="button" class="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono bg-zinc-900/90 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700/60 transition cursor-pointer select-none" title="Unjess Version & Updates (Click to check)">
         <span id="header-version-dot" class="hidden w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
-        <span id="header-version-text">v3.0.8</span>
+        <span id="header-version-text">v3.0.9</span>
       </button>
       <span id="backend-status-pill" class="hidden">
         <span id="backend-status-dot"></span>
@@ -685,6 +685,19 @@
               <p id="inspector-mode-desc" class="text-[11px] text-slate-400 leading-relaxed">
                 Autonomous mode: plans, reads/writes disk files, and runs commands until the task is complete.
               </p>
+
+              <button type="button" id="inspector-strict-sandbox-btn" onclick="toggleStrictWorkspaceSandbox()" class="w-full text-left p-2.5 rounded-xl bg-unjessCard border border-unjessBorder hover:border-slate-600 cursor-pointer select-none transition space-y-1">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center space-x-2 text-xs font-semibold text-zinc-200">
+                    <i data-lucide="shield-check" class="w-3.5 h-3.5 text-zinc-400" id="inspector-strict-sandbox-icon"></i>
+                    <span>Strict Workspace Sandbox</span>
+                  </div>
+                  <span id="inspector-strict-sandbox-badge" class="px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-zinc-800 text-zinc-400 border border-white/10">OFF</span>
+                </div>
+                <p class="text-[10px] text-slate-500 leading-snug">
+                  Confines reads, writes &amp; shell commands strictly to active workspace
+                </p>
+              </button>
             </div>
 
             <!-- Section 2: Active Tools -->
@@ -1521,6 +1534,10 @@
                     <label for="settings-confirm-commands" class="text-slate-300 font-medium select-none cursor-pointer">Confirm destructive shell commands before execution</label>
                   </div>
                   <div class="flex items-center space-x-2">
+                    <input id="settings-strict-workspace-sandbox" type="checkbox" class="rounded border-slate-700 bg-slate-900 text-zinc-300 focus:ring-0">
+                    <label for="settings-strict-workspace-sandbox" class="text-slate-300 font-medium select-none cursor-pointer">Strict Workspace Sandbox (lock file reads/writes &amp; shell paths strictly to active workspace)</label>
+                  </div>
+                  <div class="flex items-center space-x-2">
                     <input id="settings-enable-compaction" type="checkbox" checked class="rounded border-slate-700 bg-slate-900 text-zinc-300 focus:ring-0">
                     <label for="settings-enable-compaction" class="text-slate-300 font-medium select-none cursor-pointer">Enable automatic context compaction when nearing window limit</label>
                   </div>
@@ -1739,7 +1756,7 @@
                   <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-unjessBorder pb-4">
                     <div class="space-y-1">
                       <div class="flex items-center space-x-2.5">
-                        <span id="update-current-version-title" class="text-sm font-bold text-white tracking-tight">Unjess v3.0.8</span>
+                        <span id="update-current-version-title" class="text-sm font-bold text-white tracking-tight">Unjess v3.0.9</span>
                         <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-900 text-zinc-300 border border-zinc-700/60">
                           Go + Rust Native Engine • unjess.si
                         </span>
@@ -1751,7 +1768,7 @@
                       <!-- Status Pill -->
                       <span id="update-check-status-badge" class="px-2.5 py-1 rounded-full text-[11px] font-mono flex items-center space-x-1.5 bg-zinc-900 border border-zinc-700/60 text-zinc-300">
                         <span id="update-status-badge-dot" class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                        <span id="update-status-badge-text">Up to date (v3.0.8)</span>
+                        <span id="update-status-badge-text">Up to date (v3.0.9)</span>
                       </span>
 
                       <!-- Check for Updates Button -->
@@ -8631,6 +8648,62 @@ function openNewChatModal(initialMode = 'quick') {
       }
     }
 
+    function syncStrictSandboxUI(enabled) {
+      const active = Boolean(enabled);
+      const btn = document.getElementById('inspector-strict-sandbox-btn');
+      const badge = document.getElementById('inspector-strict-sandbox-badge');
+      const icon = document.getElementById('inspector-strict-sandbox-icon');
+      const cb = document.getElementById('settings-strict-workspace-sandbox');
+      if (cb) cb.checked = active;
+      if (badge) {
+        badge.textContent = active ? 'STRICT' : 'OFF';
+        badge.className = active
+          ? 'px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+          : 'px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-zinc-800 text-zinc-400 border border-white/10';
+      }
+      if (icon) {
+        icon.className = active ? 'w-3.5 h-3.5 text-emerald-400' : 'w-3.5 h-3.5 text-zinc-400';
+      }
+      if (btn) {
+        btn.className = active
+          ? 'w-full text-left p-2.5 rounded-xl bg-emerald-950/20 border border-emerald-500/40 hover:border-emerald-400/60 cursor-pointer select-none transition space-y-1'
+          : 'w-full text-left p-2.5 rounded-xl bg-unjessCard border border-unjessBorder hover:border-slate-600 cursor-pointer select-none transition space-y-1';
+      }
+    }
+
+    async function toggleStrictWorkspaceSandbox() {
+      const current = Boolean(state.settings?.strict_workspace_sandbox);
+      const next = !current;
+      if (!state.settings) state.settings = {};
+      state.settings.strict_workspace_sandbox = next;
+      syncStrictSandboxUI(next);
+      try {
+        const resp = await fetch(`${API_BASE}/api/studio/settings`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ strict_workspace_sandbox: next })
+        });
+        if (!resp.ok) {
+          throw new Error(`HTTP ${resp.status}`);
+        }
+        if (typeof showToast === 'function') {
+          showToast(
+            next
+              ? 'Strict Workspace Sandbox enabled (confined to active workspace)'
+              : 'Strict Workspace Sandbox disabled',
+            next ? 'success' : 'info'
+          );
+        }
+      } catch (err) {
+        state.settings.strict_workspace_sandbox = current;
+        syncStrictSandboxUI(current);
+        console.warn('Failed updating strict_workspace_sandbox:', err);
+        if (typeof showToast === 'function') {
+          showToast('Failed to update Strict Workspace Sandbox setting', 'error');
+        }
+      }
+    }
+
     function cycleAgentMode() {
       let nextMode = 'Autonomous';
       if (state.agentMode === 'Autonomous') nextMode = 'Plan';
@@ -10689,6 +10762,9 @@ function openNewChatModal(initialMode = 'quick') {
           state.agentMode = confirmCmd ? 'Supervised' : 'Autonomous';
         }
         applyAgentModeUI(state.agentMode, false);
+        const strictSandbox = Boolean(s.strict_workspace_sandbox);
+        setChecked('settings-strict-workspace-sandbox', strictSandbox);
+        syncStrictSandboxUI(strictSandbox);
         setChecked('settings-enable-compaction', s.enable_compaction !== undefined ? s.enable_compaction : true);
         setChecked('settings-enable-stuck', s.enable_stuck_detection !== undefined ? s.enable_stuck_detection : true);
         if (document.getElementById('settings-ignore-patterns')) {
@@ -10796,6 +10872,7 @@ function openNewChatModal(initialMode = 'quick') {
         planning_mode: planningModeVal,
         context_window_override: getInt('settings-context-override', 0),
         confirm_commands: confirmCommandsChecked,
+        strict_workspace_sandbox: getChecked('settings-strict-workspace-sandbox'),
         enable_compaction: getChecked('settings-enable-compaction'),
         enable_stuck_detection: getChecked('settings-enable-stuck'),
         ignore_patterns: ignorePats,
@@ -10841,6 +10918,8 @@ function openNewChatModal(initialMode = 'quick') {
           state.settings.provider = state.selectedProvider;
           state.settings.ollama_api_key = payload.ollama_api_key;
           state.settings.ollama_api_base_url = payload.ollama_api_base_url;
+          state.settings.strict_workspace_sandbox = Boolean(payload.strict_workspace_sandbox);
+          syncStrictSandboxUI(state.settings.strict_workspace_sandbox);
           if (payload.default_model) setModel(payload.default_model, false);
           const syncRes = await fetchAndSyncModels(payload.ollama_base_url, payload.ollama_api_key, '', '', payload.ollama_api_base_url);
           const hasKey = Boolean((payload.ollama_api_key || '').trim());
@@ -10939,10 +11018,21 @@ function openNewChatModal(initialMode = 'quick') {
       if (!Array.isArray(changelog) || changelog.length === 0) {
         changelog = [
           {
+            version: "3.0.9",
+            date: "2026-11-20",
+            title: "Unjess v3.0.9 - Workspace Context Isolation & Opt-In Strict Workspace Sandbox",
+            tag: "LATEST",
+            changes: [
+              "Scoped buildRecentSessionsSummary strictly to the active workspace so unrelated project sessions and snippets no longer leak into prompts",
+              "Changed memory_save default scope to 'workspace' and enforced exact normalized workspace boundaries in SearchMemories and FormatForSystemPrompt",
+              "Added opt-in Strict Workspace Sandbox toggle (OFF by default in Settings, Right Inspector Controls, and CLI /sandbox) locking reads, writes, searches, visual QA, and shell command paths strictly to the active workspace"
+            ]
+          },
+          {
             version: "3.0.8",
             date: "2026-11-20",
             title: "Unjess v3.0.8 - Collapsible Sidebar Folders & Sections + Finish-Reply Scroll Fix",
-            tag: "LATEST",
+            tag: "UPDATE",
             changes: [
               "Made individual project folders collapsible so nested conversations under each workspace can be toggled cleanly with persistent state",
               "Added collapsible Projects and Quick Chats section headers to hide sidebar clutter while preserving workspace conversation grouping",
@@ -11296,7 +11386,7 @@ function openNewChatModal(initialMode = 'quick') {
         if (resp && resp.ok) {
           const data = await resp.json();
           state.updates = data;
-          const currentVer = data.current_version || '3.0.8';
+          const currentVer = data.current_version || '3.0.9';
           const latestVer = data.latest_version || currentVer;
           const isAvailable = Boolean(data.update_available);
           state.updateAvailable = isAvailable;

@@ -102,6 +102,7 @@ type Settings struct {
 	SubagentModel          string  `yaml:"subagent_model" json:"subagent_model"`
 	AskBeforeSubagentSpawn bool    `yaml:"ask_before_subagent_spawn" json:"ask_before_subagent_spawn"`
 	ConfirmCommands        bool    `yaml:"confirm_commands" json:"confirm_commands"`
+	StrictWorkspaceSandbox bool    `yaml:"strict_workspace_sandbox" json:"strict_workspace_sandbox"`
 	CommandTimeout         int     `yaml:"command_timeout" json:"command_timeout"`
 	LLMTimeout             float64 `yaml:"llm_timeout" json:"llm_timeout"`
 	EnableStuckDetection   bool    `yaml:"enable_stuck_detection" json:"enable_stuck_detection"`
@@ -176,6 +177,7 @@ func NewDefaultSettings() *Settings {
 		SubagentModel:          "inherit",
 		AskBeforeSubagentSpawn: false,
 		ConfirmCommands:        false,
+		StrictWorkspaceSandbox: false,
 		CommandTimeout:         1200,
 		LLMTimeout:             300.0,
 		EnableStuckDetection:   true,
@@ -676,6 +678,7 @@ func SerializeSettingsDict(s *Settings) map[string]any {
 		"planning_mode":             s.PlanningMode,
 		"reasoning_effort":          s.ReasoningEffort,
 		"confirm_commands":          s.ConfirmCommands,
+		"strict_workspace_sandbox":  s.StrictWorkspaceSandbox,
 		"enable_compaction":         s.EnableCompaction,
 		"enable_stuck_detection":    s.EnableStuckDetection,
 		"context_window_override":   s.ContextWindowOverride,
@@ -954,6 +957,11 @@ func ApplySettingsUpdate(s *Settings, body map[string]any) error {
 	if val, ok := body["confirm_commands"]; ok {
 		if b, ok := parseBool(val); ok {
 			s.ConfirmCommands = b
+		}
+	}
+	if val, ok := body["strict_workspace_sandbox"]; ok {
+		if b, ok := parseBool(val); ok {
+			s.StrictWorkspaceSandbox = b
 		}
 	}
 	if val, ok := body["enable_compaction"]; ok {

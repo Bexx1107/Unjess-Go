@@ -605,9 +605,28 @@ func (hm *HarnessManager) ActiveConversationID() string {
 	return cid
 }
 
+// normalizeWorkspaceKey canonicalizes workspace paths across Windows/POSIX separators.
+func normalizeWorkspaceKey(ws string) string {
+	clean := strings.TrimSpace(ws)
+	if clean == "" {
+		return ""
+	}
+	clean = strings.ReplaceAll(clean, "\\", "/")
+	for strings.Contains(clean, "//") {
+		clean = strings.ReplaceAll(clean, "//", "/")
+	}
+	for len(clean) > 1 && strings.HasSuffix(clean, "/") {
+		if len(clean) == 3 && clean[1] == ':' {
+			break
+		}
+		clean = strings.TrimSuffix(clean, "/")
+	}
+	return strings.ToLower(clean)
+}
+
 // buildRecentSessionsSummary builds a concise Markdown block of recent conversations
-// and their last turns so the agent has cross-session awareness.
-func (hm *HarnessManager) buildRecentSessionsSummary(currentConvID string, maxSessions int) string {
+// scoped strictly to activeWorkspace so unrelated project context never leaks across workspaces.
+func (hm *HarnessManager) buildRecentSessionsSummary(currentConvID, activeWorkspace string, maxSessions int) string {
 	hm.mu.RLock()
 	defer hm.mu.RUnlock()
 
@@ -618,6 +637,7 @@ func (hm *HarnessManager) buildRecentSessionsSummary(currentConvID string, maxSe
 	if maxSessions <= 0 {
 		maxSessions = 5
 	}
+	targetWS := normalizeWorkspaceKey(activeWorkspace)
 
 	var lines []string
 	for _, rc := range rawConvs {
@@ -630,6 +650,11 @@ func (hm *HarnessManager) buildRecentSessionsSummary(currentConvID string, maxSe
 			continue
 		}
 
+		ws, _ := cm["workspace"].(string)
+		if normalizeWorkspaceKey(ws) != targetWS {
+			continue
+		}
+
 		turns, _ := cm["turns"].([]any)
 		if len(turns) == 0 {
 			continue
@@ -639,7 +664,6 @@ func (hm *HarnessManager) buildRecentSessionsSummary(currentConvID string, maxSe
 		if strings.TrimSpace(title) == "" {
 			title = "Untitled Session"
 		}
-		ws, _ := cm["workspace"].(string)
 
 		lastSnippet := ""
 		for i := len(turns) - 1; i >= 0; i-- {
@@ -685,7 +709,7 @@ func (hm *HarnessManager) buildRecentSessionsSummary(currentConvID string, maxSe
 
 	var sb strings.Builder
 	sb.WriteString("<recent_sessions_context>\n")
-	sb.WriteString("Recent user sessions and tasks:\n")
+	sb.WriteString("Recent sessions in this workspace:\n")
 	for _, l := range lines {
 		sb.WriteString(l + "\n")
 	}
@@ -2914,7 +2938,9 @@ func (hm *HarnessManager) RunSubagentTask(ctx context.Context, agentID, taskProm
 	if hm.settings != nil && hm.settings.CommandTimeout > 0 {
 		cmdTimeout = hm.settings.CommandTimeout
 	}
+	strictSandbox := hm.settings != nil && hm.settings.StrictWorkspaceSandbox
 	executor := tools.NewToolExecutor(wsPath, cmdTimeout)
+	executor.StrictWorkspaceSandbox = strictSandbox
 	if protected := extractProtectedPathsFromPrompt(taskPrompt); len(protected) > 0 {
 		executor.SetProtectedPaths(protected)
 	}
@@ -2927,6 +2953,9 @@ func (hm *HarnessManager) RunSubagentTask(ctx context.Context, agentID, taskProm
 	sys.WriteString(fmt.Sprintf("You are %s, an expert autonomous subagent in Unjess.\n", targetAgent["name"]))
 	sys.WriteString(fmt.Sprintf("System instructions:\n%s\n\n", targetAgent["system_prompt"]))
 	sys.WriteString(fmt.Sprintf("Workspace root: %s\n", wsPath))
+	if strictSandbox {
+		sys.WriteString("Workspace Isolation: STRICT SANDBOX ENABLED — confine all file reads, writes, searches, and shell command paths strictly to this workspace.\n")
+	}
 	if runtime.GOOS == "windows" {
 		sys.WriteString("Tool execution environment: Windows PowerShell (powershell.exe).\n")
 	} else {
@@ -3367,6 +3396,7 @@ func (hm *HarnessManager) SpawnSubagents(ctx context.Context, convID, wsPath str
 			Diffs:        make([]tools.FileDiff, 0),
 			Executor: func() *tools.ToolExecutor {
 				exec := tools.NewToolExecutor(wsPath, cmdTimeout)
+				exec.StrictWorkspaceSandbox = hm.settings != nil && hm.settings.StrictWorkspaceSandbox
 				if strings.EqualFold(typeName, "research") || strings.EqualFold(typeName, "readonly") || strings.EqualFold(typeName, "read_only") {
 					exec.ReadOnly = true
 				}
@@ -3471,6 +3501,10 @@ func (hm *HarnessManager) executeSubagentLoop(parentCtx context.Context, sr *Sub
 		sys.WriteString("In your final response, state clearly what you changed and what you verified (commands run, behavior observed).\n\n")
 	}
 
+	if hm.settings != nil && hm.settings.StrictWorkspaceSandbox {
+		sys.WriteString("Workspace Isolation: STRICT SANDBOX ENABLED — stay strictly within the active workspace directory; never read, write, search, or execute shell commands against external paths outside this workspace.\n\n")
+	}
+
 	hm.mu.RLock()
 	subCaveman := hm.cavemanMode
 	subPonytail := hm.ponytailMode
@@ -3478,9 +3512,9 @@ func (hm *HarnessManager) executeSubagentLoop(parentCtx context.Context, sr *Sub
 	if modBlock := buildPromptModifiersBlock(subCaveman, subPonytail); modBlock != "" {
 		sys.WriteString(modBlock + "\n")
 	}
-	sys.WriteString("Capabilities: You have full workspace file/shell/git tools, live internet access via web_search and read_url, and persistent cross-session memory across all conversations via memory_save and memory_recall.\n\n")
+	sys.WriteString("Capabilities: You have full workspace file/shell/git tools, live internet access via web_search and read_url, and persistent workspace-scoped memory across sessions (defaults to active workspace; use scope='global' only for user-wide preferences) via memory_save and memory_recall.\n\n")
 	sys.WriteString(memory.FormatForSystemPrompt(sr.Workspace, 30) + "\n")
-	if recSummary := hm.buildRecentSessionsSummary("", 5); recSummary != "" {
+	if recSummary := hm.buildRecentSessionsSummary("", sr.Workspace, 5); recSummary != "" {
 		sys.WriteString(recSummary)
 	}
 
@@ -4304,11 +4338,13 @@ func formatToolStepTitle(name string, args map[string]any) string {
 func (hm *HarnessManager) buildHarnessConfigPrompt(activeModel, activeProvider, turnMode string) string {
 	subModel := "inherit"
 	askSub := false
+	strictSandbox := false
 	if hm.settings != nil {
 		if hm.settings.SubagentModel != "" {
 			subModel = hm.settings.SubagentModel
 		}
 		askSub = hm.settings.AskBeforeSubagentSpawn || hm.settings.SubagentModel == "ask"
+		strictSandbox = hm.settings.StrictWorkspaceSandbox
 	}
 	var sb strings.Builder
 	sb.WriteString("<harness_configuration>\n")
@@ -4319,7 +4355,16 @@ func (hm *HarnessManager) buildHarnessConfigPrompt(activeModel, activeProvider, 
 	case "supervised":
 		sb.WriteString("- Execution Mode: Supervised (Commands require user approval before execution)\n")
 	default:
-		sb.WriteString("- Execution Mode: Autonomous (Commands run automatically without prompt. You can also read, list, search, and execute commands on any explicit absolute path on disk outside the workspace — e.g. C:\\Program Files (x86)\\..., D:\\..., E:\\... — when inspecting or reverse-engineering external binaries, games, or folders, while writing your generated docs/code inside the active workspace.)\n")
+		if strictSandbox {
+			sb.WriteString("- Execution Mode: Autonomous (Commands run automatically without prompt, confined strictly to the active workspace directory.)\n")
+		} else {
+			sb.WriteString("- Execution Mode: Autonomous (Commands run automatically without prompt. Stay focused on the active workspace by default; you can read, list, search, or inspect external absolute paths outside the workspace only when the user explicitly requests it, while writing generated docs/code inside the active workspace unless asked otherwise.)\n")
+		}
+	}
+	if strictSandbox {
+		sb.WriteString("- Workspace Isolation: STRICT SANDBOX ENABLED (strictly confined to the active workspace directory; do NOT read, search, write, or execute commands targeting files outside the active workspace).\n")
+	} else {
+		sb.WriteString("- Workspace Isolation: Standard (cross-folder access available only when explicitly requested; can be locked down via Strict Workspace Sandbox in Settings).\n")
 	}
 	sb.WriteString(fmt.Sprintf("- Subagent Default Model Setting: %s\n", subModel))
 	if askSub {
@@ -4331,7 +4376,7 @@ func (hm *HarnessManager) buildHarnessConfigPrompt(activeModel, activeProvider, 
 	sb.WriteString("<unjess_self_knowledge>\n")
 	sb.WriteString(fmt.Sprintf("You are Unjess v%s, an autonomous AI coding & security engineering harness running as a native Rust/WebView2 Desktop App (`Unjess.exe`), a high-concurrency Go Daemon (`unjessd.exe`), and a full-parity terminal CLI (`unjess` / `njss`).\n", version.Current))
 	sb.WriteString("- Shared State Directory (`~/.unjess/`): Both Desktop and CLI share `config.yaml` (settings), `keys.yaml` (API keys), `custom_providers.json` (dynamic OpenAI-compatible AI providers), `mcp.json` (MCP servers), `skills/` (installed SKILL.md modules), `custom_tools/` (synthesized tools), and `memory/memories.json`.\n")
-	sb.WriteString("- 4 Execution Modes: `Autonomous` (auto-runs tools & cross-drive external path access), `Supervised` (prompts user before `run_command`), `Plan` (read-only discovery until `propose_plan` is approved), and `Duel` (Red Team vs. White Team Security Arena via `run_security_duel`).\n")
+	sb.WriteString("- 4 Execution Modes + Optional Strict Workspace Sandbox: `Autonomous` (auto-runs tools; cross-folder access when requested, or strictly locked to active workspace with `Strict Workspace Sandbox` enabled), `Supervised` (prompts user before `run_command`), `Plan` (read-only discovery until `propose_plan` is approved), and `Duel` (Red Team vs. White Team Security Arena via `run_security_duel`).\n")
 	sb.WriteString("- Slash Commands & Prompt Toggles: `/plan` (switch to Plan mode), `/duel` (launch Security Duel), `/compact` (summarize & compress conversation context), `/budget` & `/context` (inspect token usage & context window), `/caveman` (ultra-concise output mode), `/ponytail` (Ponytail persona toggle), plus `@file`, `@git status`, and `@git diff` context mentions.\n")
 	sb.WriteString("- Live Self-Customization (No Recompile Needed): Whenever the user asks you to add a new AI API provider (e.g. DeepSeek, Together, Fireworks, Perplexity, SambaNova, vLLM, or any OpenAI-compatible endpoint), add/remove an MCP server, or create/install a Skill from GitHub or scratch, call `manage_unjess` (`add_provider`, `remove_provider`, `list_providers`, `add_mcp`, `remove_mcp`, `save_skill`, `install_skill_github`, `delete_skill`). To synthesize a brand-new executable tool in Python, PowerShell, Node, or Go, call `synthesize_tool`.\n")
 	sb.WriteString("</unjess_self_knowledge>")
@@ -5105,7 +5150,7 @@ func (hm *HarnessManager) RunAgentTurn(ctx context.Context, req ChatTurnRequest)
 	}
 	sysBuilder.WriteString(hm.buildHarnessConfigPrompt(model, provider, turnMode) + "\n\n")
 	sysBuilder.WriteString(buildWorkspaceOverviewPrompt(wsPath) + "\n\n")
-	sysBuilder.WriteString("Capabilities: You have full workspace file/shell/git tools, live internet access via web_search and read_url, interactive browser automation & Set-of-Mark visual browsing via browser_use, visual UI inspection via visual_qa_screenshot and view_image, native multimodal Vision inspection of local image files (.jpg, .png, .webp, .gif) via view_image and read_file, parallel subagent delegation via invoke_subagent, and persistent cross-session memory across all conversations via memory_save and memory_recall.\n\n")
+	sysBuilder.WriteString("Capabilities: You have full workspace file/shell/git tools, live internet access via web_search and read_url, interactive browser automation & Set-of-Mark visual browsing via browser_use, visual UI inspection via visual_qa_screenshot and view_image, native multimodal Vision inspection of local image files (.jpg, .png, .webp, .gif) via view_image and read_file, parallel subagent delegation via invoke_subagent, and persistent workspace-scoped memory across sessions (defaults to active workspace; use scope='global' only for user-wide preferences) via memory_save and memory_recall.\n\n")
 	sysBuilder.WriteString("Vision & Image Inspection: You CAN directly view and inspect local image files (.jpg, .jpeg, .png, .webp, .gif, .bmp) on disk at any time by calling the `view_image` tool (pass `path` for one image or `paths` array for up to 6 images) or `read_file`, and you can render and screenshot HTML files or live URLs using `visual_qa_screenshot`. Never claim you cannot see local image files on disk — call `view_image` to inspect them directly.\n\n")
 	sysBuilder.WriteString("Subagent Delegation: You can call the invoke_subagent tool with an array of subagents to delegate tasks in parallel (e.g. researching, building multiple packages/files concurrently, or running tests). Each subagent runs in its own parallel worker and returns its result to you.\n\n")
 
@@ -5183,7 +5228,7 @@ func (hm *HarnessManager) RunAgentTurn(ctx context.Context, req ChatTurnRequest)
 		sysBuilder.WriteString(mcpPromptBlock.String())
 	}
 	sysBuilder.WriteString(memory.FormatForSystemPrompt(wsPath, 30) + "\n")
-	if recSummary := hm.buildRecentSessionsSummary(convID, 5); recSummary != "" {
+	if recSummary := hm.buildRecentSessionsSummary(convID, wsPath, 5); recSummary != "" {
 		sysBuilder.WriteString(recSummary)
 	}
 
@@ -5227,6 +5272,7 @@ func (hm *HarnessManager) RunAgentTurn(ctx context.Context, req ChatTurnRequest)
 	}
 	executor := tools.NewToolExecutor(wsPath, cmdTimeout)
 	executor.EnforceReadBeforeEdit = true
+	executor.StrictWorkspaceSandbox = hm.settings != nil && hm.settings.StrictWorkspaceSandbox
 	if protected := extractProtectedPathsFromPrompt(req.Prompt); len(protected) > 0 {
 		executor.SetProtectedPaths(protected)
 		sysBuilder.WriteString("\n### LOCKED / PROTECTED FILES (Task Specification Constraint):\nThe following files are strictly read-only and MUST NOT be edited, overwritten, or modified:\n")

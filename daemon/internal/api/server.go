@@ -892,6 +892,9 @@ func (s *Server) handleExec(w http.ResponseWriter, r *http.Request) {
 		timeout = 120
 	}
 	executor := tools.NewToolExecutor(ws, timeout)
+	if s.Settings != nil && s.Settings.StrictWorkspaceSandbox {
+		executor.StrictWorkspaceSandbox = true
+	}
 	out, success := executor.Execute(r.Context(), "run_command", map[string]any{"command": cmd})
 	rc := 0
 	if !success {
@@ -2222,6 +2225,9 @@ func (s *Server) ExecuteTask(ctx context.Context, task *scheduler.ScheduledTask)
 			timeout = 120
 		}
 		executor := tools.NewToolExecutor(ws, timeout)
+		if s.Settings != nil && s.Settings.StrictWorkspaceSandbox {
+			executor.StrictWorkspaceSandbox = true
+		}
 		out, success := executor.Execute(ctx, "run_command", map[string]any{"command": task.Prompt})
 		if !success {
 			return out, fmt.Errorf("command execution failed: %s", out)

@@ -240,6 +240,10 @@ func DispatchSlashCommand(ctx context.Context, sess *CommandSession, line string
 		handlePonytail(sess, args)
 		return true, false, ""
 
+	case "sandbox":
+		handleSandbox(sess, args)
+		return true, false, ""
+
 	case "new":
 		handleNewConv(sess, args)
 		return true, false, ""
@@ -427,6 +431,7 @@ func printHelp() {
 	printCmd("/effort [low|med|high]", "Set reasoning effort level")
 	printCmd("/mode [auto|super|plan]", "Set execution mode (Autonomous, Supervised, Plan)")
 	printCmd("/caveman [on|off]", "Toggle ultra-terse caveman prompt modifier")
+	printCmd("/sandbox [on|off]", "Toggle Strict Workspace Sandbox isolation (default: off)")
 	printCmd("/ponytail [on|off]", "Toggle playful ponytail prompt modifier")
 
 	printCat("Workspace & Environment:")
@@ -695,6 +700,38 @@ func handlePonytail(sess *CommandSession, args string) {
 		PrintSuccess("Ponytail mode enabled.")
 	} else {
 		PrintInfo("Ponytail mode disabled.")
+	}
+}
+
+func handleSandbox(sess *CommandSession, args string) {
+	if sess.Settings == nil {
+		sess.Settings = config.LoadConfig()
+	}
+	lower := strings.ToLower(strings.TrimSpace(args))
+	var next bool
+	switch lower {
+	case "on", "true", "1", "strict":
+		next = true
+	case "off", "false", "0", "standard":
+		next = false
+	case "":
+		next = !sess.Settings.StrictWorkspaceSandbox
+	default:
+		PrintWarn("Usage: /sandbox [on|off]")
+		return
+	}
+
+	sess.Settings.StrictWorkspaceSandbox = next
+	if err := config.SaveConfig(sess.Settings); err != nil {
+		PrintWarn(fmt.Sprintf("Updated sandbox in memory, failed saving config: %v", err))
+	}
+	if sess.HM != nil {
+		sess.HM.UpdateSettings(sess.Settings)
+	}
+	if next {
+		PrintSuccess("Strict Workspace Sandbox ENABLED (file tools and shell paths confined strictly to active workspace).")
+	} else {
+		PrintInfo("Strict Workspace Sandbox DISABLED (standard cross-folder access allowed when requested).")
 	}
 }
 
@@ -1913,6 +1950,9 @@ func handleExec(ctx context.Context, sess *CommandSession, cmd string) {
 
 	fmt.Printf("%s$ %s%s\n", ColorDim, cmdStr, ColorReset)
 	te := tools.NewToolExecutor(sess.Workspace, 120)
+	if sess.Settings != nil && sess.Settings.StrictWorkspaceSandbox {
+		te.StrictWorkspaceSandbox = true
+	}
 	out, success := te.Execute(ctx, "run_command", map[string]any{"command": cmdStr})
 	if success {
 		fmt.Println(out)

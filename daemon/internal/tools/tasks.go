@@ -53,6 +53,11 @@ func GetGlobalTaskManager() *TaskManager {
 
 // StartBackgroundTask launches command in the background, logging full stdout/stderr to a disk log file.
 func (tm *TaskManager) StartBackgroundTask(ctx context.Context, wsPath, command, cwd string) (*BackgroundTask, error) {
+	return tm.StartBackgroundTaskWithOptions(ctx, wsPath, command, cwd, false)
+}
+
+// StartBackgroundTaskWithOptions launches a background command and optionally enforces Strict Workspace Sandbox rules.
+func (tm *TaskManager) StartBackgroundTaskWithOptions(ctx context.Context, wsPath, command, cwd string, strictSandbox bool) (*BackgroundTask, error) {
 	if strings.TrimSpace(command) == "" {
 		return nil, fmt.Errorf("command is required")
 	}
@@ -63,11 +68,16 @@ func (tm *TaskManager) StartBackgroundTask(ctx context.Context, wsPath, command,
 
 	workDir := wsPath
 	if strings.TrimSpace(cwd) != "" {
-		resolved, err := resolveReadOrInspectPath(wsPath, cwd)
+		resolved, err := resolveReadOrInspectPathWithMode(wsPath, cwd, strictSandbox)
 		if err != nil {
 			return nil, fmt.Errorf("error resolving cwd: %w", err)
 		}
 		workDir = resolved
+	}
+	if strictSandbox {
+		if err := checkStrictCommandSandbox(command, wsPath, workDir); err != nil {
+			return nil, err
+		}
 	}
 
 	// Prepare logs directory

@@ -32,6 +32,9 @@ func TestDefaultSettings(t *testing.T) {
 	if s.ConfirmCommands != false {
 		t.Errorf("expected confirm_commands false, got %v", s.ConfirmCommands)
 	}
+	if s.StrictWorkspaceSandbox != false {
+		t.Errorf("expected strict_workspace_sandbox false by default, got %v", s.StrictWorkspaceSandbox)
+	}
 	if s.CommandTimeout != 1200 {
 		t.Errorf("expected command_timeout 1200, got %d", s.CommandTimeout)
 	}
@@ -125,7 +128,7 @@ func TestSerializeSettingsDict(t *testing.T) {
 		"xai_api_key", "openrouter_api_key", "cerebras_api_key", "kimi_api_key",
 		"qwen_api_key", "mashina_collab_token", "max_iterations",
 		"subagent_max_turns", "command_timeout", "llm_timeout", "planning_mode",
-		"confirm_commands", "enable_compaction", "enable_stuck_detection",
+		"confirm_commands", "strict_workspace_sandbox", "enable_compaction", "enable_stuck_detection",
 		"context_window_override", "ignore_patterns", "verbosity", "language",
 		"accent_color", "show_diffs", "show_cost", "show_stats", "mobile_enabled",
 		"mobile_port", "mobile_pin", "max_cost_per_session", "max_tokens_per_message",
@@ -205,10 +208,11 @@ func TestApplySettingsUpdate(t *testing.T) {
 		"accent_color":         "#10b981",
 		"fallback_chain":       "openai/gpt-4o,groq/llama-3.3-70b",
 		"ignore_patterns":      ".git\nnode_modules\ncustom_dir",
-		"auto_update_enabled":  false,
-		"update_server_url":    "https://custom.example.com/version.json",
-		"shadow_worktree_mode": true,
-		"smart_model_routing":  true,
+		"auto_update_enabled":      false,
+		"update_server_url":        "https://custom.example.com/version.json",
+		"shadow_worktree_mode":     true,
+		"smart_model_routing":      true,
+		"strict_workspace_sandbox": true,
 	}
 
 	if err := ApplySettingsUpdate(s, body); err != nil {
@@ -217,6 +221,20 @@ func TestApplySettingsUpdate(t *testing.T) {
 
 	if s.ShadowWorktreeMode != true {
 		t.Errorf("expected shadow_worktree_mode true, got %v", s.ShadowWorktreeMode)
+	}
+	if s.StrictWorkspaceSandbox != true {
+		t.Errorf("expected strict_workspace_sandbox true, got %v", s.StrictWorkspaceSandbox)
+	}
+	reloaded := LoadConfig()
+	if !reloaded.StrictWorkspaceSandbox {
+		t.Errorf("expected reloaded strict_workspace_sandbox true, got false")
+	}
+	if err := ApplySettingsUpdate(s, map[string]any{"strict_workspace_sandbox": false}); err != nil {
+		t.Fatalf("ApplySettingsUpdate toggle false failed: %v", err)
+	}
+	reloadedOff := LoadConfig()
+	if reloadedOff.StrictWorkspaceSandbox {
+		t.Errorf("expected reloaded strict_workspace_sandbox false after toggle off, got true")
 	}
 	if s.SmartModelRouting != true {
 		t.Errorf("expected smart_model_routing true, got %v", s.SmartModelRouting)

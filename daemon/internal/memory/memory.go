@@ -49,6 +49,30 @@ func generateID(length int) string {
 	return hex.EncodeToString(b)[:length]
 }
 
+// normalizeWorkspaceKey canonicalizes a workspace identifier or path across
+// Windows/POSIX separators so exact workspace comparisons avoid false misses
+// or partial substring collisions.
+func normalizeWorkspaceKey(ws string) string {
+	clean := strings.TrimSpace(ws)
+	if clean == "" {
+		return ""
+	}
+	if strings.EqualFold(clean, "global") {
+		return "global"
+	}
+	clean = strings.ReplaceAll(clean, "\\", "/")
+	for strings.Contains(clean, "//") {
+		clean = strings.ReplaceAll(clean, "//", "/")
+	}
+	for len(clean) > 1 && strings.HasSuffix(clean, "/") {
+		if len(clean) == 3 && clean[1] == ':' {
+			break
+		}
+		clean = strings.TrimSuffix(clean, "/")
+	}
+	return strings.ToLower(clean)
+}
+
 // LoadMemories reads and parses all saved cross-session memories from disk.
 // Returns an empty slice if the file does not yet exist.
 func LoadMemories() ([]MemoryEntry, error) {
@@ -121,9 +145,14 @@ func SaveMemory(key, category, content, workspace string, tags []string) (Memory
 		entries = make([]MemoryEntry, 0)
 	}
 
+	targetScope := normalizeWorkspaceKey(cleanWS)
 	var targetIndex = -1
 	for i, entry := range entries {
-		if strings.EqualFold(entry.Key, cleanKey) {
+		entryScope := normalizeWorkspaceKey(entry.Workspace)
+		if entryScope == "" {
+			entryScope = "global"
+		}
+		if strings.EqualFold(entry.Key, cleanKey) && entryScope == targetScope {
 			targetIndex = i
 			break
 		}
@@ -209,6 +238,7 @@ func SearchMemories(query, category, workspace string) []MemoryEntry {
 	cleanQuery := strings.ToLower(strings.TrimSpace(query))
 	cleanCat := strings.ToLower(strings.TrimSpace(category))
 	cleanWS := strings.TrimSpace(workspace)
+	targetWS := normalizeWorkspaceKey(cleanWS)
 
 	type scoredEntry struct {
 		entry MemoryEntry
@@ -222,15 +252,11 @@ func SearchMemories(query, category, workspace string) []MemoryEntry {
 			continue
 		}
 
-		// Workspace filter (workspace can match exact, "global", or empty)
-		if cleanWS != "" && entry.Workspace != "" && !strings.EqualFold(entry.Workspace, "global") {
-			if !strings.EqualFold(entry.Workspace, cleanWS) && !strings.Contains(strings.ToLower(cleanWS), strings.ToLower(entry.Workspace)) {
-				// Not global and doesn't match workspace
-				// If query is explicitly given, allow searching across all memories, but deprioritize
-				if cleanQuery == "" {
-					continue
-				}
-			}
+		// Workspace filter: when an active workspace is supplied, strictly skip
+		// entries tied to other workspaces (keep only global or matching workspace).
+		entryWS := normalizeWorkspaceKey(entry.Workspace)
+		if targetWS != "" && entryWS != "" && entryWS != "global" && entryWS != targetWS {
+			continue
 		}
 
 		score := 0
@@ -265,8 +291,8 @@ func SearchMemories(query, category, workspace string) []MemoryEntry {
 				}
 			}
 
-			// Boost if relevant to active workspace
-			if cleanWS != "" && (entry.Workspace == "" || strings.EqualFold(entry.Workspace, "global") || strings.EqualFold(entry.Workspace, cleanWS)) {
+			// Boost if relevant to active workspace (only when the query actually matched)
+			if score > 0 && targetWS != "" && (entryWS == "" || entryWS == "global" || entryWS == targetWS) {
 				score += 5
 			}
 		}
@@ -341,6 +367,7 @@ func FormatForSystemPrompt(activeWorkspace string, maxEntries int) string {
 	}
 
 	cleanWS := strings.TrimSpace(activeWorkspace)
+	targetWS := normalizeWorkspaceKey(cleanWS)
 
 	// Score memories to prioritize active workspace + global memories (skip unrelated workspaces)
 	type scored struct {
@@ -350,12 +377,16 @@ func FormatForSystemPrompt(activeWorkspace string, maxEntries int) string {
 
 	var list []scored
 	for _, entry := range entries {
-		ws := strings.TrimSpace(entry.Workspace)
-		if ws == "" || strings.EqualFold(ws, "global") {
+		ws := normalizeWorkspaceKey(entry.Workspace)
+		if ws == "" || ws == "global" {
 			list = append(list, scored{entry: entry, prio: 10})
-		} else if cleanWS != "" && (strings.EqualFold(ws, cleanWS) || strings.Contains(strings.ToLower(cleanWS), strings.ToLower(ws))) {
+		} else if targetWS != "" && ws == targetWS {
 			list = append(list, scored{entry: entry, prio: 20})
 		}
+	}
+
+	if len(list) == 0 {
+		return "Cross-Session Memory: ENABLED (~/.unjess/memory/memories.json).\nYou HAVE persistent memory across sessions via the memory_save, memory_recall, and memory_delete tools.\n"
 	}
 
 	// Sort by priority desc, then by UpdatedAt desc

@@ -82,10 +82,21 @@ type VersionManifest struct {
 func BuiltinChangelog() []ChangelogEntry {
 	return []ChangelogEntry{
 		{
+			Version: "3.0.9",
+			Date:    "2026-11-20",
+			Title:   "Unjess v3.0.9 - Workspace Context Isolation & Opt-In Strict Workspace Sandbox",
+			Tag:     "LATEST",
+			Changes: []string{
+				"Scoped buildRecentSessionsSummary strictly to the active workspace so unrelated project sessions and snippets no longer leak into prompts",
+				"Changed memory_save default scope to 'workspace' and enforced exact normalized workspace boundaries in SearchMemories and FormatForSystemPrompt",
+				"Added opt-in Strict Workspace Sandbox toggle (OFF by default in Settings, Right Inspector Controls, and CLI /sandbox) locking reads, writes, searches, visual QA, and shell command paths strictly to the active workspace",
+			},
+		},
+		{
 			Version: "3.0.8",
 			Date:    "2026-11-20",
 			Title:   "Unjess v3.0.8 - Collapsible Sidebar Folders & Sections + Finish-Reply Scroll Fix",
-			Tag:     "LATEST",
+			Tag:     "UPDATE",
 			Changes: []string{
 				"Made individual project folders collapsible so nested conversations under each workspace can be toggled cleanly with persistent state",
 				"Added collapsible Projects and Quick Chats section headers to hide sidebar clutter while preserving workspace conversation grouping",

@@ -1243,3 +1243,111 @@ func TestFileFreshnessStaleVersionAndMultiEditPreflight(t *testing.T) {
 		t.Fatalf("expected write_file to catch external creation on confirmed-absent file with FS_STALE_VERSION, got ok=%v res=%s", writeStaleOk, writeStaleRes)
 	}
 }
+
+func TestToolExecutor_MemoryDefaultWorkspaceScope(t *testing.T) {
+	tempMem := filepath.Join(t.TempDir(), "memories_scope_test.json")
+	t.Setenv("UNJESS_MEMORY_PATH", tempMem)
+
+	wsX := t.TempDir()
+	wsY := t.TempDir()
+	execX := NewToolExecutor(wsX, 10)
+	execY := NewToolExecutor(wsY, 10)
+	ctx := context.Background()
+
+	// Save without explicit scope -> must default to workspace wsX (not global)
+	saveRes, ok := execX.Execute(ctx, "memory_save", map[string]any{
+		"key":      "proj_x_secret",
+		"content":  "Project X specific API token format",
+		"category": "architecture",
+	})
+	if !ok {
+		t.Fatalf("memory_save failed: %s", saveRes)
+	}
+	if strings.Contains(strings.ToLower(saveRes), "scope: global") {
+		t.Fatalf("expected memory_save without scope to default to workspace, got: %s", saveRes)
+	}
+
+	// Sibling workspace wsY must NOT see wsX memory
+	recallY, ok := execY.Execute(ctx, "memory_recall", map[string]any{
+		"query": "proj_x_secret",
+	})
+	if !ok {
+		t.Fatalf("memory_recall in wsY failed: %s", recallY)
+	}
+	if strings.Contains(recallY, "Project X specific") {
+		t.Fatalf("workspace wsX memory leaked into sibling wsY recall: %s", recallY)
+	}
+
+	// Active workspace wsX MUST recall its own memory
+	recallX, ok := execX.Execute(ctx, "memory_recall", map[string]any{
+		"query": "proj_x_secret",
+	})
+	if !ok || !strings.Contains(recallX, "Project X specific") {
+		t.Fatalf("expected wsX to recall its workspace-scoped memory, got ok=%v res=%s", ok, recallX)
+	}
+}
+
+func TestToolExecutor_StrictWorkspaceSandbox(t *testing.T) {
+	wsX := t.TempDir()
+	wsY := t.TempDir()
+	ctx := context.Background()
+
+	inFile := filepath.Join(wsX, "inside.txt")
+	extFile := filepath.Join(wsY, "outside.txt")
+	extImg := filepath.Join(wsY, "pic.png")
+	_ = os.WriteFile(inFile, []byte("inside-content\nline2"), 0644)
+	_ = os.WriteFile(extFile, []byte("outside-secret-y\n"), 0644)
+	_ = os.WriteFile(extImg, []byte("not-a-real-png"), 0644)
+
+	// 1. Default (StrictWorkspaceSandbox == false): external sibling read/write works as before
+	stdExec := NewToolExecutor(wsX, 10)
+	if stdExec.StrictWorkspaceSandbox {
+		t.Fatalf("expected StrictWorkspaceSandbox false by default")
+	}
+	if res, ok := stdExec.Execute(ctx, "read_file", map[string]any{"path": extFile}); !ok || !strings.Contains(res, "outside-secret-y") {
+		t.Fatalf("standard mode should allow explicit external absolute read, got ok=%v res=%s", ok, res)
+	}
+
+	// 2. Strict mode (StrictWorkspaceSandbox == true): all external access is blocked
+	strictExec := NewToolExecutor(wsX, 10)
+	strictExec.StrictWorkspaceSandbox = true
+
+	// Inside workspace operations MUST work
+	if res, ok := strictExec.Execute(ctx, "read_file", map[string]any{"path": "inside.txt"}); !ok || !strings.Contains(res, "inside-content") {
+		t.Fatalf("strict mode failed in-workspace read_file: ok=%v res=%s", ok, res)
+	}
+	if res, ok := strictExec.Execute(ctx, "write_file", map[string]any{"path": "created.txt", "content": "hello strict"}); !ok {
+		t.Fatalf("strict mode failed in-workspace write_file: %s", res)
+	}
+	if res, ok := strictExec.Execute(ctx, "edit_file", map[string]any{"path": "inside.txt", "old_string": "line2", "new_string": "line2-edited"}); !ok {
+		t.Fatalf("strict mode failed in-workspace edit_file: %s", res)
+	}
+	if res, ok := strictExec.Execute(ctx, "run_command", map[string]any{"command": "echo strict-ok"}); !ok || !strings.Contains(res, "strict-ok") {
+		t.Fatalf("strict mode blocked benign in-workspace command: ok=%v res=%s", ok, res)
+	}
+
+	// External reads/writes/searches/edits/images MUST be blocked
+	blockedCalls := []struct {
+		name string
+		args map[string]any
+	}{
+		{"read_file", map[string]any{"path": extFile}},
+		{"write_file", map[string]any{"path": filepath.Join(wsY, "new_ext.txt"), "content": "escape"}},
+		{"edit_file", map[string]any{"path": extFile, "old_string": "outside", "new_string": "x"}},
+		{"list_dir", map[string]any{"path": wsY}},
+		{"find_by_name", map[string]any{"pattern": "*.txt", "path": wsY}},
+		{"grep_search", map[string]any{"pattern": "outside-secret-y", "path": wsY}},
+		{"run_command", map[string]any{"command": "pwd", "cwd": wsY}},
+		{"run_command", map[string]any{"command": "cat " + extFile}},
+		{"run_command", map[string]any{"command": "cat ../" + filepath.Base(wsY) + "/outside.txt"}},
+		{"start_task", map[string]any{"command": "sleep 1", "cwd": wsY}},
+		{"view_image", map[string]any{"path": extImg}},
+	}
+
+	for _, tc := range blockedCalls {
+		res, ok := strictExec.Execute(ctx, tc.name, tc.args)
+		if ok || !strings.Contains(res, "Strict Workspace Sandbox") {
+			t.Errorf("strict mode failed to block %s(%v): ok=%v res=%s", tc.name, tc.args, ok, res)
+		}
+	}
+}
