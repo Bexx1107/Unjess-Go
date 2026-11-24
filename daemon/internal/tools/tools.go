@@ -121,25 +121,25 @@ func hashBytesFNV1a(data []byte) uint64 {
 
 // ToolExecutor executes core agent tools safely within a workspace sandbox.
 type ToolExecutor struct {
-	WorkspacePath         string
+	WorkspacePath          string
 	CommandTimeoutSec      int
 	ReadOnly               bool
 	EnforceReadBeforeEdit  bool
 	StrictWorkspaceSandbox bool
 	ProtectedPaths         []string
-	ToolCalls             []ToolCallRecord
-	FilesTouched          []FileTouch
-	Diffs                 []FileDiff
-	Snapshots             []FileSnapshot `json:"snapshots"`
-	ReadFiles             map[string]time.Time
-	FileObservations      map[string]FileObservation
-	SessionCwd            string
-	SessionEnv            map[string]string
-	Todos                 []TodoItem
-	UnlockedDeferredTools map[string]bool
-	LatestVisualQAImage   string
-	PendingVisionImages   []VisionImageItem
-	mu                    sync.Mutex
+	ToolCalls              []ToolCallRecord
+	FilesTouched           []FileTouch
+	Diffs                  []FileDiff
+	Snapshots              []FileSnapshot `json:"snapshots"`
+	ReadFiles              map[string]time.Time
+	FileObservations       map[string]FileObservation
+	SessionCwd             string
+	SessionEnv             map[string]string
+	Todos                  []TodoItem
+	UnlockedDeferredTools  map[string]bool
+	LatestVisualQAImage    string
+	PendingVisionImages    []VisionImageItem
+	mu                     sync.Mutex
 }
 
 // ResetShellSession resets the persistent shell working directory and environment variables (e.g. after a command timeout or abort).
@@ -1922,17 +1922,17 @@ func CoreToolDefinitions() []map[string]any {
 		{
 			"type":        "function",
 			"name":        "browser_use",
-			"description": "Interactive AI browser automation (Browser-Use / Set-of-Mark Vision). Navigate websites, inspect numbered interactive DOM elements ([1], [2], [3]...), click buttons/links by index, type into inputs/forms, scroll, execute JS, and automatically capture & attach annotated Vision screenshots of the live browser after every step.",
+			"description": "Interactive AI browser automation via Unjess's persistent Native Sidebar Browser (WebView2) or fallback Chromium CDP. Opens right beside the chat with real user cookies/sessions and zero headless bot flags. Navigate websites, inspect numbered interactive DOM elements ([1], [2], [3]...), click buttons/links by index, type into React/HTML inputs, scroll, go back/forward/reload, execute JS, and capture annotated Set-of-Mark Vision screenshots after every step.",
 			"function": map[string]any{
 				"name":        "browser_use",
-				"description": "Interactive AI browser automation (Browser-Use / Set-of-Mark Vision). Navigate websites, inspect numbered interactive DOM elements ([1], [2], [3]...), click buttons/links by index, type into inputs/forms, scroll, execute JS, and automatically capture & attach annotated Vision screenshots of the live browser after every step.",
+				"description": "Interactive AI browser automation via Unjess's persistent Native Sidebar Browser (WebView2) or fallback Chromium CDP. Opens right beside the chat with real user cookies/sessions and zero headless bot flags. Navigate websites, inspect numbered interactive DOM elements ([1], [2], [3]...), click buttons/links by index, type into React/HTML inputs, scroll, go back/forward/reload, execute JS, and capture annotated Set-of-Mark Vision screenshots after every step.",
 				"parameters": map[string]any{
 					"type": "object",
 					"properties": map[string]any{
 						"action": map[string]any{
 							"type":        "string",
-							"enum":        []string{"navigate", "click", "type", "scroll", "press_key", "evaluate", "extract", "screenshot", "close"},
-							"description": "Browser action: navigate (load URL), click (click element by index or selector), type (fill text into element), scroll (scroll page), press_key (send keyboard key), evaluate (run JS), extract/screenshot (refresh DOM and capture annotated Set-of-Mark screenshot), close (terminate browser session).",
+							"enum":        []string{"navigate", "click", "type", "scroll", "press_key", "evaluate", "extract", "screenshot", "back", "forward", "reload", "clear_data", "close"},
+							"description": "Browser action: navigate (load URL), click (click element by index or selector), type (fill text into element), scroll (scroll page), press_key (send keyboard key), evaluate (run JS), extract/screenshot (refresh DOM and capture annotated Set-of-Mark screenshot), back/forward/reload (history navigation), clear_data (clear cookies/storage), close (terminate standalone browser session).",
 						},
 						"url": map[string]any{
 							"type":        "string",
@@ -3794,7 +3794,7 @@ func checkCommandSandbox(command, workspaceRoot string) error {
 					return fmt.Errorf("access denied: destructive shell command against ~/.unjess/skills is prohibited")
 				}
 			}
-		idx = actualPos + len(".unjess")
+			idx = actualPos + len(".unjess")
 		}
 	}
 

@@ -213,6 +213,8 @@ func (s *Server) Routes() http.Handler {
 
 	// 6. Workspaces
 	mux.HandleFunc("POST /api/harness/workspaces", s.handleAddWorkspace)
+	mux.HandleFunc("DELETE /api/harness/workspaces", s.handleRemoveWorkspace)
+	mux.HandleFunc("POST /api/harness/workspaces/remove", s.handleRemoveWorkspace)
 	mux.HandleFunc("POST /api/harness/workspaces/select", s.handleSelectWorkspace)
 	mux.HandleFunc("PUT /api/harness/workspace", s.handleSelectWorkspace)
 	mux.HandleFunc("POST /api/harness/workspaces/browse", s.handleBrowseWorkspace)
@@ -356,9 +358,11 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /api/harness/modifiers", s.handlePromptModifiers)
 	mux.HandleFunc("POST /api/harness/modifiers", s.handlePromptModifiers)
 
-	// 16. Web Proxy & Interactive CDP Browser
+	// 16. Web Proxy, Native Sidebar WebView2 Bridge & Interactive CDP Browser
 	mux.HandleFunc("GET /api/harness/web-proxy", s.handleWebProxy)
 	mux.HandleFunc("POST /api/harness/browser/action", s.handleBrowserAction)
+	mux.HandleFunc("POST /api/harness/browser/native-bridge", s.handleRegisterNativeBrowserBridge)
+	mux.HandleFunc("GET /api/harness/browser/native-bridge", s.handleGetNativeBrowserBridge)
 
 	// 17. Persistent Task Scheduler & Automation Engine (v2.3.0)
 	mux.HandleFunc("GET /api/schedules", s.handleListSchedules)
@@ -676,6 +680,36 @@ func (s *Server) handleAddWorkspace(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	writeJSON(w, http.StatusOK, res)
+}
+
+func (s *Server) handleRemoveWorkspace(w http.ResponseWriter, r *http.Request) {
+	var body map[string]any
+	if r.Body != nil {
+		_ = json.NewDecoder(r.Body).Decode(&body)
+	}
+	wsPath, _ := body["path"].(string)
+	if wsPath == "" {
+		wsPath, _ = body["workspace"].(string)
+	}
+	if wsPath == "" {
+		wsPath, _ = body["id"].(string)
+	}
+	if wsPath == "" {
+		wsPath, _ = body["name"].(string)
+	}
+	if wsPath == "" {
+		wsPath = r.URL.Query().Get("path")
+	}
+	if wsPath == "" {
+		wsPath = r.URL.Query().Get("workspace")
+	}
+	wsPath = strings.TrimSpace(wsPath)
+	if wsPath == "" {
+		writeError(w, http.StatusBadRequest, "workspace path or id is required")
+		return
+	}
+	res := s.Harness.RemoveWorkspace(wsPath)
 	writeJSON(w, http.StatusOK, res)
 }
 
@@ -1454,10 +1488,53 @@ func (s *Server) handleListSkills(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleSaveSkill(w http.ResponseWriter, r *http.Request) {
-	var req skills.SkillSaveRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	var raw map[string]any
+	if err := json.NewDecoder(r.Body).Decode(&raw); err != nil {
 		writeError(w, http.StatusBadRequest, "Invalid JSON: "+err.Error())
 		return
+	}
+	var req skills.SkillSaveRequest
+	if v, ok := raw["name"].(string); ok {
+		req.Name = v
+	}
+	if v, ok := raw["description"].(string); ok {
+		req.Description = v
+	}
+	if v, ok := raw["instructions"].(string); ok && v != "" {
+		req.Instructions = v
+	} else if v, ok := raw["content"].(string); ok && v != "" {
+		req.Instructions = v
+	} else if v, ok := raw["body"].(string); ok && v != "" {
+		req.Instructions = v
+	}
+	if v, ok := raw["scope"].(string); ok {
+		req.Scope = v
+	}
+	if v, ok := raw["repo_url"].(string); ok && v != "" {
+		req.RepoURL = v
+	} else if v, ok := raw["repo"].(string); ok && v != "" && v != "local" && v != "builtin" {
+		req.RepoURL = v
+	}
+	if v, ok := raw["folder"].(string); ok && v != "" {
+		req.Folder = v
+	} else if v, ok := raw["category"].(string); ok && v != "" {
+		req.Folder = v
+	}
+	if v, ok := raw["workspace"].(string); ok {
+		req.Workspace = v
+	}
+	if trigArr, ok := raw["triggers"].([]any); ok {
+		for _, item := range trigArr {
+			if ts, ok := item.(string); ok && strings.TrimSpace(ts) != "" {
+				req.Triggers = append(req.Triggers, strings.TrimSpace(ts))
+			}
+		}
+	} else if trigStr, ok := raw["triggers"].(string); ok {
+		for _, part := range strings.Split(trigStr, ",") {
+			if strings.TrimSpace(part) != "" {
+				req.Triggers = append(req.Triggers, strings.TrimSpace(part))
+			}
+		}
 	}
 	if req.Workspace == "" {
 		req.Workspace = r.URL.Query().Get("workspace")
@@ -1473,6 +1550,7 @@ func (s *Server) handleSaveSkill(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"status": "ok",
 		"skill":  saved,
+		"skills": skills.DiscoverSkills(req.Workspace),
 	})
 }
 
@@ -1914,6 +1992,35 @@ func (s *Server) handleBrowserAction(w http.ResponseWriter, r *http.Request) {
 		"vision_data_uri": visionDataURI,
 		"error":           errStr,
 	})
+}
+
+// handleRegisterNativeBrowserBridge registers the active Rust Desktop child WebView2 browser bridge.
+func (s *Server) handleRegisterNativeBrowserBridge(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		BridgeURL string `json:"bridge_url"`
+		Token     string `json:"token"`
+		PID       int    `json:"pid"`
+		URL       string `json:"url"`
+		Title     string `json:"title"`
+	}
+	if r.Body != nil {
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil && err != io.EOF {
+			writeError(w, http.StatusBadRequest, "Invalid JSON: "+err.Error())
+			return
+		}
+	}
+	if err := frontier.RegisterNativeBrowserBridge(body.BridgeURL, body.Token, body.PID, body.URL, body.Title); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"status": "ok"})
+}
+
+// handleGetNativeBrowserBridge returns the current status of the Desktop Native WebView2 Sidebar Browser.
+func (s *Server) handleGetNativeBrowserBridge(w http.ResponseWriter, r *http.Request) {
+	st := frontier.GetNativeBrowserBridgeStatus()
+	st["status"] = "ok"
+	writeJSON(w, http.StatusOK, st)
 }
 
 // ---------------------------------------------------------------------------

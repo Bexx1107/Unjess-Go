@@ -213,9 +213,16 @@ $destinations = @(
 $repoManifestPath = Join-Path $RepoRoot "version.json"
 if (Test-Path $repoManifestPath) {
     try {
+        $daemonSha = (Get-FileHash -Path (Join-Path $distDir "unjessd.exe") -Algorithm SHA256).Hash.ToLower()
+        $cliSha = (Get-FileHash -Path (Join-Path $distDir "unjess-cli.exe") -Algorithm SHA256).Hash.ToLower()
+        $setupSha = (Get-FileHash -Path (Join-Path $distDir "Unjess-Setup.exe") -Algorithm SHA256).Hash.ToLower()
         $repoRaw = [System.IO.File]::ReadAllText($repoManifestPath, [System.Text.Encoding]::UTF8)
         $repoManifest = $repoRaw | ConvertFrom-Json
         $repoManifest.sha256 = $sha256
+        $repoManifest.desktop_sha256 = $sha256
+        $repoManifest.daemon_sha256 = $daemonSha
+        $repoManifest.cli_sha256 = $cliSha
+        $repoManifest.installer_sha256 = $setupSha
         $repoOut = $repoManifest | ConvertTo-Json -Depth 10
         [System.IO.File]::WriteAllText($repoManifestPath, $repoOut, (New-Object System.Text.UTF8Encoding($false)))
     } catch {

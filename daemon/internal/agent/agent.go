@@ -1045,6 +1045,7 @@ func slimStateForClient(state map[string]any) map[string]any {
 
 // GetFullStatePayload returns the exact JSON payload for GET /api/harness/state.
 func (hm *HarnessManager) GetFullStatePayload() map[string]any {
+	hm.PruneMissingWorkspaces()
 	hm.mu.RLock()
 	defer hm.mu.RUnlock()
 
@@ -2292,8 +2293,213 @@ func (hm *HarnessManager) UndoToTurn(convID string, turnID string, turnIndex int
 	}, nil
 }
 
+// PruneMissingWorkspaces removes workspaces whose directories no longer exist on disk
+// (e.g. when deleted in File Explorer) and cleans up orphaned workspace conversations.
+func (hm *HarnessManager) PruneMissingWorkspaces() {
+	hm.mu.Lock()
+	defer hm.mu.Unlock()
+
+	rawWS, _ := hm.state["workspaces"].([]any)
+	if len(rawWS) <= 1 {
+		return
+	}
+
+	changed := false
+	removedPaths := make(map[string]bool)
+	keptWS := make([]any, 0, len(rawWS))
+
+	for _, item := range rawWS {
+		wm, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		p := strings.TrimSpace(fmt.Sprint(wm["path"]))
+		if p == "" || p == "." {
+			keptWS = append(keptWS, wm)
+			continue
+		}
+		if fi, err := os.Stat(p); err == nil && fi.IsDir() {
+			keptWS = append(keptWS, wm)
+		} else {
+			removedPaths[strings.ToLower(filepath.Clean(p))] = true
+			changed = true
+		}
+	}
+
+	if len(keptWS) == 0 && len(rawWS) > 0 {
+		keptWS = append(keptWS, rawWS[0])
+		changed = false
+		removedPaths = nil
+	}
+
+	if changed {
+		hm.state["workspaces"] = keptWS
+		activeWS := strings.TrimSpace(fmt.Sprint(hm.state["active_workspace"]))
+		if activeWS != "" && removedPaths[strings.ToLower(filepath.Clean(activeWS))] {
+			if firstMap, ok := keptWS[0].(map[string]any); ok {
+				hm.state["active_workspace"] = fmt.Sprint(firstMap["path"])
+			}
+		}
+	}
+
+	rawConvs, _ := hm.state["conversations"].([]any)
+	if len(rawConvs) > 0 {
+		keptConvs := make([]any, 0, len(rawConvs))
+		convsChanged := false
+		for _, item := range rawConvs {
+			cm, ok := item.(map[string]any)
+			if !ok {
+				continue
+			}
+			cMode := strings.ToLower(strings.TrimSpace(fmt.Sprint(cm["mode"])))
+			cWS := strings.TrimSpace(fmt.Sprint(cm["workspace"]))
+			if cMode == "quick" || cWS == "" || cWS == "<nil>" || cWS == "." {
+				keptConvs = append(keptConvs, cm)
+				continue
+			}
+			cleanCWS := strings.ToLower(filepath.Clean(cWS))
+			if removedPaths[cleanCWS] {
+				convsChanged = true
+				continue
+			}
+			if fi, err := os.Stat(cWS); err != nil || !fi.IsDir() {
+				convsChanged = true
+				continue
+			}
+			keptConvs = append(keptConvs, cm)
+		}
+		if convsChanged {
+			hm.state["conversations"] = keptConvs
+			activeCID := fmt.Sprint(hm.state["active_conversation_id"])
+			foundActive := false
+			for _, c := range keptConvs {
+				if cm, ok := c.(map[string]any); ok && fmt.Sprint(cm["id"]) == activeCID {
+					foundActive = true
+					break
+				}
+			}
+			if !foundActive {
+				if len(keptConvs) > 0 {
+					if cm, ok := keptConvs[0].(map[string]any); ok {
+						hm.state["active_conversation_id"] = cm["id"]
+					}
+				} else {
+					hm.state["active_conversation_id"] = ""
+				}
+			}
+			changed = true
+		}
+	}
+
+	if changed {
+		_ = hm.saveStateLocked()
+	}
+}
+
+// RemoveWorkspace removes a project workspace folder and its sessions from the harness state.
+func (hm *HarnessManager) RemoveWorkspace(target string) map[string]any {
+	cleanTarget := strings.TrimSpace(target)
+	if abs, err := filepath.Abs(cleanTarget); err == nil && cleanTarget != "" {
+		cleanTarget = abs
+	}
+	normTarget := strings.ToLower(filepath.Clean(cleanTarget))
+
+	hm.mu.Lock()
+	defer hm.mu.Unlock()
+
+	rawWS, _ := hm.state["workspaces"].([]any)
+	keptWS := make([]any, 0, len(rawWS))
+	removed := false
+
+	for _, item := range rawWS {
+		wm, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		wID := strings.TrimSpace(fmt.Sprint(wm["id"]))
+		wName := strings.TrimSpace(fmt.Sprint(wm["name"]))
+		wPath := strings.TrimSpace(fmt.Sprint(wm["path"]))
+		normPath := strings.ToLower(filepath.Clean(wPath))
+
+		if strings.EqualFold(wID, target) || strings.EqualFold(wName, target) || normPath == normTarget {
+			removed = true
+			continue
+		}
+		keptWS = append(keptWS, wm)
+	}
+
+	if len(keptWS) == 0 {
+		defPath, err := workspace.DefaultQuickWorkspace()
+		if err != nil || defPath == "" {
+			defPath, _ = os.Getwd()
+		}
+		keptWS = append(keptWS, map[string]any{
+			"id":   "ws_" + generateID(8),
+			"name": filepath.Base(defPath),
+			"path": defPath,
+		})
+	}
+	hm.state["workspaces"] = keptWS
+
+	rawConvs, _ := hm.state["conversations"].([]any)
+	keptConvs := make([]any, 0, len(rawConvs))
+	for _, item := range rawConvs {
+		cm, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		cWS := strings.TrimSpace(fmt.Sprint(cm["workspace"]))
+		if cWS != "" && cWS != "<nil>" && strings.ToLower(filepath.Clean(cWS)) == normTarget {
+			removed = true
+			continue
+		}
+		keptConvs = append(keptConvs, cm)
+	}
+	hm.state["conversations"] = keptConvs
+
+	activeWS := strings.TrimSpace(fmt.Sprint(hm.state["active_workspace"]))
+	if activeWS == "" || strings.ToLower(filepath.Clean(activeWS)) == normTarget {
+		if firstMap, ok := keptWS[0].(map[string]any); ok {
+			activeWS = fmt.Sprint(firstMap["path"])
+			hm.state["active_workspace"] = activeWS
+		}
+	}
+
+	activeCID := fmt.Sprint(hm.state["active_conversation_id"])
+	foundActive := false
+	for _, c := range keptConvs {
+		if cm, ok := c.(map[string]any); ok && fmt.Sprint(cm["id"]) == activeCID {
+			foundActive = true
+			break
+		}
+	}
+	if !foundActive {
+		if len(keptConvs) > 0 {
+			if cm, ok := keptConvs[0].(map[string]any); ok {
+				hm.state["active_conversation_id"] = cm["id"]
+			}
+		} else {
+			hm.state["active_conversation_id"] = ""
+		}
+	}
+
+	_ = hm.saveStateLocked()
+
+	return map[string]any{
+		"status":                 "ok",
+		"removed":                removed,
+		"workspaces":             hm.state["workspaces"],
+		"active_workspace":       hm.state["active_workspace"],
+		"conversations":          hm.state["conversations"],
+		"active_conversation_id": hm.state["active_conversation_id"],
+		"workspace_files":        workspace.ListWorkspaceFiles(activeWS, 400),
+		"git_info":               workspace.GetGitInfo(activeWS),
+	}
+}
+
 // ListWorkspaces returns the list of configured workspaces.
 func (hm *HarnessManager) ListWorkspaces() []map[string]any {
+	hm.PruneMissingWorkspaces()
 	hm.mu.RLock()
 	defer hm.mu.RUnlock()
 	raw, _ := hm.state["workspaces"].([]any)

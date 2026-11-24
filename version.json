@@ -1,124 +1,136 @@
 {
-  "version": "3.0.9",
-  "published_at": "2026-11-20",
-  "channel": "stable",
-  "download_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.9/Unjess.exe",
-  "installer_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.9/Unjess-Setup.exe",
-  "portable_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.9/Unjess-Portable-win64.zip",
-  "webview2_loader_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.9/WebView2Loader.dll",
-  "daemon_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.9/unjessd.exe",
-  "cli_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.9/unjess-cli.exe",
-  "desktop_linux_amd64_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.9/unjess-linux-desktop-amd64",
-  "desktop_linux_amd64_sha256": "f416e6d8cdc45c60a6b5bc396410ee56fb99c4229f209d3eb532ce09fbe4209c",
-  "cli_linux_amd64_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.9/unjess-linux-amd64",
-  "cli_linux_arm64_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.9/unjess-linux-arm64",
-  "daemon_linux_amd64_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.9/unjessd-linux-amd64",
-  "daemon_linux_arm64_url": "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.0.9/unjessd-linux-arm64",
-  "sha256": "6bf0e334e30283ff7b830c0bbfa7d1a2ba35da5feb440101bfd3bc2c525ae678",
-  "installer_sha256": "9e46649602a757d7a4cd7e522305f60acc2c22949b020409dd3c89ea3de90cc0",
-  "portable_sha256": "124d79bf35ed38aa120941103b0c6fdbb2aeafb1f116df951f5ae33fea0bca6d",
-  "daemon_sha256": "8ee32917949643995e1e4f3327f108da3bdf4ce105ce1ab7bd2b124f52196f32",
-  "cli_sha256": "732111d3e036eccc17b5c6fbd085f6d9617e49971fb791987008e389aad9ac3f",
-  "desktop_sha256": "6bf0e334e30283ff7b830c0bbfa7d1a2ba35da5feb440101bfd3bc2c525ae678",
-  "webview2_loader_sha256": "86545b66cdb0603bc26b626fb9ad610cb6e71f28d468f5ea66df23b03dda96d5",
-  "notes": "Unjess v3.0.9 - Workspace-scoped recent sessions and persistent memories, plus opt-in Strict Workspace Sandbox toggle (OFF by default).",
-  "changelog": [
-    {
-      "version": "3.0.9",
-      "date": "2026-11-20",
-      "title": "Unjess v3.0.9 - Workspace Context Isolation & Opt-In Strict Workspace Sandbox",
-      "tag": "LATEST",
-      "changes": [
-        "Scoped buildRecentSessionsSummary strictly to the active workspace so unrelated project sessions and snippets no longer leak into prompts",
-        "Changed memory_save default scope to 'workspace' and enforced exact normalized workspace boundaries in SearchMemories and FormatForSystemPrompt",
-        "Added opt-in Strict Workspace Sandbox toggle (OFF by default in Settings, Right Inspector Controls, and CLI /sandbox) locking reads, writes, searches, visual QA, and shell command paths strictly to the active workspace"
-      ]
-    },
-    {
-      "version": "3.0.8",
-      "date": "2026-11-20",
-      "title": "Unjess v3.0.8 - Collapsible Sidebar Folders & Sections + Finish-Reply Scroll Fix",
-      "tag": "UPDATE",
-      "changes": [
-        "Made individual project folders collapsible so nested conversations under each workspace can be toggled cleanly with persistent state",
-        "Added collapsible Projects and Quick Chats section headers to hide sidebar clutter while preserving workspace conversation grouping",
-        "Fixed chat viewport jumping up to the user prompt or top of thread when AI finishes replying (removed off-layout content-visibility sizing drift, added overflow-anchor: none, and tracked user scroll intent)"
-      ]
-    },
-    {
-      "version": "3.0.7",
-      "date": "2026-11-18",
-      "title": "Unjess v3.0.7 - Model-Aware Auto-Compaction, 250k Context Ceiling & Overflow Recovery",
-      "tag": "UPDATE",
-      "changes": [
-        "Wired model-aware auto-compaction honoring enable_compaction (~65% of model context, capped at 250k tokens on 1M+ windows like DeepSeek V4.1 Flash and Gemini)",
-        "Connected KV-cache-friendly warm-prefix LLM summarization (with deterministic 8-section fallback) and auto-compacts conversation history beyond 24 turns instead of dropping turns silently",
-        "Scaled intra-turn tool pruning thresholds proportionally per model and added automatic context_length_exceeded overflow recovery"
-      ]
-    },
-    {
-      "version": "3.0.6",
-      "date": "2026-11-18",
-      "title": "Unjess v3.0.6 - Bundle WebView2Loader.dll in Windows Installer & Portable ZIP",
-      "tag": "UPDATE",
-      "changes": [
-        "Embedded WebView2Loader.dll inside Unjess-Setup.exe so Unjess.exe launches cleanly after installation without missing DLL errors",
-        "Added dynamic Windows Known-Folder Desktop shortcut resolution (supports OneDrive Desktop redirection) and explicit install path confirmation",
-        "Published self-contained Unjess-Portable-win64.zip with Unjess.exe, WebView2Loader.dll, unjessd.exe, and unjess-cli.exe side-by-side"
-      ]
-    },
-    {
-      "version": "3.0.5",
-      "date": "2026-11-15",
-      "title": "Unjess v3.0.5 - Fresh Desktop Shell Build, Resource Version & Installer Sync",
-      "tag": "UPDATE",
-      "changes": [
-        "Rebuilt Unjess.exe desktop shell and embedded UI fallback from current source instead of legacy v2.9.0/v3.0.0 assets",
-        "Updated Windows PE resource version metadata in Unjess.exe, unjessd.exe, and unjess-cli.exe from v2.9.6/v3.0.4 to v3.0.5",
-        "Synchronized installer scripts, version manifests, and Caddy/unjess.si release redirects with SHA-256 verified v3.0.5 binaries"
-      ]
-    },
-    {
-      "version": "3.0.4",
-      "date": "2026-11-15",
-      "title": "Unjess v3.0.4 - Ollama API UI Rename & Provider Selection Persistence Fix",
-      "tag": "UPDATE",
-      "changes": [
-        "Renamed 'Ollama Cloud' labels to 'Ollama API' across Settings, model selectors, and backend model discovery",
-        "Fixed setModel() and Save All Settings resetting Active LLM Provider from ollama-api back to local ollama when selecting hosted Ollama API models",
-        "Preserved ollama-api selection across syncs/saves when an Ollama API key is configured, and added automatic :cloud fallback to OllamaAPIBaseURL when local Ollama is offline"
-      ]
-    },
-    {
-      "version": "3.0.3",
-      "date": "2026-11-15",
-      "title": "Unjess v3.0.3 - Ollama Cloud Routing & Live Model Discovery Fix",
-      "tag": "UPDATE",
-      "changes": [
-        "Preserved explicit ollama-api provider in DetectProvider so :cloud and hosted Ollama Cloud models route to OllamaAPIBaseURL instead of local Ollama or Qwen",
-        "Added live Ollama Cloud (/api/tags) Bearer-authenticated model discovery and normalized Ollama Cloud base URL handling",
-        "Added dedicated Ollama Cloud Base URL Fetch button and accurate per-endpoint model counts in Settings"
-      ]
-    },
-    {
-      "version": "3.0.2",
-      "date": "2026-11-07",
-      "title": "Unjess v3.0.2 - Prototype Rewrite in Go and Rust Wry",
-      "tag": "UPDATE",
-      "changes": [
-        "Go daemon (unjessd) and Rust Wry desktop wrapper with ~10 MB combined footprint",
-        "Multi-provider routing: local/cloud Ollama and direct provider APIs (Anthropic, OpenAI, Gemini)",
-        "ReAct agent loop with fuzzy JSON argument auto-repair for common LLM syntax slip-ups",
-        "Model Context Protocol (MCP) client and custom skills execution",
-        "Persistent file-based workspace memory and session tracking"
-      ]
-    }
-  ],
-  "cli_linux_amd64_sha256": "3485be62b697ea54d8e4b8eb830fc43aa48809741935dc378e1794c3a1421edc",
-  "cli_linux_arm64_sha256": "3065e0dd78c71fe8a7972d075eab5f0f4634652882f71de4ecf4c665efb0a98d",
-  "daemon_linux_amd64_sha256": "421d11f058ae0caa32819cd68998704d0ebc145ab21fb04c5d6e655151570994",
-  "daemon_linux_arm64_sha256": "63f720231cd720d8e1978a65b734f4e189a301c85e951dcf5c4c6f90bcc593cf",
-  "cli_windows_amd64_sha256": "732111d3e036eccc17b5c6fbd085f6d9617e49971fb791987008e389aad9ac3f",
-  "daemon_windows_amd64_sha256": "8ee32917949643995e1e4f3327f108da3bdf4ce105ce1ab7bd2b124f52196f32",
-  "setup_windows_amd64_sha256": "9e46649602a757d7a4cd7e522305f60acc2c22949b020409dd3c89ea3de90cc0"
+    "version":  "3.1.0",
+    "published_at":  "2026-11-24",
+    "channel":  "stable",
+    "download_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.0/Unjess.exe",
+    "installer_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.0/Unjess-Setup.exe",
+    "portable_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.0/Unjess-Portable-win64.zip",
+    "webview2_loader_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.0/WebView2Loader.dll",
+    "daemon_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.0/unjessd.exe",
+    "cli_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.0/unjess-cli.exe",
+    "desktop_linux_amd64_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.0/unjess-linux-desktop-amd64",
+    "desktop_linux_amd64_sha256":  "f416e6d8cdc45c60a6b5bc396410ee56fb99c4229f209d3eb532ce09fbe4209c",
+    "cli_linux_amd64_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.0/unjess-linux-amd64",
+    "cli_linux_arm64_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.0/unjess-linux-arm64",
+    "daemon_linux_amd64_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.0/unjessd-linux-amd64",
+    "daemon_linux_arm64_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.0/unjessd-linux-arm64",
+    "sha256":  "6b909ab3f8822e3bb0013ae40a2e90a05e3486b204a93737a183d3d915675677",
+    "installer_sha256":  "7e1f8650540ec97880000a8b5b1e2c9fde3ec852f8743fd3d436ec55bcdc3e3d",
+    "portable_sha256":  "ac9e80713926bc36a61fe74ad728e43fbc1a18f55282dd4cecdc294263897e18",
+    "daemon_sha256":  "78a3090e59a5ce3b0966684f054da7ec29b58fbc22fdb99d6569625d844936ee",
+    "cli_sha256":  "5839c50ebb726dd91ef367e48aeb9e9fc11be0a74b6f29d60307e7772d5f2809",
+    "desktop_sha256":  "6b909ab3f8822e3bb0013ae40a2e90a05e3486b204a93737a183d3d915675677",
+    "webview2_loader_sha256":  "86545b66cdb0603bc26b626fb9ad610cb6e71f28d468f5ea66df23b03dda96d5",
+    "notes":  "Unjess v3.1.0 - Native Sidebar Browser (embedded WebView2 with persistent logins \u0026 zero headless bot flags), transient LLM stream retries, and workspace pruning.",
+    "changelog":  [
+                      {
+                          "version":  "3.1.0",
+                          "date":  "2026-11-24",
+                          "title":  "Unjess v3.1.0 - Native Sidebar Browser (WebView2), Persistent Sessions \u0026 Transient Retry Hardening",
+                          "tag":  "LATEST",
+                          "changes":  [
+                                          "Added embedded Native Sidebar Browser (child WebView2) docked alongside Chat and in the Browser tab — zero iframe restrictions, real GPU rendering, and no headless CDP bot flags",
+                                          "Persistent Browser Sessions \u0026 Human Handoff: Preserves logins, cookies, and localStorage across restarts in %LOCALAPPDATA%\\Unjess\\browser_webview so you and the agent share authenticated web sessions",
+                                          "Live Agent Browser Auto-Open \u0026 Set-of-Mark Bridge: Automatically opens the Sidebar Browser when browser_use runs, indexing [1..N] DOM elements via native ExecuteScript and capturing screenshots in-process",
+                                          "Added automatic exponential backoff retries for transient upstream LLM errors (503, 429, 502, 504, 529), orphaned workspace pruning, workspace removal endpoints, and skill folder frontmatter normalization"
+                                      ]
+                      },
+                      {
+                          "version":  "3.0.9",
+                          "date":  "2026-11-20",
+                          "title":  "Unjess v3.0.9 - Workspace Context Isolation \u0026 Opt-In Strict Workspace Sandbox",
+                          "tag":  "UPDATE",
+                          "changes":  [
+                                          "Scoped buildRecentSessionsSummary strictly to the active workspace so unrelated project sessions and snippets no longer leak into prompts",
+                                          "Changed memory_save default scope to \u0027workspace\u0027 and enforced exact normalized workspace boundaries in SearchMemories and FormatForSystemPrompt",
+                                          "Added opt-in Strict Workspace Sandbox toggle (OFF by default in Settings, Right Inspector Controls, and CLI /sandbox) locking reads, writes, searches, visual QA, and shell command paths strictly to the active workspace"
+                                      ]
+                      },
+                      {
+                          "version":  "3.0.8",
+                          "date":  "2026-11-20",
+                          "title":  "Unjess v3.0.8 - Collapsible Sidebar Folders \u0026 Sections + Finish-Reply Scroll Fix",
+                          "tag":  "UPDATE",
+                          "changes":  [
+                                          "Made individual project folders collapsible so nested conversations under each workspace can be toggled cleanly with persistent state",
+                                          "Added collapsible Projects and Quick Chats section headers to hide sidebar clutter while preserving workspace conversation grouping",
+                                          "Fixed chat viewport jumping up to the user prompt or top of thread when AI finishes replying (removed off-layout content-visibility sizing drift, added overflow-anchor: none, and tracked user scroll intent)"
+                                      ]
+                      },
+                      {
+                          "version":  "3.0.7",
+                          "date":  "2026-11-18",
+                          "title":  "Unjess v3.0.7 - Model-Aware Auto-Compaction, 250k Context Ceiling \u0026 Overflow Recovery",
+                          "tag":  "UPDATE",
+                          "changes":  [
+                                          "Wired model-aware auto-compaction honoring enable_compaction (~65% of model context, capped at 250k tokens on 1M+ windows like DeepSeek V4.1 Flash and Gemini)",
+                                          "Connected KV-cache-friendly warm-prefix LLM summarization (with deterministic 8-section fallback) and auto-compacts conversation history beyond 24 turns instead of dropping turns silently",
+                                          "Scaled intra-turn tool pruning thresholds proportionally per model and added automatic context_length_exceeded overflow recovery"
+                                      ]
+                      },
+                      {
+                          "version":  "3.0.6",
+                          "date":  "2026-11-18",
+                          "title":  "Unjess v3.0.6 - Bundle WebView2Loader.dll in Windows Installer \u0026 Portable ZIP",
+                          "tag":  "UPDATE",
+                          "changes":  [
+                                          "Embedded WebView2Loader.dll inside Unjess-Setup.exe so Unjess.exe launches cleanly after installation without missing DLL errors",
+                                          "Added dynamic Windows Known-Folder Desktop shortcut resolution (supports OneDrive Desktop redirection) and explicit install path confirmation",
+                                          "Published self-contained Unjess-Portable-win64.zip with Unjess.exe, WebView2Loader.dll, unjessd.exe, and unjess-cli.exe side-by-side"
+                                      ]
+                      },
+                      {
+                          "version":  "3.0.5",
+                          "date":  "2026-11-15",
+                          "title":  "Unjess v3.0.5 - Fresh Desktop Shell Build, Resource Version \u0026 Installer Sync",
+                          "tag":  "UPDATE",
+                          "changes":  [
+                                          "Rebuilt Unjess.exe desktop shell and embedded UI fallback from current source instead of legacy v2.9.0/v3.0.0 assets",
+                                          "Updated Windows PE resource version metadata in Unjess.exe, unjessd.exe, and unjess-cli.exe from v2.9.6/v3.0.4 to v3.0.5",
+                                          "Synchronized installer scripts, version manifests, and Caddy/unjess.si release redirects with SHA-256 verified v3.0.5 binaries"
+                                      ]
+                      },
+                      {
+                          "version":  "3.0.4",
+                          "date":  "2026-11-15",
+                          "title":  "Unjess v3.0.4 - Ollama API UI Rename \u0026 Provider Selection Persistence Fix",
+                          "tag":  "UPDATE",
+                          "changes":  [
+                                          "Renamed \u0027Ollama Cloud\u0027 labels to \u0027Ollama API\u0027 across Settings, model selectors, and backend model discovery",
+                                          "Fixed setModel() and Save All Settings resetting Active LLM Provider from ollama-api back to local ollama when selecting hosted Ollama API models",
+                                          "Preserved ollama-api selection across syncs/saves when an Ollama API key is configured, and added automatic :cloud fallback to OllamaAPIBaseURL when local Ollama is offline"
+                                      ]
+                      },
+                      {
+                          "version":  "3.0.3",
+                          "date":  "2026-11-15",
+                          "title":  "Unjess v3.0.3 - Ollama Cloud Routing \u0026 Live Model Discovery Fix",
+                          "tag":  "UPDATE",
+                          "changes":  [
+                                          "Preserved explicit ollama-api provider in DetectProvider so :cloud and hosted Ollama Cloud models route to OllamaAPIBaseURL instead of local Ollama or Qwen",
+                                          "Added live Ollama Cloud (/api/tags) Bearer-authenticated model discovery and normalized Ollama Cloud base URL handling",
+                                          "Added dedicated Ollama Cloud Base URL Fetch button and accurate per-endpoint model counts in Settings"
+                                      ]
+                      },
+                      {
+                          "version":  "3.0.2",
+                          "date":  "2026-11-07",
+                          "title":  "Unjess v3.0.2 - Prototype Rewrite in Go and Rust Wry",
+                          "tag":  "UPDATE",
+                          "changes":  [
+                                          "Go daemon (unjessd) and Rust Wry desktop wrapper with ~10 MB combined footprint",
+                                          "Multi-provider routing: local/cloud Ollama and direct provider APIs (Anthropic, OpenAI, Gemini)",
+                                          "ReAct agent loop with fuzzy JSON argument auto-repair for common LLM syntax slip-ups",
+                                          "Model Context Protocol (MCP) client and custom skills execution",
+                                          "Persistent file-based workspace memory and session tracking"
+                                      ]
+                      }
+                  ],
+    "cli_linux_amd64_sha256":  "f16dadd5bf22b9847c77149f2e48d915821587781ea4ac90c694fd0e981ddb46",
+    "cli_linux_arm64_sha256":  "941893f14934189bda98fad23e42dc347de67554c4558257fe58ad6cdf104580",
+    "daemon_linux_amd64_sha256":  "5da25167f8a43bd30b1b902b998c9e8063b624b8a17ff393355f3f64dbc95b12",
+    "daemon_linux_arm64_sha256":  "1ca38b188e6a11e00e3eadf183aa5ad78da5d3e2ff68f7dba126fe830fb596bf",
+    "cli_windows_amd64_sha256":  "5839c50ebb726dd91ef367e48aeb9e9fc11be0a74b6f29d60307e7772d5f2809",
+    "daemon_windows_amd64_sha256":  "78a3090e59a5ce3b0966684f054da7ec29b58fbc22fdb99d6569625d844936ee",
+    "setup_windows_amd64_sha256":  "7e1f8650540ec97880000a8b5b1e2c9fde3ec852f8743fd3d436ec55bcdc3e3d"
 }

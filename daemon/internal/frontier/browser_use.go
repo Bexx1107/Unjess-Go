@@ -25,17 +25,18 @@ import (
 
 // BrowserUseOptions defines the input options for executing browser automation actions.
 type BrowserUseOptions struct {
-	Action     string `json:"action"`      // "navigate", "click", "type", "scroll", "press_key", "evaluate", "extract", "screenshot", "close", "cli"
-	URL        string `json:"url"`         // for "navigate"
-	Index      int    `json:"index"`       // 1-based [index] of interactive element from browser-use DOM map
-	Selector   string `json:"selector"`    // optional CSS selector fallback for click/type
-	Text       string `json:"text"`        // text to type (for "type") or CLI command args
-	PressEnter bool   `json:"press_enter"` // whether to press Enter after typing
-	Direction  string `json:"direction"`   // "down" or "up" (for "scroll")
-	Amount     int    `json:"amount"`      // scroll pixels (default 550)
-	Key        string `json:"key"`         // key name for "press_key" (e.g. "Enter", "Escape", "Tab", "ArrowDown")
-	Script     string `json:"script"`      // JS expression for "evaluate"
-	Headless   *bool  `json:"headless"`    // default true (--headless=new), can be set false to show visible browser window
+	Action     string `json:"action"`           // "navigate", "click", "type", "scroll", "press_key", "evaluate", "extract", "screenshot", "back", "forward", "reload", "clear_data", "close", "cli"
+	URL        string `json:"url"`              // for "navigate"
+	Index      int    `json:"index"`            // 1-based [index] of interactive element from browser-use DOM map
+	Selector   string `json:"selector"`         // optional CSS selector fallback for click/type
+	Text       string `json:"text"`             // text to type (for "type") or CLI command args
+	PressEnter bool   `json:"press_enter"`      // whether to press Enter after typing
+	Direction  string `json:"direction"`        // "down" or "up" (for "scroll")
+	Amount     int    `json:"amount"`           // scroll pixels (default 550)
+	Key        string `json:"key"`              // key name for "press_key" (e.g. "Enter", "Escape", "Tab", "ArrowDown")
+	Script     string `json:"script"`           // JS expression for "evaluate"
+	Headless   *bool  `json:"headless"`         // nil = auto (uses Native Sidebar WebView2 if Desktop is open, else headless CDP)
+	Engine     string `json:"engine,omitempty"` // "auto" (default), "native" (Desktop Sidebar WebView2), or "cdp" (standalone Chromium)
 }
 
 // BrowserUseArgs is an alias for BrowserUseOptions.
@@ -57,6 +58,7 @@ type InteractiveElement struct {
 
 // BrowserUseResult encapsulates the output, indexed DOM map, and annotated vision screenshot of a browser step.
 type BrowserUseResult struct {
+	Engine         string               `json:"engine,omitempty"`
 	Title          string               `json:"title"`
 	URL            string               `json:"url"`
 	ActionSummary  string               `json:"action_summary"`
@@ -67,6 +69,212 @@ type BrowserUseResult struct {
 	VisionDataURI  string               `json:"vision_data_uri,omitempty"`
 	VisionReport   string               `json:"vision_report,omitempty"`
 	FormattedState string               `json:"formatted_state"`
+}
+
+// nativeBrowserBridgeState tracks the active Rust Desktop child WebView2 sidebar browser bridge.
+type nativeBrowserBridgeState struct {
+	mu           sync.RWMutex
+	bridgeURL    string
+	token        string
+	pid          int
+	currentURL   string
+	currentTitle string
+	lastSeen     time.Time
+}
+
+var nativeBridge nativeBrowserBridgeState
+
+// RegisterNativeBrowserBridge registers or refreshes the heartbeat for the Desktop Native WebView2 Sidebar Browser.
+func RegisterNativeBrowserBridge(bridgeURL, token string, pid int, currentURL, currentTitle string) error {
+	bridgeURL = strings.TrimRight(strings.TrimSpace(bridgeURL), "/")
+	if bridgeURL == "" {
+		nativeBridge.mu.Lock()
+		nativeBridge.bridgeURL = ""
+		nativeBridge.token = ""
+		nativeBridge.lastSeen = time.Time{}
+		nativeBridge.mu.Unlock()
+		return nil
+	}
+	u, err := url.Parse(bridgeURL)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+		return fmt.Errorf("invalid bridge_url %q", bridgeURL)
+	}
+	host := strings.ToLower(u.Hostname())
+	if host != "127.0.0.1" && host != "localhost" && host != "::1" {
+		return errors.New("native browser bridge must bind to loopback (127.0.0.1/localhost)")
+	}
+	nativeBridge.mu.Lock()
+	nativeBridge.bridgeURL = bridgeURL
+	nativeBridge.token = strings.TrimSpace(token)
+	nativeBridge.pid = pid
+	if currentURL != "" {
+		nativeBridge.currentURL = currentURL
+	}
+	if currentTitle != "" {
+		nativeBridge.currentTitle = currentTitle
+	}
+	nativeBridge.lastSeen = time.Now()
+	nativeBridge.mu.Unlock()
+	return nil
+}
+
+// GetNativeBrowserBridgeStatus returns live status metadata for the Desktop Native WebView2 Sidebar Browser.
+func GetNativeBrowserBridgeStatus() map[string]any {
+	nativeBridge.mu.RLock()
+	bURL := nativeBridge.bridgeURL
+	tok := nativeBridge.token
+	pid := nativeBridge.pid
+	curURL := nativeBridge.currentURL
+	curTitle := nativeBridge.currentTitle
+	lastSeen := nativeBridge.lastSeen
+	nativeBridge.mu.RUnlock()
+
+	connected := bURL != "" && time.Since(lastSeen) < 15*time.Second
+	if connected {
+		req, err := http.NewRequest(http.MethodGet, bURL+"/health", nil)
+		if err == nil {
+			if tok != "" {
+				req.Header.Set("X-Bridge-Token", tok)
+			}
+			client := http.Client{Timeout: 500 * time.Millisecond}
+			if resp, rErr := client.Do(req); rErr == nil {
+				var h struct {
+					OK    bool   `json:"ok"`
+					URL   string `json:"url"`
+					Title string `json:"title"`
+				}
+				_ = json.NewDecoder(resp.Body).Decode(&h)
+				_ = resp.Body.Close()
+				connected = resp.StatusCode == http.StatusOK && h.OK
+				if h.URL != "" {
+					curURL = h.URL
+				}
+				if h.Title != "" {
+					curTitle = h.Title
+				}
+			} else {
+				connected = false
+			}
+		}
+	}
+	return map[string]any{
+		"connected": connected,
+		"pid":       pid,
+		"url":       curURL,
+		"title":     curTitle,
+	}
+}
+
+func getActiveNativeBridge() (string, string, bool) {
+	nativeBridge.mu.RLock()
+	bURL := nativeBridge.bridgeURL
+	tok := nativeBridge.token
+	lastSeen := nativeBridge.lastSeen
+	nativeBridge.mu.RUnlock()
+	if bURL == "" || time.Since(lastSeen) > 20*time.Second {
+		return "", "", false
+	}
+	return bURL, tok, true
+}
+
+func executeViaNativeBridge(ctx context.Context, wsPath string, opts BrowserUseOptions) (*BrowserUseResult, bool, error) {
+	bURL, tok, ok := getActiveNativeBridge()
+	if !ok {
+		return nil, false, nil
+	}
+
+	payload, err := json.Marshal(opts)
+	if err != nil {
+		return nil, true, err
+	}
+
+	reqCtx, cancel := context.WithTimeout(ctx, 28*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, bURL+"/action", bytes.NewReader(payload))
+	if err != nil {
+		return nil, false, nil
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if tok != "" {
+		req.Header.Set("X-Bridge-Token", tok)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		// Desktop window may have closed; mark bridge offline so caller can fall back to standalone CDP.
+		nativeBridge.mu.Lock()
+		if nativeBridge.bridgeURL == bURL {
+			nativeBridge.lastSeen = time.Time{}
+		}
+		nativeBridge.mu.Unlock()
+		return nil, false, nil
+	}
+	defer resp.Body.Close()
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, true, fmt.Errorf("failed reading native browser bridge response: %w", err)
+	}
+
+	var bridgeResp struct {
+		OK                  bool                 `json:"ok"`
+		Title               string               `json:"title"`
+		URL                 string               `json:"url"`
+		ActionSummary       string               `json:"action_summary"`
+		Elements            []InteractiveElement `json:"elements"`
+		PageText            string               `json:"page_text"`
+		EvalOutput          string               `json:"eval_output"`
+		ScreenshotPNGBase64 string               `json:"screenshot_png_base64"`
+		Error               string               `json:"error"`
+	}
+	if err := json.Unmarshal(bodyBytes, &bridgeResp); err != nil {
+		return nil, true, fmt.Errorf("invalid JSON from native browser bridge: %w", err)
+	}
+	if !bridgeResp.OK && bridgeResp.Error != "" {
+		return nil, true, errors.New(bridgeResp.Error)
+	}
+
+	nativeBridge.mu.Lock()
+	nativeBridge.lastSeen = time.Now()
+	if bridgeResp.URL != "" {
+		nativeBridge.currentURL = bridgeResp.URL
+	}
+	if bridgeResp.Title != "" {
+		nativeBridge.currentTitle = bridgeResp.Title
+	}
+	nativeBridge.mu.Unlock()
+
+	res := &BrowserUseResult{
+		Engine:        "native-webview2",
+		Title:         bridgeResp.Title,
+		URL:           bridgeResp.URL,
+		ActionSummary: bridgeResp.ActionSummary,
+		Elements:      bridgeResp.Elements,
+		PageText:      bridgeResp.PageText,
+		EvalOutput:    bridgeResp.EvalOutput,
+	}
+
+	if bridgeResp.ScreenshotPNGBase64 != "" {
+		if pngBytes, decErr := base64.StdEncoding.DecodeString(bridgeResp.ScreenshotPNGBase64); decErr == nil && len(pngBytes) > 0 {
+			screenshotsDir := filepath.Join(wsPath, ".unjess", "screenshots")
+			if wsPath == "" || strings.HasPrefix(wsPath, ".") {
+				screenshotsDir = filepath.Join(os.TempDir(), "unjess_screenshots")
+			}
+			_ = os.MkdirAll(screenshotsDir, 0755)
+			ssPath := filepath.Join(screenshotsDir, fmt.Sprintf("browser_use_%d.png", time.Now().UnixNano()))
+			if writeErr := os.WriteFile(ssPath, pngBytes, 0644); writeErr == nil {
+				res.ScreenshotPath = ssPath
+				if dataURI, _, imgW, imgH, _, optSz, optErr := LoadAndOptimizeImageForVision(ssPath, 1568); optErr == nil && dataURI != "" {
+					res.VisionDataURI = dataURI
+					res.VisionReport = fmt.Sprintf("Native WebView2 Set-of-Mark screenshot (%dx%d, %d KB)", imgW, imgH, optSz/1024)
+				}
+			}
+		}
+	}
+
+	buildFormattedState(res)
+	return res, true, nil
 }
 
 // cdpConn manages a raw RFC-6455 WebSocket connection over net.Conn to a Chrome/Edge DevTools target.
@@ -484,11 +692,11 @@ func startBrowserSession(headless bool) (*BrowserUseSession, error) {
 		"--window-size=1280,850",
 		"--no-first-run",
 		"--no-default-browser-check",
-		"--disable-gpu",
+		"--disable-blink-features=AutomationControlled",
 		"--hide-scrollbars",
 	}
 	if headless {
-		args = append(args, "--headless=new")
+		args = append(args, "--disable-gpu", "--headless=new")
 	}
 
 	cmd := exec.Command(exePath, args...)
@@ -1104,7 +1312,11 @@ func truncateStr(s string, maxLen int) string {
 // buildFormattedState creates a human-readable and model-friendly markdown report of the browser state.
 func buildFormattedState(res *BrowserUseResult) {
 	var sb strings.Builder
-	sb.WriteString("### [BROWSER] Browser-Use State\n")
+	if res.Engine == "native-webview2" {
+		sb.WriteString("### [BROWSER] Sidebar Browser State (Native WebView2 — Persistent Session)\n")
+	} else {
+		sb.WriteString("### [BROWSER] Browser-Use State\n")
+	}
 	sb.WriteString(fmt.Sprintf("- **Action**: %s\n", res.ActionSummary))
 	sb.WriteString(fmt.Sprintf("- **Page Title**: %s\n", res.Title))
 	sb.WriteString(fmt.Sprintf("- **URL**: %s\n", res.URL))
@@ -1186,6 +1398,46 @@ func ExecuteBrowserUse(ctx context.Context, wsPath string, opts BrowserUseOption
 		}, nil
 	}
 
+	// Normalize URL upfront so both Native Sidebar WebView2 and standalone CDP receive resolved URLs.
+	if action == "navigate" || action == "goto" || action == "open" {
+		targetURL := strings.TrimSpace(opts.URL)
+		if targetURL == "" {
+			return nil, errors.New("url is required for navigate action")
+		}
+		if !strings.HasPrefix(targetURL, "http://") && !strings.HasPrefix(targetURL, "https://") && !strings.HasPrefix(targetURL, "file://") && !strings.HasPrefix(targetURL, "about:") {
+			var candidate string
+			if filepath.IsAbs(targetURL) {
+				candidate = targetURL
+			} else if wsPath != "" {
+				candidate = filepath.Join(wsPath, targetURL)
+			}
+			if candidate != "" {
+				if _, statErr := os.Stat(candidate); statErr == nil {
+					absPath, _ := filepath.Abs(candidate)
+					targetURL = "file:///" + filepath.ToSlash(absPath)
+				}
+			}
+			if !strings.HasPrefix(targetURL, "file:///") {
+				if strings.HasPrefix(targetURL, "localhost:") || strings.HasPrefix(targetURL, "127.0.0.1:") {
+					targetURL = "http://" + targetURL
+				} else if strings.Contains(targetURL, ".") && !strings.Contains(targetURL, " ") {
+					targetURL = "https://" + targetURL
+				}
+			}
+		}
+		opts.URL = targetURL
+	}
+
+	// 3. Route to Desktop Native Sidebar WebView2 Browser whenever active (unless engine=="cdp" or explicit headless override).
+	enginePref := strings.ToLower(strings.TrimSpace(opts.Engine))
+	if enginePref != "cdp" && opts.Headless == nil {
+		if nativeRes, handled, nativeErr := executeViaNativeBridge(ctx, wsPath, opts); handled {
+			return nativeRes, nativeErr
+		} else if enginePref == "native" {
+			return nil, errors.New("Desktop Native Sidebar Browser is not connected; launch Unjess Desktop or switch engine to Web Proxy / CDP")
+		}
+	}
+
 	headless := true
 	if opts.Headless != nil {
 		headless = *opts.Headless
@@ -1204,32 +1456,25 @@ func ExecuteBrowserUse(ctx context.Context, wsPath string, opts BrowserUseOption
 	switch action {
 	case "navigate", "goto", "open":
 		targetURL := opts.URL
-		if targetURL == "" {
-			return nil, errors.New("url is required for navigate action")
-		}
-		if !strings.HasPrefix(targetURL, "http://") && !strings.HasPrefix(targetURL, "https://") && !strings.HasPrefix(targetURL, "file://") && !strings.HasPrefix(targetURL, "about:") {
-			var candidate string
-			if filepath.IsAbs(targetURL) {
-				candidate = targetURL
-			} else if wsPath != "" {
-				candidate = filepath.Join(wsPath, targetURL)
-			}
-			if candidate != "" {
-				if _, statErr := os.Stat(candidate); statErr == nil {
-					absPath, _ := filepath.Abs(candidate)
-					targetURL = "file:///" + filepath.ToSlash(absPath)
-				}
-			}
-			if !strings.HasPrefix(targetURL, "file:///") {
-				if strings.Contains(targetURL, ".") && !strings.Contains(targetURL, " ") {
-					targetURL = "https://" + targetURL
-				}
-			}
-		}
 		if err := session.navigate(targetURL); err != nil {
 			return nil, err
 		}
 		actionSummary = fmt.Sprintf("Navigated to %s", targetURL)
+
+	case "back":
+		_, _ = session.evaluate("window.history.back()")
+		time.Sleep(500 * time.Millisecond)
+		actionSummary = "Navigated back in history"
+
+	case "forward":
+		_, _ = session.evaluate("window.history.forward()")
+		time.Sleep(500 * time.Millisecond)
+		actionSummary = "Navigated forward in history"
+
+	case "reload":
+		_, _ = session.evaluate("window.location.reload()")
+		time.Sleep(600 * time.Millisecond)
+		actionSummary = "Reloaded current page"
 
 	case "click":
 		if opts.Index <= 0 && strings.TrimSpace(opts.Selector) == "" {

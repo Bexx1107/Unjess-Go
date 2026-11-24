@@ -2123,11 +2123,13 @@ checksum = "c6f5d3c3b1bf09027a88a6bc961fc00497d651009560b5463668dc81b0fa87a8"
 
 [[package]]
 name = "unjess-desktop"
-version = "3.0.9"
+version = "3.1.0"
 dependencies = [
  "serde",
  "serde_json",
  "tao",
+ "webview2-com",
+ "windows-core",
  "winres",
  "wry",
 ]

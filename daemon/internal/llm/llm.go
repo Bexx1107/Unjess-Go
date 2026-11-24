@@ -341,21 +341,89 @@ func ChatStream(ctx context.Context, opts ChatOptions, cb StreamCallbacks) (*Cha
 			timeout = 600 * time.Second
 		}
 	}
-	reqCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
-	switch opts.Provider {
-	case "ollama", "ollama-api":
-		return streamOllama(reqCtx, opts, cb)
-	case "anthropic":
-		return streamAnthropic(reqCtx, opts, cb)
-	case "google":
-		return streamGemini(reqCtx, opts, cb)
-	case "openai", "groq", "openrouter", "mistral", "xai", "cerebras", "kimi", "qwen", "lmstudio", "llamacpp":
-		return streamOpenAICompat(reqCtx, opts, cb)
-	default:
-		return streamOpenAICompat(reqCtx, opts, cb)
+	dispatchOnce := func(callCtx context.Context, callCb StreamCallbacks) (*ChatResult, error) {
+		switch opts.Provider {
+		case "ollama", "ollama-api":
+			return streamOllama(callCtx, opts, callCb)
+		case "anthropic":
+			return streamAnthropic(callCtx, opts, callCb)
+		case "google":
+			return streamGemini(callCtx, opts, callCb)
+		case "openai", "groq", "openrouter", "mistral", "xai", "cerebras", "kimi", "qwen", "lmstudio", "llamacpp":
+			return streamOpenAICompat(callCtx, opts, callCb)
+		default:
+			return streamOpenAICompat(callCtx, opts, callCb)
+		}
 	}
+
+	const maxRetries = 3
+	var lastErr error
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		var textEmitted, thinkEmitted bool
+		wrappedCb := StreamCallbacks{
+			OnText: func(chunk string) {
+				if chunk != "" {
+					textEmitted = true
+				}
+				if cb.OnText != nil {
+					cb.OnText(chunk)
+				}
+			},
+			OnThinking: func(chunk string) {
+				if chunk != "" {
+					thinkEmitted = true
+				}
+				if cb.OnThinking != nil {
+					cb.OnThinking(chunk)
+				}
+			},
+			OnToolStream: cb.OnToolStream,
+		}
+
+		reqCtx, cancel := context.WithTimeout(ctx, timeout)
+		res, err := dispatchOnce(reqCtx, wrappedCb)
+		cancel()
+		if err == nil {
+			return res, nil
+		}
+		lastErr = err
+		if attempt < maxRetries && !textEmitted && !thinkEmitted && IsTransientLLMError(err) {
+			backoff := time.Duration(1500*(1<<attempt)) * time.Millisecond
+			select {
+			case <-time.After(backoff):
+				continue
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
+		}
+		break
+	}
+	return nil, lastErr
+}
+
+// IsTransientLLMError returns true if err represents an HTTP 503 (High Demand / Overloaded /
+// Service Unavailable), HTTP 429 (Rate Limit), or temporary upstream gateway error.
+func IsTransientLLMError(err error) bool {
+	if err == nil {
+		return false
+	}
+	low := strings.ToLower(err.Error())
+	return strings.Contains(low, "503") ||
+		strings.Contains(low, "high demand") ||
+		strings.Contains(low, "overloaded") ||
+		strings.Contains(low, "service unavailable") ||
+		strings.Contains(low, "\"unavailable\"") ||
+		strings.Contains(low, "resource_exhausted") ||
+		strings.Contains(low, "429") ||
+		strings.Contains(low, "rate limit") ||
+		strings.Contains(low, "too many requests") ||
+		strings.Contains(low, "502") ||
+		strings.Contains(low, "504") ||
+		strings.Contains(low, "529") ||
+		strings.Contains(low, "connection reset")
 }
 
 // nextPowerOf2 computes the smallest power of 2 greater than or equal to n.

@@ -159,7 +159,7 @@
       </div>
       <button id="btn-header-version" type="button" class="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono bg-zinc-900/90 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700/60 transition cursor-pointer select-none" title="Unjess Version & Updates (Click to check)">
         <span id="header-version-dot" class="hidden w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
-        <span id="header-version-text">v3.0.9</span>
+        <span id="header-version-text">v3.1.0</span>
       </button>
       <span id="backend-status-pill" class="hidden">
         <span id="backend-status-dot"></span>
@@ -208,6 +208,11 @@
       <button id="header-search-btn" onclick="switchNavTab('files')" class="hover:text-white transition px-2 py-1 rounded hover:bg-unjessCard flex items-center space-x-1 text-[11px]" title="Search Workspace Files">
         <i data-lucide="search" class="w-3.5 h-3.5"></i>
         <span class="hidden sm:inline">Files</span>
+      </button>
+      <button id="header-sidebar-browser-btn" type="button" onclick="openSidebarBrowser()" class="hover:text-white transition px-2 py-1 rounded hover:bg-unjessCard flex items-center space-x-1 text-[11px] border border-transparent hover:border-unjessBorder font-mono" title="Toggle Live Sidebar Browser (Native WebView2)">
+        <i data-lucide="globe" class="w-3.5 h-3.5 text-unjessEmerald"></i>
+        <span class="hidden sm:inline">Browser</span>
+        <span id="header-browser-live-dot" class="hidden w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
       </button>
       <button id="header-terminal-btn" class="hidden sm:flex hover:text-white transition px-2 py-1 rounded hover:bg-unjessCard items-center space-x-1 font-mono text-[11px]" title="Toggle Integrated Terminal (Ctrl+K)">
         <i data-lucide="terminal" class="w-3.5 h-3.5 text-unjessEmerald"></i>
@@ -617,23 +622,67 @@
         <!-- Draggable Split Resizer: Right Inspector -->
         <div id="right-inspector-resizer" class="w-1 hover:w-1.5 bg-transparent hover:bg-zinc-600/60 active:bg-zinc-400 cursor-col-resize flex-shrink-0 transition-all z-20 select-none -mr-0.5" title="Drag to resize inspector"></div>
 
-        <!-- COLUMN 3: RIGHT INSPECTOR / CONTEXT PANEL -->
-        <aside id="right-inspector" class="w-[280px] lg:w-[320px] bg-unjessSidebar border-l border-unjessBorder flex flex-col flex-shrink-0 overflow-hidden text-xs">
-          <!-- Top Bar Header -->
-          <div class="p-3 border-b border-unjessBorder flex items-center justify-between flex-shrink-0 bg-unjessSidebar">
-            <div class="flex items-center space-x-2 min-w-0">
-              <i data-lucide="file-diff" class="w-4 h-4 text-unjessEmerald flex-shrink-0"></i>
-              <span id="inspector-header-title" class="font-semibold text-white truncate text-xs">Changes & Diffs</span>
-              <span id="inspector-diffs-count-badge" class="hidden text-[10px] font-mono px-1.5 py-0.2 rounded bg-emerald-950/70 text-emerald-300 border border-emerald-500/30 flex-shrink-0">0 diffs</span>
+        <!-- COLUMN 3: RIGHT INSPECTOR / SIDEBAR BROWSER / CONTEXT PANEL -->
+        <aside id="right-inspector" class="w-[280px] lg:w-[340px] bg-unjessSidebar border-l border-unjessBorder flex flex-col flex-shrink-0 overflow-hidden text-xs">
+          <!-- Top Bar Header with 3-Segment Switcher: Diffs | Browser | Controls -->
+          <div class="p-2.5 border-b border-unjessBorder flex items-center justify-between gap-2 flex-shrink-0 bg-unjessSidebar">
+            <div class="inline-flex items-center bg-zinc-950 border border-unjessBorder rounded-lg p-0.5 text-[10.5px] font-mono flex-1 min-w-0">
+              <button type="button" id="inspector-tab-diffs" onclick="toggleInspectorView('diffs')" class="flex-1 px-2 py-1 rounded-md bg-unjessCard text-white font-semibold transition flex items-center justify-center space-x-1 truncate" title="Code Changes & Unified Diffs">
+                <i data-lucide="file-diff" class="w-3 h-3 text-unjessEmerald flex-shrink-0"></i>
+                <span class="truncate">Diffs</span>
+                <span id="inspector-diffs-count-badge" class="hidden text-[9px] font-mono px-1 py-0.1 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-500/30 flex-shrink-0">0</span>
+              </button>
+              <button type="button" id="inspector-tab-browser" onclick="toggleInspectorView('browser')" class="flex-1 px-2 py-1 rounded-md text-zinc-400 hover:text-white transition flex items-center justify-center space-x-1 truncate" title="Live Native Sidebar Browser (WebView2 — Persistent Session)">
+                <i data-lucide="globe" class="w-3 h-3 text-unjessCyan flex-shrink-0"></i>
+                <span class="truncate">Browser</span>
+                <span id="inspector-browser-agent-dot" class="hidden w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse flex-shrink-0"></span>
+              </button>
+              <button type="button" id="inspector-tab-controls" onclick="toggleInspectorView('controls')" class="flex-1 px-2 py-1 rounded-md text-zinc-400 hover:text-white transition flex items-center justify-center space-x-1 truncate" title="Agent Mode, Sandbox, Active Tools & Model">
+                <i data-lucide="sliders" class="w-3 h-3 flex-shrink-0"></i>
+                <span id="btn-toggle-inspector-label" class="truncate">Controls</span>
+              </button>
             </div>
-            <div class="flex items-center space-x-1.5 flex-shrink-0">
-              <button type="button" id="btn-toggle-inspector-view" onclick="toggleInspectorView()" class="px-2 py-1 rounded-md bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white border border-zinc-700/80 hover:border-zinc-500 transition text-[10.5px] font-mono flex items-center space-x-1" title="Toggle between Diffs and Controls">
-                <i data-lucide="sliders" class="w-3 h-3"></i>
-                <span id="btn-toggle-inspector-label">Controls</span>
-              </button>
-              <button type="button" onclick="closeMobileDrawers()" class="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 lg:hidden" title="Close inspector">
-                <i data-lucide="x" class="w-4 h-4"></i>
-              </button>
+            <span id="inspector-header-title" class="hidden">Changes & Diffs</span>
+            <button type="button" onclick="closeMobileDrawers()" class="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 lg:hidden flex-shrink-0" title="Close inspector">
+              <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+          </div>
+
+          <!-- Panel 0: Native Live Sidebar Browser (WebView2 Child Surface) -->
+          <div id="inspector-browser-panel" class="hidden flex-1 min-h-0 flex flex-col overflow-hidden bg-[#09090b]">
+            <!-- Compact Sidebar Browser Toolbar -->
+            <div class="p-2 bg-unjessSidebar border-b border-unjessBorder space-y-1.5 flex-shrink-0">
+              <div class="flex items-center space-x-1">
+                <button type="button" id="sidebar-browser-back-btn" onclick="sidebarBrowserBack()" class="p-1 text-slate-400 hover:text-white rounded hover:bg-zinc-800 transition" title="Back"><i data-lucide="arrow-left" class="w-3.5 h-3.5"></i></button>
+                <button type="button" id="sidebar-browser-forward-btn" onclick="sidebarBrowserForward()" class="p-1 text-slate-400 hover:text-white rounded hover:bg-zinc-800 transition" title="Forward"><i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></button>
+                <button type="button" id="sidebar-browser-refresh-btn" onclick="sidebarBrowserReload()" class="p-1 text-slate-400 hover:text-white rounded hover:bg-zinc-800 transition" title="Reload"><i id="sidebar-browser-reload-icon" data-lucide="rotate-cw" class="w-3.5 h-3.5"></i></button>
+                <div class="flex-1 min-w-0 flex items-center bg-unjessCard border border-unjessBorder focus-within:border-zinc-500 rounded-md px-2 py-1 text-[11px] font-mono">
+                  <i data-lucide="lock" class="w-2.5 h-2.5 text-emerald-400 mr-1.5 flex-shrink-0"></i>
+                  <input id="sidebar-browser-url-input" type="text" placeholder="Enter URL, localhost:PORT, or search..." class="flex-1 min-w-0 bg-transparent text-slate-200 focus:outline-none text-[11px] select-text">
+                </div>
+                <button type="button" id="sidebar-browser-go-btn" onclick="navigateSidebarBrowser()" class="px-2 py-1 rounded-md bg-zinc-100 hover:bg-white text-zinc-950 text-[10.5px] font-semibold transition flex-shrink-0">Go</button>
+                <button type="button" onclick="popSidebarBrowserToTab()" class="p-1 text-slate-400 hover:text-white rounded hover:bg-zinc-800 transition flex-shrink-0" title="Expand in full Browser tab"><i data-lucide="maximize-2" class="w-3.5 h-3.5"></i></button>
+              </div>
+              <div class="flex items-center justify-between px-1 text-[10px] font-mono text-zinc-400">
+                <div class="flex items-center space-x-1.5 min-w-0 truncate">
+                  <span id="sidebar-browser-engine-dot" class="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0"></span>
+                  <span id="sidebar-browser-status-text" class="truncate">Native WebView2 • Persistent Logins</span>
+                </div>
+                <button type="button" onclick="openCurrentBrowserExternal()" class="text-zinc-500 hover:text-zinc-200 transition flex items-center space-x-1 flex-shrink-0" title="Open URL in system browser">
+                  <span>External</span>
+                  <i data-lucide="external-link" class="w-2.5 h-2.5"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Native Child WebView2 Host Region (or Fallback Proxy Iframe in Web Companion Mode) -->
+            <div id="sidebar-browser-viewport" class="flex-1 min-h-0 w-full relative bg-[#09090b] flex flex-col">
+              <iframe id="sidebar-browser-fallback-iframe" class="hidden w-full flex-1 border-none bg-white" src="about:blank"></iframe>
+              <div id="sidebar-browser-placeholder" class="flex-1 flex flex-col items-center justify-center p-6 text-center text-zinc-500 space-y-2 select-none pointer-events-none">
+                <i data-lucide="globe" class="w-7 h-7 text-zinc-700"></i>
+                <p class="text-[11px] font-mono text-zinc-400">Native Sidebar Browser Ready</p>
+                <p class="text-[10.5px] text-zinc-600 max-w-[240px] leading-relaxed">Sign in normally or ask the agent to browse — cookies and sessions persist across restarts without headless bot flags.</p>
+              </div>
             </div>
           </div>
 
@@ -895,12 +944,15 @@
             <button id="browser-refresh-btn" class="p-1 hover:text-white rounded hover:bg-slate-800 transition" title="Reload"><i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i></button>
           </div>
 
-          <!-- Engine Mode Switcher: Web Proxy vs Headless Chromium CDP -->
+          <!-- Engine Mode Switcher: Native WebView2 vs Web Proxy vs Headless Chromium CDP -->
           <div class="inline-flex items-center bg-unjessCard border border-unjessBorder rounded-lg p-0.5 text-[10px] font-mono">
-            <button type="button" id="browser-mode-proxy-btn" onclick="setBrowserEngineMode('proxy')" class="px-2 py-0.5 rounded bg-zinc-100 text-zinc-950 font-semibold transition" title="Fast Web Proxy & Local Workspace HTML Preview">
+            <button type="button" id="browser-mode-native-btn" onclick="setBrowserEngineMode('native')" class="px-2 py-0.5 rounded bg-zinc-100 text-zinc-950 font-semibold transition" title="Embedded Native WebView2 Browser (Persistent Logins & Zero Bot Flags)">
+              Native WebView
+            </button>
+            <button type="button" id="browser-mode-proxy-btn" onclick="setBrowserEngineMode('proxy')" class="px-2 py-0.5 rounded text-zinc-400 hover:text-white transition" title="Fast Web Proxy & Local Workspace HTML Preview">
               Web Proxy
             </button>
-            <button type="button" id="browser-mode-cdp-btn" onclick="setBrowserEngineMode('cdp')" class="px-2 py-0.5 rounded text-zinc-400 hover:text-white transition" title="Live Headless Chromium CDP Engine (for JS SPAs & anti-iframe sites)">
+            <button type="button" id="browser-mode-cdp-btn" onclick="setBrowserEngineMode('cdp')" class="px-2 py-0.5 rounded text-zinc-400 hover:text-white transition" title="Standalone Headless Chromium CDP Engine">
               CDP Engine
             </button>
           </div>
@@ -924,9 +976,10 @@
           </button>
         </div>
 
-        <!-- Browser Content Area (Iframe + CDP Live View) -->
+        <!-- Browser Content Area (Native Child WebView2 + Iframe + CDP Live View) -->
         <div class="flex-1 bg-[#09090b] relative overflow-hidden flex flex-col">
-          <iframe id="browser-preview-iframe" class="w-full flex-1 border-none bg-white" src="about:blank"></iframe>
+          <div id="main-browser-viewport" class="flex-1 min-h-0 w-full relative bg-[#09090b]"></div>
+          <iframe id="browser-preview-iframe" class="hidden w-full flex-1 border-none bg-white" src="about:blank"></iframe>
 
           <!-- CDP Live Interactive View -->
           <div id="browser-cdp-view" class="hidden flex-1 flex flex-col lg:flex-row overflow-hidden bg-[#09090b]">
@@ -1756,7 +1809,7 @@
                   <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-unjessBorder pb-4">
                     <div class="space-y-1">
                       <div class="flex items-center space-x-2.5">
-                        <span id="update-current-version-title" class="text-sm font-bold text-white tracking-tight">Unjess v3.0.9</span>
+                        <span id="update-current-version-title" class="text-sm font-bold text-white tracking-tight">Unjess v3.1.0</span>
                         <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-900 text-zinc-300 border border-zinc-700/60">
                           Go + Rust Native Engine • unjess.si
                         </span>
@@ -1768,7 +1821,7 @@
                       <!-- Status Pill -->
                       <span id="update-check-status-badge" class="px-2.5 py-1 rounded-full text-[11px] font-mono flex items-center space-x-1.5 bg-zinc-900 border border-zinc-700/60 text-zinc-300">
                         <span id="update-status-badge-dot" class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                        <span id="update-status-badge-text">Up to date (v3.0.9)</span>
+                        <span id="update-status-badge-text">Up to date (v3.1.0)</span>
                       </span>
 
                       <!-- Check for Updates Button -->
@@ -2704,7 +2757,7 @@
         if (rightInspector) {
           rightInspector.style.width = '';
           if (state.rightInspectorOpen) {
-            rightInspector.className = 'fixed inset-y-0 right-0 z-50 w-80 max-w-[88vw] bg-unjessSidebar border-l border-unjessBorder shadow-2xl flex flex-col p-4 space-y-4 overflow-y-auto text-xs';
+            rightInspector.className = 'fixed inset-y-0 right-0 z-50 w-80 max-w-[90vw] bg-unjessSidebar border-l border-unjessBorder shadow-2xl flex flex-col overflow-hidden text-xs';
           } else {
             rightInspector.className = 'hidden';
           }
@@ -2749,8 +2802,8 @@
             rightInspector.className = 'hidden';
             rightInspector.style.width = '';
           } else {
-            rightInspector.className = 'bg-unjessSidebar border-l border-unjessBorder flex flex-col flex-shrink-0 p-4 space-y-4 overflow-y-auto text-xs';
-            rightInspector.style.width = (state.rightInspectorWidth || 320) + 'px';
+            rightInspector.className = 'bg-unjessSidebar border-l border-unjessBorder flex flex-col flex-shrink-0 overflow-hidden text-xs';
+            rightInspector.style.width = (state.rightInspectorWidth || 340) + 'px';
           }
         }
 
@@ -2780,6 +2833,9 @@
 
       if (window.lucide && typeof window.lucide.createIcons === 'function') {
         window.lucide.createIcons();
+      }
+      if (typeof syncNativeBrowserBounds === 'function') {
+        requestAnimationFrame(syncNativeBrowserBounds);
       }
     }
 
@@ -2847,10 +2903,14 @@
           if (!isDragging) return;
           const deltaX = e.clientX - startX;
           let newWidth = Math.round(startWidth - deltaX);
-          if (newWidth < 200) newWidth = 200;
-          if (newWidth > 550) newWidth = 550;
+          const maxRightWidth = Math.max(550, Math.min(960, Math.floor(window.innerWidth * 0.65)));
+          if (newWidth < 220) newWidth = 220;
+          if (newWidth > maxRightWidth) newWidth = maxRightWidth;
           state.rightInspectorWidth = newWidth;
           rightInspector.style.width = newWidth + 'px';
+          if (typeof syncNativeBrowserBounds === 'function') {
+            syncNativeBrowserBounds();
+          }
         });
 
         window.addEventListener('mouseup', () => {
@@ -5528,31 +5588,79 @@
     }
     window.compactActiveConversation = compactActiveConversation;
 
+    state.inspectorView = state.inspectorView || 'diffs';
+
     function toggleInspectorView(forceView) {
       const diffsPanel = document.getElementById('inspector-diffs-panel');
+      const browserPanel = document.getElementById('inspector-browser-panel');
       const controlsPanel = document.getElementById('inspector-controls-panel');
-      const toggleLabel = document.getElementById('btn-toggle-inspector-label');
+      const tabDiffs = document.getElementById('inspector-tab-diffs');
+      const tabBrowser = document.getElementById('inspector-tab-browser');
+      const tabControls = document.getElementById('inspector-tab-controls');
       const headerTitle = document.getElementById('inspector-header-title');
       if (!diffsPanel || !controlsPanel) return;
 
-      const showControls = forceView === 'controls' || (forceView !== 'diffs' && controlsPanel.classList.contains('hidden'));
-
-      if (showControls) {
-        diffsPanel.classList.add('hidden');
-        controlsPanel.classList.remove('hidden');
-        if (toggleLabel) toggleLabel.textContent = 'Diffs';
-        if (headerTitle) headerTitle.textContent = 'Controls & Tools';
-      } else {
-        controlsPanel.classList.add('hidden');
-        diffsPanel.classList.remove('hidden');
-        if (toggleLabel) toggleLabel.textContent = 'Controls';
-        if (headerTitle) headerTitle.textContent = 'Changes & Diffs';
+      let nextView = forceView;
+      if (!nextView) {
+        if (state.inspectorView === 'diffs') nextView = 'controls';
+        else nextView = 'diffs';
       }
+      state.inspectorView = nextView;
+
+      diffsPanel.classList.toggle('hidden', nextView !== 'diffs');
+      if (browserPanel) browserPanel.classList.toggle('hidden', nextView !== 'browser');
+      controlsPanel.classList.toggle('hidden', nextView !== 'controls');
+
+      const activeCls = 'flex-1 px-2 py-1 rounded-md bg-unjessCard text-white font-semibold transition flex items-center justify-center space-x-1 truncate border border-white/10';
+      const idleCls = 'flex-1 px-2 py-1 rounded-md text-zinc-400 hover:text-white transition flex items-center justify-center space-x-1 truncate';
+      if (tabDiffs) tabDiffs.className = nextView === 'diffs' ? activeCls : idleCls;
+      if (tabBrowser) tabBrowser.className = nextView === 'browser' ? activeCls : idleCls;
+      if (tabControls) tabControls.className = nextView === 'controls' ? activeCls : idleCls;
+
+      if (headerTitle) {
+        headerTitle.textContent = nextView === 'browser' ? 'Sidebar Browser' : (nextView === 'controls' ? 'Controls & Tools' : 'Changes & Diffs');
+      }
+
+      // Widen right inspector comfortably when opening Sidebar Browser so sites render naturally
+      if (nextView === 'browser' && window.innerWidth >= 1024) {
+        if (!state.rightInspectorWidth || state.rightInspectorWidth < 430) {
+          state.rightInspectorWidth = Math.min(480, Math.floor(window.innerWidth * 0.42));
+          const rightInspector = document.getElementById('right-inspector');
+          if (rightInspector && state.rightInspectorOpen && !state.isSubagentSplitOpen) {
+            rightInspector.style.width = state.rightInspectorWidth + 'px';
+          }
+        }
+        if (typeof ensureInitialBrowserLoaded === 'function') {
+          ensureInitialBrowserLoaded();
+        }
+      }
+
       if (window.lucide && typeof lucide.createIcons === 'function') {
         lucide.createIcons();
       }
+      if (typeof syncNativeBrowserBounds === 'function') {
+        requestAnimationFrame(syncNativeBrowserBounds);
+      }
     }
     window.toggleInspectorView = toggleInspectorView;
+
+    function openSidebarBrowser(toggleIfAlreadyOpen = true) {
+      if (state.activeTab !== 'chat') {
+        switchNavTab('chat');
+      }
+      if (state.isSubagentSplitOpen && typeof toggleSubagentSplitPanel === 'function') {
+        toggleSubagentSplitPanel();
+      }
+      if (state.rightInspectorOpen && state.inspectorView === 'browser' && toggleIfAlreadyOpen) {
+        toggleRightInspector(false);
+        return;
+      }
+      if (!state.rightInspectorOpen) {
+        toggleRightInspector(true);
+      }
+      toggleInspectorView('browser');
+    }
+    window.openSidebarBrowser = openSidebarBrowser;
 
     function focusInspectorDiff(filePath) {
       if (!state.rightInspectorOpen && typeof toggleRightInspector === 'function') {
@@ -7166,27 +7274,266 @@
       });
     }
 
-    state.browserEngineMode = state.browserEngineMode || 'proxy';
+    function isNativeWebViewHost() {
+      return Boolean(window.ipc && typeof window.ipc.postMessage === 'function');
+    }
 
-    function setBrowserEngineMode(mode) {
-      state.browserEngineMode = (mode === 'cdp') ? 'cdp' : 'proxy';
-      const proxyBtn = document.getElementById('browser-mode-proxy-btn');
-      const cdpBtn = document.getElementById('browser-mode-cdp-btn');
-      const iframe = document.getElementById('browser-preview-iframe');
-      const cdpView = document.getElementById('browser-cdp-view');
-      if (proxyBtn && cdpBtn) {
-        if (state.browserEngineMode === 'cdp') {
-          cdpBtn.className = 'px-2 py-0.5 rounded bg-zinc-100 text-zinc-950 font-semibold transition';
-          proxyBtn.className = 'px-2 py-0.5 rounded text-zinc-400 hover:text-white transition';
-        } else {
-          proxyBtn.className = 'px-2 py-0.5 rounded bg-zinc-100 text-zinc-950 font-semibold transition';
-          cdpBtn.className = 'px-2 py-0.5 rounded text-zinc-400 hover:text-white transition';
+    function sendNativeIpc(payload) {
+      if (!isNativeWebViewHost()) return false;
+      try {
+        window.ipc.postMessage(JSON.stringify(payload));
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    state.browserEngineMode = state.browserEngineMode || (isNativeWebViewHost() ? 'native' : 'proxy');
+    state.nativeBrowserUrl = state.nativeBrowserUrl || '';
+    state.nativeBrowserInitialized = false;
+
+    function hasBlockingOverlayOpen() {
+      const modalIds = [
+        'new-chat-modal',
+        'file-viewer-modal',
+        'workflow-modal',
+        'agent-modal',
+        'schedule-modal',
+        'spawn-subagent-modal',
+        'inspector-model-menu',
+        'model-menu'
+      ];
+      for (const id of modalIds) {
+        const el = document.getElementById(id);
+        if (el && !el.classList.contains('hidden')) {
+          return true;
         }
       }
-      if (iframe && cdpView) {
-        iframe.classList.toggle('hidden', state.browserEngineMode === 'cdp');
-        cdpView.classList.toggle('hidden', state.browserEngineMode !== 'cdp');
+      return false;
+    }
+
+    let _lastBoundsSig = '';
+    function syncNativeBrowserBounds() {
+      const statusText = document.getElementById('sidebar-browser-status-text');
+      const fallbackIframe = document.getElementById('sidebar-browser-fallback-iframe');
+      const placeholder = document.getElementById('sidebar-browser-placeholder');
+
+      if (!isNativeWebViewHost()) {
+        if (statusText) statusText.textContent = 'Web Companion Proxy Mode';
+        const showFallback = state.activeTab === 'chat' && state.rightInspectorOpen && state.inspectorView === 'browser';
+        if (fallbackIframe) fallbackIframe.classList.toggle('hidden', !showFallback);
+        if (placeholder) placeholder.classList.add('hidden');
+        return;
       }
+
+      if (hasBlockingOverlayOpen()) {
+        const sig = 'hidden';
+        if (_lastBoundsSig !== sig) {
+          _lastBoundsSig = sig;
+          sendNativeIpc({ type: 'browser_bounds', visible: false, x: 0, y: 0, width: 0, height: 0 });
+        }
+        return;
+      }
+
+      let hostEl = null;
+      if (state.activeTab === 'chat' && state.rightInspectorOpen && !state.isSubagentSplitOpen && state.inspectorView === 'browser') {
+        hostEl = document.getElementById('sidebar-browser-viewport');
+      } else if (state.activeTab === 'browser' && state.browserEngineMode === 'native') {
+        hostEl = document.getElementById('main-browser-viewport');
+      }
+
+      if (!hostEl) {
+        const sig = 'hidden';
+        if (_lastBoundsSig !== sig) {
+          _lastBoundsSig = sig;
+          sendNativeIpc({ type: 'browser_bounds', visible: false, x: 0, y: 0, width: 0, height: 0 });
+        }
+        return;
+      }
+
+      const rect = hostEl.getBoundingClientRect();
+      const visible = rect.width >= 24 && rect.height >= 24;
+      const x = Math.round(rect.left);
+      const y = Math.round(rect.top);
+      const width = Math.round(rect.width);
+      const height = Math.round(rect.height);
+      const sig = `${visible}:${x},${y},${width},${height}`;
+      if (_lastBoundsSig !== sig) {
+        _lastBoundsSig = sig;
+        sendNativeIpc({ type: 'browser_bounds', visible, x, y, width, height });
+      }
+    }
+    window.syncNativeBrowserBounds = syncNativeBrowserBounds;
+
+    window.__onNativeBrowserState = function(ev) {
+      if (!ev) return;
+      if (ev.url && ev.url !== 'about:blank') {
+        state.nativeBrowserUrl = ev.url;
+        const sbInput = document.getElementById('sidebar-browser-url-input');
+        const mainInput = document.getElementById('browser-url-input');
+        if (sbInput && document.activeElement !== sbInput) sbInput.value = ev.url;
+        if (mainInput && document.activeElement !== mainInput) mainInput.value = ev.url;
+        const placeholder = document.getElementById('sidebar-browser-placeholder');
+        if (placeholder) placeholder.classList.add('hidden');
+      }
+      const reloadIcon = document.getElementById('sidebar-browser-reload-icon');
+      if (reloadIcon) {
+        reloadIcon.classList.toggle('animate-spin', Boolean(ev.loading));
+      }
+      const statusText = document.getElementById('sidebar-browser-status-text');
+      if (statusText) {
+        if (ev.loading) {
+          statusText.textContent = 'Loading page...';
+        } else if (ev.title) {
+          statusText.textContent = ev.title;
+        } else {
+          statusText.textContent = 'Native WebView2 • Persistent Logins';
+        }
+      }
+    };
+
+    let _agentBrowserDotTimer = null;
+    window.__onAgentBrowserActivity = function(ev) {
+      const hdrDot = document.getElementById('header-browser-live-dot');
+      const tabDot = document.getElementById('inspector-browser-agent-dot');
+      if (hdrDot) hdrDot.classList.remove('hidden');
+      if (tabDot) tabDot.classList.remove('hidden');
+      if (_agentBrowserDotTimer) clearTimeout(_agentBrowserDotTimer);
+      _agentBrowserDotTimer = setTimeout(() => {
+        if (hdrDot) hdrDot.classList.add('hidden');
+        if (tabDot) tabDot.classList.add('hidden');
+      }, 6000);
+
+      // Automatically reveal the Sidebar Browser beside Chat when the agent browses!
+      if (state.activeTab === 'chat' && !state.isSubagentSplitOpen) {
+        if (!state.rightInspectorOpen) {
+          toggleRightInspector(true);
+        }
+        if (state.inspectorView !== 'browser') {
+          toggleInspectorView('browser');
+        } else {
+          syncNativeBrowserBounds();
+        }
+      }
+      if (ev && ev.url) {
+        const sbInput = document.getElementById('sidebar-browser-url-input');
+        if (sbInput && document.activeElement !== sbInput) sbInput.value = ev.url;
+      }
+    };
+
+    function ensureInitialBrowserLoaded() {
+      if (state.nativeBrowserInitialized) return;
+      state.nativeBrowserInitialized = true;
+      const defaultHtml = (state.htmlFiles || []).find(h => h.endsWith('index.html')) || '';
+      const initialTarget = state.nativeBrowserUrl || defaultHtml || 'https://duckduckgo.com';
+      navigateSidebarBrowser(initialTarget, true);
+    }
+
+    function navigateSidebarBrowser(targetInput, pushHistory = true) {
+      const sbInput = document.getElementById('sidebar-browser-url-input');
+      const mainInput = document.getElementById('browser-url-input');
+      const raw = targetInput !== undefined ? targetInput : (sbInput?.value || mainInput?.value || '');
+      const resolved = resolveBrowserInputTarget(raw, isNativeWebViewHost());
+      if (sbInput) sbInput.value = resolved.display;
+      if (mainInput) mainInput.value = resolved.display;
+      state.nativeBrowserUrl = resolved.url;
+
+      const placeholder = document.getElementById('sidebar-browser-placeholder');
+      if (placeholder) placeholder.classList.add('hidden');
+
+      if (isNativeWebViewHost()) {
+        sendNativeIpc({ type: 'browser_nav', action: 'navigate', url: resolved.url });
+        syncNativeBrowserBounds();
+      } else {
+        const fb = document.getElementById('sidebar-browser-fallback-iframe');
+        if (fb) {
+          fb.classList.remove('hidden');
+          fb.src = resolved.kind === 'external'
+            ? `${API_BASE}/api/harness/web-proxy?url=${encodeURIComponent(resolved.url)}`
+            : resolved.url;
+        }
+      }
+
+      if (pushHistory) {
+        state.browserHistory = (state.browserHistory || []).slice(0, (state.browserHistoryIdx ?? -1) + 1);
+        state.browserHistory.push(resolved.display);
+        state.browserHistoryIdx = state.browserHistory.length - 1;
+      }
+    }
+    window.navigateSidebarBrowser = navigateSidebarBrowser;
+
+    function sidebarBrowserBack() {
+      if (isNativeWebViewHost()) {
+        sendNativeIpc({ type: 'browser_nav', action: 'back', url: '' });
+      } else if (state.browserHistoryIdx > 0) {
+        state.browserHistoryIdx--;
+        navigateSidebarBrowser(state.browserHistory[state.browserHistoryIdx], false);
+      }
+    }
+    window.sidebarBrowserBack = sidebarBrowserBack;
+
+    function sidebarBrowserForward() {
+      if (isNativeWebViewHost()) {
+        sendNativeIpc({ type: 'browser_nav', action: 'forward', url: '' });
+      } else if (state.browserHistory && state.browserHistoryIdx < state.browserHistory.length - 1) {
+        state.browserHistoryIdx++;
+        navigateSidebarBrowser(state.browserHistory[state.browserHistoryIdx], false);
+      }
+    }
+    window.sidebarBrowserForward = sidebarBrowserForward;
+
+    function sidebarBrowserReload() {
+      if (isNativeWebViewHost()) {
+        sendNativeIpc({ type: 'browser_nav', action: 'reload', url: '' });
+      } else {
+        navigateSidebarBrowser(document.getElementById('sidebar-browser-url-input')?.value, false);
+      }
+    }
+    window.sidebarBrowserReload = sidebarBrowserReload;
+
+    function popSidebarBrowserToTab() {
+      if (isNativeWebViewHost()) {
+        state.browserEngineMode = 'native';
+      }
+      switchNavTab('browser');
+      setBrowserEngineMode(state.browserEngineMode);
+    }
+    window.popSidebarBrowserToTab = popSidebarBrowserToTab;
+
+    function openCurrentBrowserExternal() {
+      const raw = state.nativeBrowserUrl || document.getElementById('sidebar-browser-url-input')?.value || document.getElementById('browser-url-input')?.value || '';
+      if (!raw || raw === 'about:blank') return;
+      const resolved = resolveBrowserInputTarget(raw, true);
+      if (resolved.url) window.open(resolved.url, '_blank');
+    }
+    window.openCurrentBrowserExternal = openCurrentBrowserExternal;
+
+    function setBrowserEngineMode(mode) {
+      if (mode === 'native' && !isNativeWebViewHost()) {
+        mode = 'proxy';
+      }
+      state.browserEngineMode = (mode === 'cdp' || mode === 'native') ? mode : 'proxy';
+      const nativeBtn = document.getElementById('browser-mode-native-btn');
+      const proxyBtn = document.getElementById('browser-mode-proxy-btn');
+      const cdpBtn = document.getElementById('browser-mode-cdp-btn');
+      const nativeView = document.getElementById('main-browser-viewport');
+      const iframe = document.getElementById('browser-preview-iframe');
+      const cdpView = document.getElementById('browser-cdp-view');
+
+      const activeBtnCls = 'px-2 py-0.5 rounded bg-zinc-100 text-zinc-950 font-semibold transition';
+      const idleBtnCls = 'px-2 py-0.5 rounded text-zinc-400 hover:text-white transition';
+      if (nativeBtn) {
+        nativeBtn.classList.toggle('hidden', !isNativeWebViewHost());
+        nativeBtn.className = (state.browserEngineMode === 'native' ? activeBtnCls : idleBtnCls) + (isNativeWebViewHost() ? '' : ' hidden');
+      }
+      if (proxyBtn) proxyBtn.className = state.browserEngineMode === 'proxy' ? activeBtnCls : idleBtnCls;
+      if (cdpBtn) cdpBtn.className = state.browserEngineMode === 'cdp' ? activeBtnCls : idleBtnCls;
+
+      if (nativeView) nativeView.classList.toggle('hidden', state.browserEngineMode !== 'native');
+      if (iframe) iframe.classList.toggle('hidden', state.browserEngineMode !== 'proxy');
+      if (cdpView) cdpView.classList.toggle('hidden', state.browserEngineMode !== 'cdp');
+
+      syncNativeBrowserBounds();
       const currentInput = document.getElementById('browser-url-input')?.value?.trim();
       if (currentInput) {
         navigateBrowser(currentInput, false);
@@ -7259,7 +7606,7 @@
       }
     });
 
-    function resolveBrowserInputTarget(rawInput) {
+    function resolveBrowserInputTarget(rawInput, useRealSearchEngine = false) {
       let raw = (rawInput || '').trim();
       const wsFiles = Array.isArray(state.workspaceFiles) ? state.workspaceFiles : [];
       const htmlFiles = Array.isArray(state.htmlFiles) ? state.htmlFiles : [];
@@ -7269,7 +7616,7 @@
         if (localHtml) {
           return { kind: 'workspace', display: localHtml, url: `${API_BASE}/api/harness/raw?workspace=${encodeURIComponent(state.activeWorkspace)}&path=${encodeURIComponent(localHtml)}` };
         }
-        const defaultWeb = 'https://html.duckduckgo.com/html/';
+        const defaultWeb = useRealSearchEngine ? 'https://duckduckgo.com' : 'https://html.duckduckgo.com/html/';
         return { kind: 'external', display: defaultWeb, url: defaultWeb };
       }
 
@@ -7300,20 +7647,29 @@
         return { kind: 'external', display: fullUrl, url: fullUrl };
       }
 
-      const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(raw)}`;
+      const searchUrl = useRealSearchEngine
+        ? `https://duckduckgo.com/?q=${encodeURIComponent(raw)}`
+        : `https://html.duckduckgo.com/html/?q=${encodeURIComponent(raw)}`;
       return { kind: 'external', display: searchUrl, url: searchUrl };
     }
 
     function navigateBrowser(targetInput, pushHistory = true) {
       const iframe = document.getElementById('browser-preview-iframe');
       const urlInput = document.getElementById('browser-url-input');
+      const sbInput = document.getElementById('sidebar-browser-url-input');
       if (!iframe) return;
 
-      const resolved = resolveBrowserInputTarget(targetInput !== undefined ? targetInput : urlInput?.value);
+      const useReal = state.browserEngineMode === 'native' && isNativeWebViewHost();
+      const resolved = resolveBrowserInputTarget(targetInput !== undefined ? targetInput : urlInput?.value, useReal);
       if (urlInput) urlInput.value = resolved.display;
+      if (sbInput) sbInput.value = resolved.display;
 
-      if (state.browserEngineMode === 'cdp') {
-        runBrowserCdpAction({ action: 'navigate', url: resolved.url });
+      if (state.browserEngineMode === 'native' && isNativeWebViewHost()) {
+        state.nativeBrowserUrl = resolved.url;
+        sendNativeIpc({ type: 'browser_nav', action: 'navigate', url: resolved.url });
+        syncNativeBrowserBounds();
+      } else if (state.browserEngineMode === 'cdp') {
+        runBrowserCdpAction({ action: 'navigate', url: resolved.url, engine: 'cdp' });
       } else {
         iframe.removeAttribute('srcdoc');
         if (resolved.kind === 'external') {
@@ -7377,10 +7733,12 @@
         });
       } else if (tabId === 'browser') {
         populateBrowserHtmlDropdown();
+        setBrowserEngineMode(state.browserEngineMode || (isNativeWebViewHost() ? 'native' : 'proxy'));
         const urlInput = document.getElementById('browser-url-input');
         if (!urlInput.value) {
           const defaultHtml = state.htmlFiles.find(h => h.endsWith('index.html')) || state.htmlFiles[0] || '';
-          navigateBrowser(defaultHtml || 'https://html.duckduckgo.com/html/');
+          const fallbackSearch = isNativeWebViewHost() ? 'https://duckduckgo.com' : 'https://html.duckduckgo.com/html/';
+          navigateBrowser(defaultHtml || fallbackSearch);
         }
       } else if (tabId === 'agents') {
         renderAgents();
@@ -7388,6 +7746,9 @@
         renderWorkflows();
       }
       lucide.createIcons();
+      if (typeof syncNativeBrowserBounds === 'function') {
+        requestAnimationFrame(syncNativeBrowserBounds);
+      }
     }
 
     function updateWorkspaceUI(wsPath) {
@@ -11018,10 +11379,22 @@ function openNewChatModal(initialMode = 'quick') {
       if (!Array.isArray(changelog) || changelog.length === 0) {
         changelog = [
           {
+            version: "3.1.0",
+            date: "2026-11-24",
+            title: "Unjess v3.1.0 - Native Sidebar Browser (WebView2), Persistent Sessions & Transient Retry Hardening",
+            tag: "LATEST",
+            changes: [
+              "Added embedded Native Sidebar Browser (child WebView2) docked alongside Chat and in the Browser tab — zero iframe restrictions, real GPU rendering, and no headless CDP bot flags",
+              "Persistent Browser Sessions & Human Handoff: Preserves logins, cookies, and localStorage across restarts in %LOCALAPPDATA%\\Unjess\\browser_webview so you and the agent share authenticated web sessions",
+              "Live Agent Browser Auto-Open & Set-of-Mark Bridge: Automatically opens the Sidebar Browser when browser_use runs, indexing [1..N] DOM elements via native ExecuteScript and capturing screenshots in-process",
+              "Added automatic exponential backoff retries for transient upstream LLM errors (503, 429, 502, 504, 529), orphaned workspace pruning, workspace removal endpoints, and skill folder frontmatter normalization"
+            ]
+          },
+          {
             version: "3.0.9",
             date: "2026-11-20",
             title: "Unjess v3.0.9 - Workspace Context Isolation & Opt-In Strict Workspace Sandbox",
-            tag: "LATEST",
+            tag: "UPDATE",
             changes: [
               "Scoped buildRecentSessionsSummary strictly to the active workspace so unrelated project sessions and snippets no longer leak into prompts",
               "Changed memory_save default scope to 'workspace' and enforced exact normalized workspace boundaries in SearchMemories and FormatForSystemPrompt",
@@ -11386,7 +11759,7 @@ function openNewChatModal(initialMode = 'quick') {
         if (resp && resp.ok) {
           const data = await resp.json();
           state.updates = data;
-          const currentVer = data.current_version || '3.0.9';
+          const currentVer = data.current_version || '3.1.0';
           const latestVer = data.latest_version || currentVer;
           const isAvailable = Boolean(data.update_available);
           state.updateAvailable = isAvailable;
@@ -12648,27 +13021,62 @@ function openNewChatModal(initialMode = 'quick') {
       document.getElementById('browser-workspace-file-select')?.addEventListener('change', (e) => {
         if (e.target.value) navigateBrowser(e.target.value);
       });
+      document.getElementById('sidebar-browser-url-input')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') navigateSidebarBrowser();
+      });
       document.getElementById('browser-refresh-btn')?.addEventListener('click', () => {
-        navigateBrowser(document.getElementById('browser-url-input')?.value, false);
+        if (state.browserEngineMode === 'native' && isNativeWebViewHost()) {
+          sendNativeIpc({ type: 'browser_nav', action: 'reload', url: '' });
+        } else {
+          navigateBrowser(document.getElementById('browser-url-input')?.value, false);
+        }
       });
       document.getElementById('browser-back-btn')?.addEventListener('click', () => {
-        if (state.browserHistoryIdx > 0) {
+        if (state.browserEngineMode === 'native' && isNativeWebViewHost()) {
+          sendNativeIpc({ type: 'browser_nav', action: 'back', url: '' });
+        } else if (state.browserHistoryIdx > 0) {
           state.browserHistoryIdx--;
           navigateBrowser(state.browserHistory[state.browserHistoryIdx], false);
         }
       });
       document.getElementById('browser-forward-btn')?.addEventListener('click', () => {
-        if (state.browserHistoryIdx < state.browserHistory.length - 1) {
+        if (state.browserEngineMode === 'native' && isNativeWebViewHost()) {
+          sendNativeIpc({ type: 'browser_nav', action: 'forward', url: '' });
+        } else if (state.browserHistoryIdx < state.browserHistory.length - 1) {
           state.browserHistoryIdx++;
           navigateBrowser(state.browserHistory[state.browserHistoryIdx], false);
         }
       });
       document.getElementById('browser-open-external-btn')?.addEventListener('click', () => {
-        const iframe = document.getElementById('browser-preview-iframe');
-        if (iframe && iframe.src && iframe.src !== 'about:blank') {
-          window.open(iframe.src, '_blank');
-        }
+        openCurrentBrowserExternal();
       });
+
+      // Keep Native Child WebView2 bounds synchronized on resize, layout changes, and modal toggles
+      if (typeof ResizeObserver !== 'undefined') {
+        const ro = new ResizeObserver(() => syncNativeBrowserBounds());
+        ['sidebar-browser-viewport', 'main-browser-viewport', 'right-inspector'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) ro.observe(el);
+        });
+      }
+      window.addEventListener('resize', () => syncNativeBrowserBounds());
+      if (typeof MutationObserver !== 'undefined') {
+        const mo = new MutationObserver(() => syncNativeBrowserBounds());
+        [
+          'new-chat-modal',
+          'file-viewer-modal',
+          'workflow-modal',
+          'agent-modal',
+          'schedule-modal',
+          'spawn-subagent-modal',
+          'inspector-model-menu',
+          'model-menu'
+        ].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) mo.observe(el, { attributes: true, attributeFilter: ['class'] });
+        });
+      }
+      setBrowserEngineMode(state.browserEngineMode);
 
       // Settings: Test & Fetch Ollama Models button
       document.getElementById('btn-test-ollama')?.addEventListener('click', async () => {

@@ -66,26 +66,38 @@ type ChangelogEntry struct {
 
 // VersionManifest defines the structure of version.json hosted on the update server or mirror.
 type VersionManifest struct {
-	Version      string           `json:"version"`
-	PublishedAt  string           `json:"published_at"`
-	Channel      string           `json:"channel"`
+	Version           string           `json:"version"`
+	PublishedAt       string           `json:"published_at"`
+	Channel           string           `json:"channel"`
 	DownloadURL       string           `json:"download_url"`
 	InstallerURL      string           `json:"installer_url"`
 	WebView2LoaderURL string           `json:"webview2_loader_url,omitempty"`
 	DaemonURL         string           `json:"daemon_url"`
-	SHA256       string           `json:"sha256,omitempty"`
-	Notes        string           `json:"notes"`
-	Changelog    []ChangelogEntry `json:"changelog"`
+	SHA256            string           `json:"sha256,omitempty"`
+	Notes             string           `json:"notes"`
+	Changelog         []ChangelogEntry `json:"changelog"`
 }
 
 // BuiltinChangelog returns rich, detailed release notes for recent Unjess versions.
 func BuiltinChangelog() []ChangelogEntry {
 	return []ChangelogEntry{
 		{
+			Version: "3.1.0",
+			Date:    "2026-11-24",
+			Title:   "Unjess v3.1.0 - Native Sidebar Browser (WebView2), Persistent Sessions & Transient Retry Hardening",
+			Tag:     "LATEST",
+			Changes: []string{
+				"Added embedded Native Sidebar Browser (child WebView2) docked alongside Chat and in the Browser tab — zero iframe restrictions, real GPU rendering, and no headless CDP bot flags",
+				"Persistent Browser Sessions & Human Handoff: Preserves logins, cookies, and localStorage across restarts in %LOCALAPPDATA%\\Unjess\\browser_webview so you and the agent share authenticated web sessions",
+				"Live Agent Browser Auto-Open & Set-of-Mark Bridge: Automatically opens the Sidebar Browser when browser_use runs, indexing [1..N] DOM elements via native ExecuteScript and capturing screenshots in-process",
+				"Added automatic exponential backoff retries for transient upstream LLM errors (503, 429, 502, 504, 529), orphaned workspace pruning, workspace removal endpoints, and skill folder frontmatter normalization",
+			},
+		},
+		{
 			Version: "3.0.9",
 			Date:    "2026-11-20",
 			Title:   "Unjess v3.0.9 - Workspace Context Isolation & Opt-In Strict Workspace Sandbox",
-			Tag:     "LATEST",
+			Tag:     "UPDATE",
 			Changes: []string{
 				"Scoped buildRecentSessionsSummary strictly to the active workspace so unrelated project sessions and snippets no longer leak into prompts",
 				"Changed memory_save default scope to 'workspace' and enforced exact normalized workspace boundaries in SearchMemories and FormatForSystemPrompt",

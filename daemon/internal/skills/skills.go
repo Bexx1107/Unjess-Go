@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -208,6 +209,7 @@ type SkillInfo struct {
 	Scope        string         `json:"scope"` // "preinstalled", "global", "workspace"
 	Instructions string         `json:"instructions"`
 	RepoURL      string         `json:"repo_url"`
+	Folder       string         `json:"folder,omitempty"`
 	Metadata     map[string]any `json:"metadata,omitempty"`
 }
 
@@ -219,6 +221,7 @@ type SkillSaveRequest struct {
 	Instructions string   `json:"instructions"`
 	Scope        string   `json:"scope"` // "global" or "workspace"
 	RepoURL      string   `json:"repo_url"`
+	Folder       string   `json:"folder,omitempty"`
 	Workspace    string   `json:"workspace,omitempty"`
 }
 
@@ -374,37 +377,129 @@ func EnsureBuiltinSkillsSeeded() error {
 	return nil
 }
 
+func unquoteYAMLScalar(val string) string {
+	trimmed := strings.TrimSpace(val)
+	if len(trimmed) >= 2 {
+		if (trimmed[0] == '"' && trimmed[len(trimmed)-1] == '"') ||
+			(trimmed[0] == '\'' && trimmed[len(trimmed)-1] == '\'') {
+			if u, err := strconv.Unquote(trimmed); err == nil {
+				return u
+			}
+			return trimmed[1 : len(trimmed)-1]
+		}
+	}
+	return trimmed
+}
+
+func parseYAMLFrontmatterFallback(yamlPart string) map[string]any {
+	meta := make(map[string]any)
+	var triggers []string
+	inTriggers := false
+
+	for _, rawLine := range strings.Split(yamlPart, "\n") {
+		line := strings.TrimRight(rawLine, "\r")
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		if inTriggers {
+			if strings.HasPrefix(trimmed, "-") {
+				item := unquoteYAMLScalar(strings.TrimPrefix(trimmed, "-"))
+				if item != "" {
+					triggers = append(triggers, item)
+				}
+				continue
+			} else if strings.HasPrefix(line, " ") || strings.HasPrefix(line, "\t") {
+				continue
+			} else {
+				inTriggers = false
+			}
+		}
+
+		if strings.HasPrefix(trimmed, "name:") {
+			meta["name"] = unquoteYAMLScalar(strings.TrimPrefix(trimmed, "name:"))
+		} else if strings.HasPrefix(trimmed, "description:") {
+			meta["description"] = unquoteYAMLScalar(strings.TrimPrefix(trimmed, "description:"))
+		} else if strings.HasPrefix(trimmed, "folder:") {
+			meta["folder"] = unquoteYAMLScalar(strings.TrimPrefix(trimmed, "folder:"))
+		} else if strings.HasPrefix(trimmed, "category:") {
+			meta["folder"] = unquoteYAMLScalar(strings.TrimPrefix(trimmed, "category:"))
+		} else if strings.HasPrefix(trimmed, "repo_url:") {
+			meta["repo_url"] = unquoteYAMLScalar(strings.TrimPrefix(trimmed, "repo_url:"))
+		} else if strings.HasPrefix(trimmed, "triggers:") {
+			rest := strings.TrimSpace(strings.TrimPrefix(trimmed, "triggers:"))
+			if rest == "" {
+				inTriggers = true
+			} else {
+				clean := strings.Trim(rest, "[]")
+				for _, part := range strings.Split(clean, ",") {
+					item := unquoteYAMLScalar(part)
+					if item != "" {
+						triggers = append(triggers, item)
+					}
+				}
+			}
+		}
+	}
+	if len(triggers) > 0 {
+		meta["triggers"] = triggers
+	}
+	return meta
+}
+
 // parseYAMLFrontmatter parses YAML frontmatter enclosed in --- at the start of markdown.
+// Resiliently strips stacked --- blocks and falls back to line-by-line parsing if unquoted colons break YAML.
 func parseYAMLFrontmatter(text string) (map[string]any, string) {
-	trimmed := strings.TrimLeft(text, "\r\n ")
-	if !strings.HasPrefix(trimmed, "---") {
+	mergedMeta := make(map[string]any)
+	hasMeta := false
+	current := strings.TrimPrefix(text, "\uFEFF")
+
+	for {
+		trimmed := strings.TrimLeft(current, "\r\n\t ")
+		if !strings.HasPrefix(trimmed, "---") {
+			break
+		}
+
+		rest := strings.TrimPrefix(trimmed, "---")
+		if strings.HasPrefix(rest, "\r\n") {
+			rest = strings.TrimPrefix(rest, "\r\n")
+		} else if strings.HasPrefix(rest, "\n") {
+			rest = strings.TrimPrefix(rest, "\n")
+		} else {
+			break
+		}
+
+		endIdx := strings.Index(rest, "\n---")
+		delimiterLen := 4
+		if endIdx == -1 {
+			endIdx = strings.Index(rest, "\r\n---")
+			delimiterLen = 5
+		}
+		if endIdx == -1 {
+			break
+		}
+
+		yamlPart := rest[:endIdx]
+		after := rest[endIdx+delimiterLen:]
+		after = strings.TrimLeft(after, "\r\n")
+
+		var blockMeta map[string]any
+		if err := yaml.Unmarshal([]byte(yamlPart), &blockMeta); err != nil || blockMeta == nil {
+			blockMeta = parseYAMLFrontmatterFallback(yamlPart)
+		}
+		for k, v := range blockMeta {
+			if _, exists := mergedMeta[k]; !exists || mergedMeta[k] == "" {
+				mergedMeta[k] = v
+			}
+		}
+		hasMeta = true
+		current = after
+	}
+
+	if !hasMeta {
 		return nil, text
 	}
-
-	rest := strings.TrimPrefix(trimmed, "---")
-	rest = strings.TrimPrefix(rest, "\r\n")
-	rest = strings.TrimPrefix(rest, "\n")
-
-	endIdx := strings.Index(rest, "\n---")
-	delimiterLen := 4
-	if endIdx == -1 {
-		endIdx = strings.Index(rest, "\r\n---")
-		delimiterLen = 5
-	}
-	if endIdx == -1 {
-		return nil, text
-	}
-
-	yamlPart := rest[:endIdx]
-	after := rest[endIdx+delimiterLen:]
-	after = strings.TrimLeft(after, "\r\n")
-
-	var meta map[string]any
-	if err := yaml.Unmarshal([]byte(yamlPart), &meta); err != nil {
-		return nil, text
-	}
-
-	return meta, after
+	return mergedMeta, current
 }
 
 // extractTriggers extracts trigger strings from yaml frontmatter value (slice or comma-separated).
@@ -443,6 +538,7 @@ func loadSkillMDSkill(dir, skillMDPath string) *SkillInfo {
 	description := ""
 	var triggers []string
 	repoURL := ""
+	folder := ""
 
 	if meta != nil {
 		if n, ok := meta["name"].(string); ok && strings.TrimSpace(n) != "" {
@@ -459,6 +555,11 @@ func loadSkillMDSkill(dir, skillMDPath string) *SkillInfo {
 		} else if r, ok := meta["repository"].(string); ok {
 			repoURL = strings.TrimSpace(r)
 		}
+		if f, ok := meta["folder"].(string); ok && strings.TrimSpace(f) != "" {
+			folder = strings.TrimSpace(f)
+		} else if f, ok := meta["category"].(string); ok && strings.TrimSpace(f) != "" {
+			folder = strings.TrimSpace(f)
+		}
 	}
 
 	return &SkillInfo{
@@ -468,6 +569,7 @@ func loadSkillMDSkill(dir, skillMDPath string) *SkillInfo {
 		Path:         dir,
 		Instructions: body,
 		RepoURL:      repoURL,
+		Folder:       folder,
 		Metadata:     meta,
 	}
 }
@@ -714,23 +816,72 @@ func SaveSkill(req SkillSaveRequest) (SkillInfo, error) {
 
 	skillFile := filepath.Join(targetDir, "SKILL.md")
 
-	var sb strings.Builder
-	sb.WriteString("---\n")
-	sb.WriteString(fmt.Sprintf("name: %s\n", name))
-	if req.Description != "" {
-		sb.WriteString(fmt.Sprintf("description: %s\n", req.Description))
-	}
-	if len(req.Triggers) > 0 {
-		sb.WriteString("triggers:\n")
-		for _, t := range req.Triggers {
-			sb.WriteString(fmt.Sprintf("  - %s\n", t))
+	// Strip any accidental leading frontmatter from Instructions so frontmatter never duplicates
+	embeddedMeta, cleanInstructions := parseYAMLFrontmatter(req.Instructions)
+	cleanInstructions = strings.TrimSpace(cleanInstructions)
+
+	desc := strings.TrimSpace(req.Description)
+	if desc == "" && embeddedMeta != nil {
+		if d, ok := embeddedMeta["description"].(string); ok {
+			desc = strings.TrimSpace(d)
 		}
 	}
-	if req.RepoURL != "" {
-		sb.WriteString(fmt.Sprintf("repo_url: %s\n", req.RepoURL))
+	folder := strings.TrimSpace(req.Folder)
+	if folder == "" && embeddedMeta != nil {
+		if f, ok := embeddedMeta["folder"].(string); ok {
+			folder = strings.TrimSpace(f)
+		}
+	}
+	repoURL := strings.TrimSpace(req.RepoURL)
+	if repoURL == "" && embeddedMeta != nil {
+		if r, ok := embeddedMeta["repo_url"].(string); ok {
+			repoURL = strings.TrimSpace(r)
+		}
+	}
+
+	var cleanTriggers []string
+	seenTrig := make(map[string]bool)
+	for _, t := range req.Triggers {
+		ct := strings.TrimSpace(t)
+		if ct != "" && !seenTrig[strings.ToLower(ct)] {
+			seenTrig[strings.ToLower(ct)] = true
+			cleanTriggers = append(cleanTriggers, ct)
+		}
+	}
+	if len(cleanTriggers) == 0 && embeddedMeta != nil {
+		if t, ok := embeddedMeta["triggers"]; ok {
+			for _, ct := range extractTriggers(t) {
+				if ct != "" && !seenTrig[strings.ToLower(ct)] {
+					seenTrig[strings.ToLower(ct)] = true
+					cleanTriggers = append(cleanTriggers, ct)
+				}
+			}
+		}
+	}
+
+	var sb strings.Builder
+	sb.WriteString("---\n")
+	sb.WriteString(fmt.Sprintf("name: %s\n", strconv.Quote(name)))
+	if desc != "" {
+		sb.WriteString(fmt.Sprintf("description: %s\n", strconv.Quote(desc)))
+	}
+	if folder != "" {
+		sb.WriteString(fmt.Sprintf("folder: %s\n", strconv.Quote(folder)))
+	}
+	if len(cleanTriggers) > 0 {
+		sb.WriteString("triggers:\n")
+		for _, t := range cleanTriggers {
+			sb.WriteString(fmt.Sprintf("  - %s\n", strconv.Quote(t)))
+		}
+	}
+	if repoURL != "" {
+		sb.WriteString(fmt.Sprintf("repo_url: %s\n", strconv.Quote(repoURL)))
 	}
 	sb.WriteString("---\n\n")
-	sb.WriteString(req.Instructions)
+	sb.WriteString(cleanInstructions)
+	if !strings.HasSuffix(cleanInstructions, "\n") {
+		sb.WriteString("\n")
+	}
 
 	if err := os.WriteFile(skillFile, []byte(sb.String()), 0644); err != nil {
 		return SkillInfo{}, err
@@ -738,12 +889,13 @@ func SaveSkill(req SkillSaveRequest) (SkillInfo, error) {
 
 	return SkillInfo{
 		Name:         name,
-		Description:  req.Description,
-		Triggers:     req.Triggers,
+		Description:  desc,
+		Triggers:     cleanTriggers,
 		Path:         targetDir,
 		Scope:        scope,
-		Instructions: req.Instructions,
-		RepoURL:      req.RepoURL,
+		Instructions: cleanInstructions,
+		RepoURL:      repoURL,
+		Folder:       folder,
 	}, nil
 }
 
