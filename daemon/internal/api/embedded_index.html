@@ -523,8 +523,8 @@
                       <i data-lucide="chevron-down" class="w-3 h-3 text-slate-400"></i>
                     </button>
                     <!-- Bottom Prompt Model Popover -->
-                    <div id="model-menu" class="hidden absolute bottom-full right-0 mb-2 w-80 max-h-80 overflow-y-auto bg-unjessCard border border-unjessBorder rounded-xl shadow-2xl p-1.5 z-50 text-xs font-mono">
-                      <!-- Model options & Reasoning Effort bar populated via JS -->
+                    <div id="model-menu" class="hidden absolute bottom-full right-0 mb-2 w-[23rem] max-w-[92vw] max-h-[28rem] flex flex-col overflow-hidden bg-unjessCard border border-unjessBorder rounded-xl shadow-2xl z-50 text-xs font-mono">
+                      <!-- Search, Starred models, Reasoning Effort & Provider groups populated via JS -->
                     </div>
                   </div>
 
@@ -780,7 +780,7 @@
               </div>
 
               <!-- Dedicated Right-Panel Model Dropdown (Anchored directly below #inspector-model-card!) -->
-              <div id="inspector-model-menu" class="hidden absolute left-0 right-0 top-full mt-1 max-h-80 overflow-y-auto bg-unjessCard border border-unjessBorder rounded-xl shadow-2xl p-1.5 z-50 text-xs font-mono">
+              <div id="inspector-model-menu" class="hidden absolute left-0 right-0 top-full mt-1 max-h-[26rem] flex flex-col overflow-hidden bg-unjessCard border border-unjessBorder rounded-xl shadow-2xl z-50 text-xs font-mono">
                 <!-- Populated via JS -->
               </div>
 
@@ -2668,6 +2668,15 @@
       },
 
       models: [],
+      modelSearchQuery: '',
+      starredModels: (() => {
+        try {
+          const parsed = JSON.parse(localStorage.getItem('unjess_starred_models') || '[]');
+          return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+        } catch (e) {
+          return [];
+        }
+      })(),
 
       // Browser history stack
       browserHistory: [],
@@ -3439,126 +3448,285 @@
       populateAllModelSelectors();
     }
 
-    function populateAllModelSelectors() {
-      const bottomMenu = document.getElementById('model-menu');
-      const rightMenu = document.getElementById('inspector-model-menu');
-      const settingsSelect = document.getElementById('settings-default-model');
+    function getModelStarKey(m) {
+      if (!m || !m.id) return '';
+      const provId = normalizeProviderId(m.provider, m.provider_id) || String(m.provider || 'other').toLowerCase().trim();
+      return `${provId}::${m.id}`;
+    }
 
-      const activeEffort = (state.reasoningEffort || 'high').toLowerCase();
-      const activeSupportsEffort = modelSupportsEffort(state.selectedModel);
-      const effortLevels = [
-        { id: 'auto', label: 'Auto', tip: 'Provider adaptive reasoning depth' },
-        { id: 'low', label: 'Low', tip: 'Fastest thinking budget (~2K tokens)' },
-        { id: 'medium', label: 'Med', tip: 'Balanced thinking & speed (~8K tokens)' },
-        { id: 'high', label: 'High', tip: 'Deep reasoning effort (~16K tokens)' },
-        { id: 'max', label: 'Max', tip: 'Maximum frontier thinking depth (~32K tokens)' },
-        { id: 'none', label: 'Off', tip: 'Disable extended thinking when supported' },
-      ];
+    function isModelStarred(m) {
+      if (!m || !m.id || !Array.isArray(state.starredModels) || state.starredModels.length === 0) return false;
+      const key = getModelStarKey(m);
+      return state.starredModels.includes(key) || state.starredModels.includes(m.id);
+    }
 
-      [bottomMenu, rightMenu].forEach(menu => {
-        if (!menu) return;
-        menu.innerHTML = '';
+    function getStarredModelsOrdered(modelsList) {
+      const list = Array.isArray(modelsList) ? modelsList : (state.models || []);
+      if (!Array.isArray(state.starredModels) || state.starredModels.length === 0 || list.length === 0) return [];
+      const starred = [];
+      const seen = new Set();
+      state.starredModels.forEach(entry => {
+        list.forEach(m => {
+          const composite = getModelStarKey(m);
+          if ((entry === composite || entry === m.id) && !seen.has(composite)) {
+            seen.add(composite);
+            starred.push(m);
+          }
+        });
+      });
+      return starred;
+    }
 
-        // Sticky Reasoning Effort Control Bar right inside the Model Select dropdown
-        const effortBar = document.createElement('div');
-        effortBar.className = 'p-2 mb-1.5 rounded-lg bg-zinc-950/95 border border-white/10 space-y-1.5 select-none';
-        effortBar.innerHTML = `
-          <div class="flex items-center justify-between text-[10px]">
-            <span class="font-semibold text-zinc-300 uppercase tracking-wider flex items-center space-x-1">
-              <span class="flex items-center space-x-1"><i data-lucide="zap" class="w-3 h-3 text-sky-400"></i><span>Reasoning Effort</span></span>
-            </span>
-            <span class="text-[9px] font-mono px-1.5 py-0.2 rounded ${
-              activeSupportsEffort
-                ? 'bg-sky-950/70 text-sky-300 border border-sky-500/30'
-                : 'bg-zinc-900 text-zinc-500 border border-zinc-800'
-            }">${activeSupportsEffort ? 'Supported' : 'Model Default'}</span>
+    function toggleStarModel(m) {
+      if (!m || !m.id) return;
+      if (!Array.isArray(state.starredModels)) state.starredModels = [];
+      const key = getModelStarKey(m);
+      if (isModelStarred(m)) {
+        state.starredModels = state.starredModels.filter(x => x !== key && x !== m.id);
+      } else {
+        state.starredModels = [key, ...state.starredModels.filter(x => x !== key && x !== m.id)];
+      }
+      try {
+        localStorage.setItem('unjess_starred_models', JSON.stringify(state.starredModels));
+      } catch (e) {}
+      if (state.settings) state.settings.starred_models = [...state.starredModels];
+      fetch(`${API_BASE}/api/studio/settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ starred_models: state.starredModels })
+      }).catch(() => {});
+      refreshModelMenuListsOnly();
+      populateSelectDropdownsWithModels();
+    }
+
+    function filterModelsByQuery(modelsList, rawQuery) {
+      const list = Array.isArray(modelsList) ? modelsList : [];
+      const q = String(rawQuery || '').trim().toLowerCase();
+      if (!q) return list;
+      const tokens = q.split(/\s+/).filter(Boolean);
+      return list.filter(m => {
+        const hay = `${m.id || ''} ${m.name || ''} ${m.provider || ''} ${m.provider_id || ''} ${m.desc || ''}`.toLowerCase();
+        return tokens.every(tok => hay.includes(tok));
+      });
+    }
+
+    function createModelOptionRowEl(m, kbHighlight = false) {
+      const mProvId = normalizeProviderId(m.provider, m.provider_id);
+      const isSel = m.id === state.selectedModel && (!state.selectedProvider || !mProvId || mProvId === state.selectedProvider);
+      const starred = isModelStarred(m);
+      const hasEffort = modelSupportsEffort(m.id, m.provider);
+
+      const row = document.createElement('div');
+      row.setAttribute('data-model-row', '1');
+      row.setAttribute('data-model-id', m.id);
+      row.setAttribute('data-provider-id', mProvId || '');
+      row.className = `group w-full text-left px-2 py-1.5 rounded-lg hover:bg-zinc-800/90 flex items-center justify-between text-xs font-mono transition my-0.5 cursor-pointer ${
+        kbHighlight
+          ? 'bg-sky-950/50 border border-sky-500/40 text-white'
+          : isSel
+            ? 'text-white font-semibold bg-zinc-800/90 border border-zinc-700'
+            : 'text-zinc-300 hover:text-white border border-transparent'
+      }`;
+
+      const starSvg = starred
+        ? `<svg class="w-3.5 h-3.5 text-amber-400 fill-amber-400" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`
+        : `<svg class="w-3.5 h-3.5 text-zinc-600 group-hover:text-zinc-300 hover:text-amber-300 transition" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
+
+      const checkSvg = isSel
+        ? `<svg class="w-3.5 h-3.5 text-zinc-100 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`
+        : '';
+
+      row.innerHTML = `
+        <div class="flex items-start space-x-2 min-w-0 flex-1 pr-2">
+          <button type="button" class="model-star-btn mt-0.5 p-0.5 rounded hover:bg-zinc-700/60 flex-shrink-0 focus:outline-none" title="${starred ? 'Unstar model' : 'Star model (pin to top)'}">
+            ${starSvg}
+          </button>
+          <div class="truncate min-w-0 flex-1">
+            <div class="truncate flex items-center space-x-1.5">
+              <span class="truncate">${escapeHtml(m.id)}</span>
+              <span class="text-[9px] px-1 py-0.2 rounded bg-zinc-900 text-zinc-400 border border-zinc-700/70 flex-shrink-0">${escapeHtml(m.provider || (m.is_cloud ? 'Cloud' : 'Local'))}</span>
+              ${hasEffort ? `<span class="text-[9px] px-1 py-0.2 rounded bg-sky-950/60 text-sky-300 border border-sky-500/30 flex-shrink-0" title="Supports Reasoning Effort Levels (Auto/Low/Med/High/Max)">Effort</span>` : ''}
+            </div>
+            <div class="text-[10px] text-zinc-500 font-sans truncate">${escapeHtml(m.desc || m.name || m.provider || '')}</div>
           </div>
-          <div class="grid grid-cols-6 gap-1">
-            ${effortLevels.map(lvl => {
-              const isSelected = lvl.id === activeEffort;
-              return `
-                <button type="button"
-                  data-effort-level="${lvl.id}"
-                  title="${escapeHtml(lvl.tip)}"
-                  class="effort-level-pill-btn py-1 px-1.5 rounded-md text-[10px] font-mono transition ${
-                    isSelected
-                      ? 'font-semibold bg-sky-500/20 text-sky-200 border border-sky-400/60 shadow-sm'
-                      : 'text-zinc-400 hover:text-white bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-800'
-                  }">
-                  ${lvl.label}
-                </button>
-              `;
-            }).join('')}
-          </div>
+        </div>
+        ${checkSvg}
+      `;
+
+      const starBtn = row.querySelector('.model-star-btn');
+      starBtn?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleStarModel(m);
+      });
+
+      row.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setModel(m.id, true, mProvId);
+      });
+
+      return row;
+    }
+
+    function renderSingleModelMenuResults(menu) {
+      if (!menu) return;
+      const resultsEl = menu.querySelector('.model-menu-results');
+      const searchInput = menu.querySelector('.model-search-input');
+      const clearBtn = menu.querySelector('.model-search-clear');
+      const countBadge = menu.querySelector('.model-search-count');
+      if (!resultsEl) return;
+
+      const query = state.modelSearchQuery || '';
+      if (searchInput && document.activeElement !== searchInput && searchInput.value !== query) {
+        searchInput.value = query;
+      }
+      if (clearBtn) {
+        clearBtn.classList.toggle('hidden', !query);
+      }
+
+      const prevScroll = resultsEl.scrollTop;
+      resultsEl.innerHTML = '';
+
+      if (!state.models || state.models.length === 0) {
+        if (countBadge) countBadge.textContent = '0';
+        const emptyDiv = document.createElement('div');
+        emptyDiv.className = 'p-3 text-center text-xs text-zinc-400';
+        emptyDiv.innerHTML = `
+          <div class="font-medium text-zinc-300">No models detected</div>
+          <div class="text-[10px] text-zinc-500 mt-1">Start Ollama locally or enter API keys in Settings</div>
+          <button type="button" onclick="switchTab('settings')" class="mt-2 text-[11px] px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded border border-zinc-700 transition">
+            Open Settings
+          </button>
         `;
-        effortBar.querySelectorAll('.effort-level-pill-btn').forEach(btn => {
-          btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const lvl = btn.getAttribute('data-effort-level');
-            if (lvl) setReasoningEffort(lvl, true);
-          });
+        resultsEl.appendChild(emptyDiv);
+        menu._flatRenderedModels = [];
+        return;
+      }
+
+      const filtered = filterModelsByQuery(state.models, query);
+      if (countBadge) {
+        countBadge.textContent = query ? `${filtered.length}/${state.models.length}` : `${state.models.length}`;
+      }
+
+      if (filtered.length === 0) {
+        const noMatch = document.createElement('div');
+        noMatch.className = 'py-6 px-3 text-center text-xs text-zinc-400';
+        noMatch.innerHTML = `
+          <div class="text-zinc-300 font-medium">No models match "${escapeHtml(query)}"</div>
+          <div class="text-[10px] text-zinc-500 mt-1 font-sans">Try searching by model name (claude, gpt, deepseek) or provider (floyo, ollama)</div>
+        `;
+        resultsEl.appendChild(noMatch);
+        menu._flatRenderedModels = [];
+        return;
+      }
+
+      const flatOrder = [];
+      let rowCursor = 0;
+      const kbIdx = typeof menu._kbIndex === 'number' ? menu._kbIndex : -1;
+
+      // 1. Starred / Pinned Models ALWAYS ON TOP
+      const starredFiltered = getStarredModelsOrdered(filtered);
+      if (starredFiltered.length > 0) {
+        const starHeader = document.createElement('div');
+        starHeader.className = 'px-2 py-1 text-[10px] font-semibold text-amber-300 uppercase tracking-wider bg-zinc-950 sticky top-0 z-10 border-b border-amber-500/20 flex items-center justify-between';
+        starHeader.innerHTML = `
+          <span class="flex items-center space-x-1">
+            <svg class="w-3 h-3 text-amber-400 fill-amber-400" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            <span>Starred</span>
+          </span>
+          <span class="text-[9px] text-amber-400/80 font-mono">${starredFiltered.length}</span>
+        `;
+        resultsEl.appendChild(starHeader);
+
+        starredFiltered.forEach(m => {
+          const isKb = (rowCursor === kbIdx);
+          const rowEl = createModelOptionRowEl(m, isKb);
+          resultsEl.appendChild(rowEl);
+          flatOrder.push({ model: m, el: rowEl });
+          rowCursor++;
         });
-        menu.appendChild(effortBar);
+      }
 
-        if (!state.models || state.models.length === 0) {
-          const emptyDiv = document.createElement('div');
-          emptyDiv.className = 'p-3 text-center text-xs text-zinc-400';
-          emptyDiv.innerHTML = `
-            <div class="font-medium text-zinc-300">No models detected</div>
-            <div class="text-[10px] text-zinc-500 mt-1">Start Ollama locally or enter API keys in Settings</div>
-            <button type="button" onclick="switchTab('settings')" class="mt-2 text-[11px] px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded border border-zinc-700 transition">
-              Open Settings
-            </button>
-          `;
-          menu.appendChild(emptyDiv);
-          return;
-        }
+      // 2. Provider-grouped models
+      const groups = {};
+      filtered.forEach(m => {
+        const prov = m.provider || 'Other';
+        if (!groups[prov]) groups[prov] = [];
+        groups[prov].push(m);
+      });
 
-        // Group models by provider
-        const groups = {};
-        state.models.forEach(m => {
-          const prov = m.provider || 'Other';
-          if (!groups[prov]) groups[prov] = [];
-          groups[prov].push(m);
-        });
+      Object.entries(groups).forEach(([providerName, groupModels]) => {
+        const grpHeader = document.createElement('div');
+        grpHeader.className = 'px-2 py-1 mt-0.5 text-[10px] font-semibold text-zinc-400 uppercase tracking-wider bg-zinc-950 sticky top-0 z-10 border-b border-white/5 flex items-center justify-between';
+        grpHeader.innerHTML = `
+          <span>${escapeHtml(providerName)}</span>
+          <span class="text-[9px] text-zinc-500 font-mono">${groupModels.length}</span>
+        `;
+        resultsEl.appendChild(grpHeader);
 
-        Object.entries(groups).forEach(([providerName, groupModels]) => {
-          const grpHeader = document.createElement('div');
-          grpHeader.className = 'px-2 py-1 text-[10px] font-semibold text-zinc-400 uppercase tracking-wider bg-zinc-950 sticky top-0 z-10 border-b border-white/5 flex items-center justify-between';
-          grpHeader.innerHTML = `
-            <span>${escapeHtml(providerName)}</span>
-            <span class="text-[9px] text-zinc-500 font-mono">${groupModels.length}</span>
-          `;
-          menu.appendChild(grpHeader);
-
-          groupModels.forEach(m => {
-            const btn = document.createElement('button');
-            const mProvId = normalizeProviderId(m.provider, m.provider_id);
-            const isSel = m.id === state.selectedModel && (!state.selectedProvider || !mProvId || mProvId === state.selectedProvider);
-            const hasEffort = modelSupportsEffort(m.id, m.provider);
-            btn.className = `w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-zinc-800 flex items-center justify-between text-xs font-mono transition my-0.5 ${
-              isSel ? 'text-white font-semibold bg-zinc-800/90 border border-zinc-700' : 'text-zinc-300 hover:text-white'
-            }`;
-            btn.innerHTML = `
-              <div class="truncate pr-2">
-                <div class="truncate flex items-center space-x-1.5">
-                  <span class="truncate">${escapeHtml(m.id)}</span>
-                  <span class="text-[9px] px-1 py-0.2 rounded bg-zinc-900 text-zinc-400 border border-zinc-700/70">${escapeHtml(m.provider || (m.is_cloud ? 'Cloud' : 'Local'))}</span>
-                  ${hasEffort ? `<span class="text-[9px] px-1 py-0.2 rounded bg-sky-950/60 text-sky-300 border border-sky-500/30" title="Supports Reasoning Effort Levels (Auto/Low/Med/High/Max)">Effort</span>` : ''}
-                </div>
-                <div class="text-[10px] text-zinc-500 font-sans truncate">${escapeHtml(m.desc || m.name || m.provider || '')}</div>
-              </div>
-              ${isSel ? '<i data-lucide="check" class="w-3.5 h-3.5 text-zinc-100 flex-shrink-0"></i>' : ''}
-            `;
-            btn.addEventListener('click', (e) => {
-              e.stopPropagation();
-              setModel(m.id, true, mProvId);
-            });
-            menu.appendChild(btn);
-          });
+        groupModels.forEach(m => {
+          const isKb = (rowCursor === kbIdx);
+          const rowEl = createModelOptionRowEl(m, isKb);
+          resultsEl.appendChild(rowEl);
+          flatOrder.push({ model: m, el: rowEl });
+          rowCursor++;
         });
       });
 
+      menu._flatRenderedModels = flatOrder;
+      resultsEl.scrollTop = prevScroll;
+    }
+
+    function refreshModelMenuListsOnly() {
+      const bottomMenu = document.getElementById('model-menu');
+      const rightMenu = document.getElementById('inspector-model-menu');
+      [bottomMenu, rightMenu].forEach(menu => {
+        if (menu && menu.querySelector('.model-menu-results')) {
+          renderSingleModelMenuResults(menu);
+        }
+      });
+    }
+
+    function appendGroupedModelOptgroups(selectEl, modelsList, selectedVal) {
+      if (!selectEl || !Array.isArray(modelsList) || modelsList.length === 0) return;
+      const starred = getStarredModelsOrdered(modelsList);
+      if (starred.length > 0) {
+        const starGroup = document.createElement('optgroup');
+        starGroup.label = `★ Starred (${starred.length})`;
+        starred.forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = m.id;
+          opt.textContent = `★ ${m.id} [${m.provider || 'Model'}]`;
+          if (selectedVal && m.id === selectedVal) opt.selected = true;
+          starGroup.appendChild(opt);
+        });
+        selectEl.appendChild(starGroup);
+      }
+
+      const groups = {};
+      modelsList.forEach(m => {
+        const prov = m.provider || 'Other';
+        if (!groups[prov]) groups[prov] = [];
+        groups[prov].push(m);
+      });
+      Object.entries(groups).forEach(([providerName, groupModels]) => {
+        const optgroup = document.createElement('optgroup');
+        optgroup.label = `${providerName} (${groupModels.length})`;
+        groupModels.forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = m.id;
+          opt.textContent = `${m.id}${m.name && m.name !== m.id ? ' (' + m.name + ')' : ''}`;
+          if (selectedVal && m.id === selectedVal && !Array.from(selectEl.options).some(o => o.selected)) {
+            opt.selected = true;
+          }
+          optgroup.appendChild(opt);
+        });
+        selectEl.appendChild(optgroup);
+      });
+    }
+
+    function populateSelectDropdownsWithModels() {
+      const settingsSelect = document.getElementById('settings-default-model');
       if (settingsSelect) {
         const prev = state.selectedModel || localStorage.getItem('unjess_last_selected_model') || state.settings?.default_model;
         settingsSelect.innerHTML = '';
@@ -3568,24 +3736,7 @@
           opt.textContent = '-- No models detected --';
           settingsSelect.appendChild(opt);
         } else {
-          const groups = {};
-          state.models.forEach(m => {
-            const prov = m.provider || 'Other';
-            if (!groups[prov]) groups[prov] = [];
-            groups[prov].push(m);
-          });
-          Object.entries(groups).forEach(([providerName, groupModels]) => {
-            const optgroup = document.createElement('optgroup');
-            optgroup.label = `${providerName} (${groupModels.length})`;
-            groupModels.forEach(m => {
-              const opt = document.createElement('option');
-              opt.value = m.id;
-              opt.textContent = `${m.id}${m.name && m.name !== m.id ? ' (' + m.name + ')' : ''}`;
-              if (m.id === prev) opt.selected = true;
-              optgroup.appendChild(opt);
-            });
-            settingsSelect.appendChild(optgroup);
-          });
+          appendGroupedModelOptgroups(settingsSelect, state.models, prev);
           if (prev && Array.from(settingsSelect.options).some(o => o.value === prev)) {
             settingsSelect.value = prev;
           }
@@ -3616,23 +3767,7 @@
           <option value="ask">Ask Me Before Spawning (Pick model per subagent)</option>
         `;
         if (state.models && state.models.length > 0) {
-          const groups = {};
-          state.models.forEach(m => {
-            const prov = m.provider || 'Other';
-            if (!groups[prov]) groups[prov] = [];
-            groups[prov].push(m);
-          });
-          Object.entries(groups).forEach(([providerName, groupModels]) => {
-            const grp = document.createElement('optgroup');
-            grp.label = `${providerName} (${groupModels.length})`;
-            groupModels.forEach(m => {
-              const opt = document.createElement('option');
-              opt.value = m.id;
-              opt.textContent = `${m.id}${m.name && m.name !== m.id ? ' (' + m.name + ')' : ''}`;
-              grp.appendChild(opt);
-            });
-            sel.appendChild(grp);
-          });
+          appendGroupedModelOptgroups(sel, state.models, '');
         }
         if (prev && Array.from(sel.options).some(o => o.value === prev)) {
           sel.value = prev;
@@ -3690,23 +3825,7 @@
           <option value="inherit">Inherit Main Model (${state.selectedModel || 'active'})</option>
         `;
         if (state.models && state.models.length > 0) {
-          const groups = {};
-          state.models.forEach(m => {
-            const prov = m.provider || 'Other';
-            if (!groups[prov]) groups[prov] = [];
-            groups[prov].push(m);
-          });
-          Object.entries(groups).forEach(([providerName, groupModels]) => {
-            const grp = document.createElement('optgroup');
-            grp.label = `${providerName} (${groupModels.length})`;
-            groupModels.forEach(m => {
-              const opt = document.createElement('option');
-              opt.value = m.id;
-              opt.textContent = `${m.id}${m.name && m.name !== m.id ? ' (' + m.name + ')' : ''}`;
-              grp.appendChild(opt);
-            });
-            quickSpawnSelect.appendChild(grp);
-          });
+          appendGroupedModelOptgroups(quickSpawnSelect, state.models, '');
         }
         if (prevQuick && Array.from(quickSpawnSelect.options).some(o => o.value === prevQuick)) {
           quickSpawnSelect.value = prevQuick;
@@ -3714,7 +3833,160 @@
           quickSpawnSelect.value = 'inherit';
         }
       }
+    }
 
+    function populateAllModelSelectors() {
+      const bottomMenu = document.getElementById('model-menu');
+      const rightMenu = document.getElementById('inspector-model-menu');
+
+      const activeEffort = (state.reasoningEffort || 'high').toLowerCase();
+      const activeSupportsEffort = modelSupportsEffort(state.selectedModel);
+      const effortLevels = [
+        { id: 'auto', label: 'Auto', tip: 'Provider adaptive reasoning depth' },
+        { id: 'low', label: 'Low', tip: 'Fastest thinking budget (~2K tokens)' },
+        { id: 'medium', label: 'Med', tip: 'Balanced thinking & speed (~8K tokens)' },
+        { id: 'high', label: 'High', tip: 'Deep reasoning effort (~16K tokens)' },
+        { id: 'max', label: 'Max', tip: 'Maximum frontier thinking depth (~32K tokens)' },
+        { id: 'none', label: 'Off', tip: 'Disable extended thinking when supported' },
+      ];
+
+      [bottomMenu, rightMenu].forEach(menu => {
+        if (!menu) return;
+        menu.innerHTML = '';
+        menu._kbIndex = -1;
+
+        // Pinned Header Wrapper (Search Box + Reasoning Effort Bar)
+        const topControls = document.createElement('div');
+        topControls.className = 'p-1.5 pb-1 bg-unjessCard border-b border-white/10 space-y-1.5 flex-shrink-0';
+        topControls.addEventListener('click', (e) => e.stopPropagation());
+
+        topControls.innerHTML = `
+          <div class="relative flex items-center">
+            <svg class="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text"
+              value="${escapeHtml(state.modelSearchQuery || '')}"
+              placeholder="Search models or providers (claude, gpt, floyo...)"
+              autocomplete="off"
+              spellcheck="false"
+              class="model-search-input w-full bg-zinc-950/95 text-white placeholder-zinc-500 text-[11px] font-mono pl-8 pr-14 py-1.5 rounded-lg border border-white/10 focus:outline-none focus:border-sky-500/60 transition" />
+            <div class="absolute right-2 flex items-center space-x-1">
+              <button type="button" class="model-search-clear ${(state.modelSearchQuery ? '' : 'hidden')} text-zinc-500 hover:text-zinc-200 p-0.5 rounded" title="Clear search">
+                <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+              <span class="model-search-count text-[9px] font-mono text-zinc-500 px-1 py-0.2 rounded bg-zinc-900 border border-white/5">${(state.models || []).length}</span>
+            </div>
+          </div>
+          <div class="p-1.5 rounded-lg bg-zinc-950/95 border border-white/10 space-y-1 select-none">
+            <div class="flex items-center justify-between text-[10px]">
+              <span class="font-semibold text-zinc-300 uppercase tracking-wider flex items-center space-x-1">
+                <i data-lucide="zap" class="w-3 h-3 text-sky-400"></i><span>Reasoning Effort</span>
+              </span>
+              <span class="text-[9px] font-mono px-1.5 py-0.2 rounded ${
+                activeSupportsEffort
+                  ? 'bg-sky-950/70 text-sky-300 border border-sky-500/30'
+                  : 'bg-zinc-900 text-zinc-500 border border-zinc-800'
+              }">${activeSupportsEffort ? 'Supported' : 'Model Default'}</span>
+            </div>
+            <div class="grid grid-cols-6 gap-1">
+              ${effortLevels.map(lvl => {
+                const isSelected = lvl.id === activeEffort;
+                return `
+                  <button type="button"
+                    data-effort-level="${lvl.id}"
+                    title="${escapeHtml(lvl.tip)}"
+                    class="effort-level-pill-btn py-1 px-1.5 rounded-md text-[10px] font-mono transition ${
+                      isSelected
+                        ? 'font-semibold bg-sky-500/20 text-sky-200 border border-sky-400/60 shadow-sm'
+                        : 'text-zinc-400 hover:text-white bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-800'
+                    }">
+                    ${lvl.label}
+                  </button>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        `;
+
+        topControls.querySelectorAll('.effort-level-pill-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const lvl = btn.getAttribute('data-effort-level');
+            if (lvl) setReasoningEffort(lvl, true);
+          });
+        });
+
+        const searchInput = topControls.querySelector('.model-search-input');
+        const clearBtn = topControls.querySelector('.model-search-clear');
+
+        searchInput?.addEventListener('input', (e) => {
+          state.modelSearchQuery = e.target.value || '';
+          menu._kbIndex = state.modelSearchQuery.trim() ? 0 : -1;
+          refreshModelMenuListsOnly();
+          const resEl = menu.querySelector('.model-menu-results');
+          if (resEl) resEl.scrollTop = 0;
+        });
+
+        searchInput?.addEventListener('keydown', (e) => {
+          const items = menu._flatRenderedModels || [];
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (items.length > 0) {
+              menu._kbIndex = ((typeof menu._kbIndex === 'number' ? menu._kbIndex : -1) + 1) % items.length;
+              renderSingleModelMenuResults(menu);
+              menu._flatRenderedModels?.[menu._kbIndex]?.el?.scrollIntoView({ block: 'nearest' });
+            }
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (items.length > 0) {
+              const cur = (typeof menu._kbIndex === 'number' && menu._kbIndex >= 0) ? menu._kbIndex : 0;
+              menu._kbIndex = (cur - 1 + items.length) % items.length;
+              renderSingleModelMenuResults(menu);
+              menu._flatRenderedModels?.[menu._kbIndex]?.el?.scrollIntoView({ block: 'nearest' });
+            }
+          } else if (e.key === 'Enter') {
+            e.preventDefault();
+            const idx = (typeof menu._kbIndex === 'number' && menu._kbIndex >= 0) ? menu._kbIndex : 0;
+            const picked = items[idx]?.model;
+            if (picked) {
+              const provId = normalizeProviderId(picked.provider, picked.provider_id);
+              setModel(picked.id, true, provId);
+            }
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            e.stopPropagation();
+            if (state.modelSearchQuery) {
+              state.modelSearchQuery = '';
+              searchInput.value = '';
+              menu._kbIndex = -1;
+              refreshModelMenuListsOnly();
+            } else {
+              menu.classList.add('hidden');
+            }
+          }
+        });
+
+        clearBtn?.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          state.modelSearchQuery = '';
+          if (searchInput) {
+            searchInput.value = '';
+            searchInput.focus();
+          }
+          menu._kbIndex = -1;
+          refreshModelMenuListsOnly();
+        });
+
+        menu.appendChild(topControls);
+
+        const resultsContainer = document.createElement('div');
+        resultsContainer.className = 'model-menu-results flex-1 overflow-y-auto px-1.5 pb-1.5 min-h-0';
+        menu.appendChild(resultsContainer);
+
+        renderSingleModelMenuResults(menu);
+      });
+
+      populateSelectDropdownsWithModels();
       lucide.createIcons();
     }
 
@@ -8727,13 +8999,26 @@ function openNewChatModal(initialMode = 'quick') {
         if (m.id === selectedModelId) foundSelected = true;
       });
       let html = '';
+      let emittedSelected = false;
       if (selectedModelId && !foundSelected && selectedModelId !== 'inherit' && selectedModelId !== 'ask') {
         html += `<option value="${escapeHtml(selectedModelId)}" selected>${escapeHtml(selectedModelId)} (Current)</option>`;
+        emittedSelected = true;
+      }
+      const starred = getStarredModelsOrdered(state.models);
+      if (starred.length > 0) {
+        html += `<optgroup label="★ Starred (${starred.length})">`;
+        starred.forEach(m => {
+          const isSel = (!emittedSelected && m.id === selectedModelId) ? 'selected' : '';
+          if (isSel) emittedSelected = true;
+          html += `<option value="${escapeHtml(m.id)}" ${isSel}>★ ${escapeHtml(m.id)} [${escapeHtml(m.provider || 'Model')}]</option>`;
+        });
+        html += `</optgroup>`;
       }
       Object.entries(groups).forEach(([providerName, groupModels]) => {
         html += `<optgroup label="${escapeHtml(providerName)} (${groupModels.length})">`;
         groupModels.forEach(m => {
-          const isSel = (m.id === selectedModelId) ? 'selected' : '';
+          const isSel = (!emittedSelected && m.id === selectedModelId) ? 'selected' : '';
+          if (isSel) emittedSelected = true;
           html += `<option value="${escapeHtml(m.id)}" ${isSel}>${escapeHtml(m.id)}${m.name && m.name !== m.id ? ' (' + escapeHtml(m.name) + ')' : ''}</option>`;
         });
         html += `</optgroup>`;
@@ -11033,6 +11318,19 @@ function openNewChatModal(initialMode = 'quick') {
         }
         const rememberedEffort = localStorage.getItem('unjess_reasoning_effort') || s.reasoning_effort || 'high';
         setReasoningEffort(rememberedEffort, false);
+        if (Array.isArray(s.starred_models) && s.starred_models.length > 0) {
+          const mergedStars = [...s.starred_models, ...(state.starredModels || [])].filter(Boolean);
+          state.starredModels = Array.from(new Set(mergedStars));
+          try { localStorage.setItem('unjess_starred_models', JSON.stringify(state.starredModels)); } catch (e) {}
+          refreshModelMenuListsOnly();
+          populateSelectDropdownsWithModels();
+        } else if (Array.isArray(state.starredModels) && state.starredModels.length > 0) {
+          fetch(`${API_BASE}/api/studio/settings`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ starred_models: state.starredModels })
+          }).catch(() => {});
+        }
         if (s.ollama_base_url !== undefined) {
           state.ollamaUrl = s.ollama_base_url || 'http://localhost:11434';
           const el = document.getElementById('settings-ollama-url');
@@ -11063,12 +11361,12 @@ function openNewChatModal(initialMode = 'quick') {
             if (state.settings) state.settings.provider = newProv;
             const updatePayload = { provider: newProv };
             const currentObj = (state.models || []).find(m => m.id === state.selectedModel);
-            const currentProv = currentObj ? normalizeProviderId(currentObj.provider, Boolean(currentObj.is_cloud)) : '';
+            const currentProv = currentObj ? normalizeProviderId(currentObj.provider, currentObj.provider_id) : '';
             if (currentProv !== newProv) {
-              const firstMatch = (state.models || []).find(m => normalizeProviderId(m.provider, Boolean(m.is_cloud)) === newProv);
+              const firstMatch = (state.models || []).find(m => normalizeProviderId(m.provider, m.provider_id) === newProv);
               if (firstMatch) {
                 updatePayload.default_model = firstMatch.id;
-                setModel(firstMatch.id, false);
+                setModel(firstMatch.id, false, newProv);
               }
             }
             fetch(`${API_BASE}/api/studio/settings`, {
@@ -11252,6 +11550,7 @@ function openNewChatModal(initialMode = 'quick') {
         max_tokens_per_message: getInt('settings-max-tokens', 0),
         free_mode_enabled: getChecked('settings-free-mode'),
         fallback_chain: getVal('settings-fallback-chain'),
+        starred_models: Array.isArray(state.starredModels) ? state.starredModels : [],
         enable_rag: getChecked('settings-enable-rag'),
 
         auto_update_enabled: getChecked('settings-auto-update'),
@@ -12903,16 +13202,35 @@ function openNewChatModal(initialMode = 'quick') {
       const inspectorModelCard = document.getElementById('inspector-model-card');
       const rightModelMenu = document.getElementById('inspector-model-menu');
 
+      const openAndPrepareModelMenu = (targetMenu, otherMenu) => {
+        otherMenu?.classList.add('hidden');
+        if (!targetMenu) return;
+        const willOpen = targetMenu.classList.contains('hidden');
+        targetMenu.classList.toggle('hidden');
+        if (willOpen) {
+          state.modelSearchQuery = '';
+          targetMenu._kbIndex = -1;
+          refreshModelMenuListsOnly();
+          const resEl = targetMenu.querySelector('.model-menu-results');
+          if (resEl) resEl.scrollTop = 0;
+          requestAnimationFrame(() => {
+            const inp = targetMenu.querySelector('.model-search-input');
+            if (inp) {
+              inp.value = '';
+              inp.focus();
+            }
+          });
+        }
+      };
+
       modelPillBtn?.addEventListener('click', (e) => {
         e.stopPropagation();
-        rightModelMenu?.classList.add('hidden');
-        bottomModelMenu?.classList.toggle('hidden');
+        openAndPrepareModelMenu(bottomModelMenu, rightModelMenu);
       });
 
       inspectorModelCard?.addEventListener('click', (e) => {
         e.stopPropagation();
-        bottomModelMenu?.classList.add('hidden');
-        rightModelMenu?.classList.toggle('hidden');
+        openAndPrepareModelMenu(rightModelMenu, bottomModelMenu);
       });
 
       document.getElementById('btn-refresh-models-inline')?.addEventListener('click', (e) => {

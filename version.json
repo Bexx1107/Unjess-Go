@@ -14,24 +14,24 @@
     "cli_linux_arm64_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.0/unjess-linux-arm64",
     "daemon_linux_amd64_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.0/unjessd-linux-amd64",
     "daemon_linux_arm64_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.0/unjessd-linux-arm64",
-    "sha256":  "4d8ffbfbfa92ffdfd0d2f5037640451b544ee6c4d65bf05128d17da5ba723612",
-    "installer_sha256":  "dd8df443acbeb36522b708a0d588dd29fc6aa80f86b03190783f15154d5be85d",
-    "portable_sha256":  "b6d14a080654995df89126ccec4f669bea886eda9e357fa421158cff0751f727",
-    "daemon_sha256":  "74143583c0f98b4eff9ff62a3020bc31226a4a0db5d040747693d16c77c51efa",
-    "cli_sha256":  "3ee556b32a1553e9d3618ca52762901585572ff5dd7d0b4ef1315b11027e41b2",
-    "desktop_sha256":  "4d8ffbfbfa92ffdfd0d2f5037640451b544ee6c4d65bf05128d17da5ba723612",
+    "sha256":  "02442b1b3ca07971b69bb634c180578256c6ed148f443ba06543dc0e1c3236d4",
+    "installer_sha256":  "a3a6f4eb3e5172aaca01abe05ad7f2291f3ffc82ee745a95eb829218ea9a60f9",
+    "portable_sha256":  "ecdd7d0b004b9ab61beaf37fcb15d342453cc60d32d8ba7e18e182c384d93729",
+    "daemon_sha256":  "386bb15f179e613d9dcffde8eb34892ea575752af97ca4120d9037a94ba82604",
+    "cli_sha256":  "c6e0786bfb3e274cc7340466e2f5f6320f7332db8ed88d7c49022b657317c425",
+    "desktop_sha256":  "02442b1b3ca07971b69bb634c180578256c6ed148f443ba06543dc0e1c3236d4",
     "webview2_loader_sha256":  "86545b66cdb0603bc26b626fb9ad610cb6e71f28d468f5ea66df23b03dda96d5",
-    "notes":  "Unjess v3.1.0 - Native Sidebar Browser (embedded WebView2 with persistent logins \u0026 zero headless bot flags), transient LLM stream retries, and workspace pruning.",
+    "notes":  "Unjess v3.1.0 - Native Sidebar Browser (embedded WebView2 with persistent logins \u0026 zero headless bot flags), Model Selector live search + Starred model pinning, local Ollama Cloud vs Ollama API separation, and transient LLM stream retries.",
     "changelog":  [
                       {
                           "version":  "3.1.0",
                           "date":  "2026-11-24",
-                          "title":  "Unjess v3.1.0 - Native Sidebar Browser (WebView2), Persistent Sessions \u0026 Transient Retry Hardening",
+                          "title":  "Unjess v3.1.0 - Native Sidebar Browser (WebView2), Model Search \u0026 Starred Favorites",
                           "tag":  "LATEST",
                           "changes":  [
-                                          "Added embedded Native Sidebar Browser (child WebView2) docked alongside Chat and in the Browser tab — zero iframe restrictions, real GPU rendering, and no headless CDP bot flags",
-                                          "Persistent Browser Sessions \u0026 Human Handoff: Preserves logins, cookies, and localStorage across restarts in %LOCALAPPDATA%\\Unjess\\browser_webview so you and the agent share authenticated web sessions",
-                                          "Live Agent Browser Auto-Open \u0026 Set-of-Mark Bridge: Automatically opens the Sidebar Browser when browser_use runs, indexing [1..N] DOM elements via native ExecuteScript and capturing screenshots in-process",
+                                          "Added embedded Native Sidebar Browser (child WebView2) docked in the Right Inspector (Diffs | Browser | Controls) — zero iframe restrictions, real GPU rendering, persistent logins, and no headless CDP bot flags",
+                                          "Added instant multi-token Model Search (with Arrow/Enter keyboard navigation) and Starred Favorites (★ Starred always pinned to the top across selectors and persisted to config.yaml)",
+                                          "Separated local Ollama Cloud (:cloud) models into \u0027Ollama Cloud (Local)\u0027 routed via local localhost:11434 vs direct \u0027Ollama API\u0027 (ollama.com)",
                                           "Added automatic exponential backoff retries for transient upstream LLM errors (503, 429, 502, 504, 529), orphaned workspace pruning, workspace removal endpoints, and skill folder frontmatter normalization"
                                       ]
                       },
@@ -126,11 +126,11 @@
                                       ]
                       }
                   ],
-    "cli_linux_amd64_sha256":  "d53c09fe0b57b9879c1d0d8022cf2e6ef92c352c87a88fb9709d4ae73f455f83",
-    "cli_linux_arm64_sha256":  "360e86f95304d17c9fcd409d85f60239f8aed476a3921c409768665607b96720",
-    "daemon_linux_amd64_sha256":  "35264eac509b0c7b94b158979760e53af3c491dbbc53402e210ba2d53398b250",
-    "daemon_linux_arm64_sha256":  "66fa35e4251c31da12ad3773d1e5dd8c11833aed2d2e4af5ea38a12f7d0ba556",
-    "cli_windows_amd64_sha256":  "3ee556b32a1553e9d3618ca52762901585572ff5dd7d0b4ef1315b11027e41b2",
-    "daemon_windows_amd64_sha256":  "74143583c0f98b4eff9ff62a3020bc31226a4a0db5d040747693d16c77c51efa",
-    "setup_windows_amd64_sha256":  "dd8df443acbeb36522b708a0d588dd29fc6aa80f86b03190783f15154d5be85d"
+    "cli_linux_amd64_sha256":  "e83655814cc910ba92d358877451416efdc51c13c797134a16bfed7988ba88b8",
+    "cli_linux_arm64_sha256":  "6d5da12ebf045204d85e0e3a87bb0822a2acef77f7c49da5543d819796edbba0",
+    "daemon_linux_amd64_sha256":  "7ceab57aeb72fab4bd08a1e0f2be9694649443d07cbc86c6f90824c6f2561dd5",
+    "daemon_linux_arm64_sha256":  "3aed928b81bf83002fb0887f1d197e6b07fc63413583c6c7fc492ff406e90dc1",
+    "cli_windows_amd64_sha256":  "c6e0786bfb3e274cc7340466e2f5f6320f7332db8ed88d7c49022b657317c425",
+    "daemon_windows_amd64_sha256":  "386bb15f179e613d9dcffde8eb34892ea575752af97ca4120d9037a94ba82604",
+    "setup_windows_amd64_sha256":  "a3a6f4eb3e5172aaca01abe05ad7f2291f3ffc82ee745a95eb829218ea9a60f9"
 }

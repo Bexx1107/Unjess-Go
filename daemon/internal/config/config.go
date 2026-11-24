@@ -85,8 +85,9 @@ type Settings struct {
 	// Workspace
 	Workspace string `yaml:"workspace,omitempty" json:"workspace"`
 
-	// Fallback Chain
+	// Fallback Chain & Starred Models
 	FallbackChain []string `yaml:"fallback_chain" json:"fallback_chain"`
+	StarredModels []string `yaml:"starred_models,omitempty" json:"starred_models"`
 
 	// Mobile Companion & Security
 	MobilePin          string `yaml:"mobile_pin" json:"mobile_pin"`
@@ -166,6 +167,7 @@ func NewDefaultSettings() *Settings {
 		MashinaCollabToken:     "",
 		Workspace:              ".",
 		FallbackChain:          []string{},
+		StarredModels:          []string{},
 		MobilePin:              "",
 		EnablePinAuth:          false,
 		AllowNetworkAccess:     true,
@@ -634,6 +636,11 @@ func SerializeSettingsDict(s *Settings) map[string]any {
 		fallbackChain = []string{}
 	}
 
+	starredModels := s.StarredModels
+	if starredModels == nil {
+		starredModels = []string{}
+	}
+
 	ignorePatterns := s.IgnorePatterns
 	if ignorePatterns == nil {
 		ignorePatterns = []string{}
@@ -700,6 +707,7 @@ func SerializeSettingsDict(s *Settings) map[string]any {
 		"max_tokens_per_message": s.MaxTokensPerMessage,
 		"free_mode_enabled":      s.FreeModeEnabled,
 		"fallback_chain":         fallbackChain,
+		"starred_models":         starredModels,
 		"enable_rag":             s.EnableRAG,
 
 		// Frontier & Worktree v2.1.0
@@ -1095,6 +1103,38 @@ func ApplySettingsUpdate(s *Settings, body map[string]any) error {
 				}
 			}
 			s.FallbackChain = clean
+		}
+	}
+	if val, ok := body["starred_models"]; ok && val != nil {
+		dedup := func(raw []string) []string {
+			seen := make(map[string]bool, len(raw))
+			clean := make([]string, 0, len(raw))
+			for _, it := range raw {
+				trimmed := strings.TrimSpace(it)
+				if trimmed != "" && !seen[trimmed] {
+					seen[trimmed] = true
+					clean = append(clean, trimmed)
+				}
+			}
+			return clean
+		}
+		switch v := val.(type) {
+		case string:
+			if strings.TrimSpace(v) == "" {
+				s.StarredModels = []string{}
+			} else {
+				s.StarredModels = dedup(strings.Split(v, ","))
+			}
+		case []string:
+			s.StarredModels = dedup(v)
+		case []any:
+			raw := make([]string, 0, len(v))
+			for _, it := range v {
+				if it != nil {
+					raw = append(raw, fmt.Sprint(it))
+				}
+			}
+			s.StarredModels = dedup(raw)
 		}
 	}
 	if val, ok := body["enable_rag"]; ok {

@@ -85,12 +85,12 @@ func BuiltinChangelog() []ChangelogEntry {
 		{
 			Version: "3.1.0",
 			Date:    "2026-11-24",
-			Title:   "Unjess v3.1.0 - Native Sidebar Browser (WebView2), Persistent Sessions & Transient Retry Hardening",
+			Title:   "Unjess v3.1.0 - Native Sidebar Browser (WebView2), Model Search & Starred Favorites",
 			Tag:     "LATEST",
 			Changes: []string{
-				"Added embedded Native Sidebar Browser (child WebView2) docked alongside Chat and in the Browser tab — zero iframe restrictions, real GPU rendering, and no headless CDP bot flags",
-				"Persistent Browser Sessions & Human Handoff: Preserves logins, cookies, and localStorage across restarts in %LOCALAPPDATA%\\Unjess\\browser_webview so you and the agent share authenticated web sessions",
-				"Live Agent Browser Auto-Open & Set-of-Mark Bridge: Automatically opens the Sidebar Browser when browser_use runs, indexing [1..N] DOM elements via native ExecuteScript and capturing screenshots in-process",
+				"Added embedded Native Sidebar Browser (child WebView2) docked in the Right Inspector (Diffs | Browser | Controls) — zero iframe restrictions, real GPU rendering, persistent logins, and no headless CDP bot flags",
+				"Added instant multi-token Model Search (with Arrow/Enter keyboard navigation) and Starred Favorites (★ Starred always pinned to the top across selectors and persisted to config.yaml)",
+				"Separated local Ollama Cloud (:cloud) models into 'Ollama Cloud (Local)' routed via local localhost:11434 vs direct 'Ollama API' (ollama.com)",
 				"Added automatic exponential backoff retries for transient upstream LLM errors (503, 429, 502, 504, 529), orphaned workspace pruning, workspace removal endpoints, and skill folder frontmatter normalization",
 			},
 		},

@@ -206,8 +206,9 @@ func TestApplySettingsUpdate(t *testing.T) {
 		"planning_mode":        "on",
 		"show_diffs":           false,
 		"accent_color":         "#10b981",
-		"fallback_chain":       "openai/gpt-4o,groq/llama-3.3-70b",
-		"ignore_patterns":      ".git\nnode_modules\ncustom_dir",
+		"fallback_chain":           "openai/gpt-4o,groq/llama-3.3-70b",
+		"starred_models":           []any{"floyo::claude-sonnet-4-5", "deepseek::deepseek-reasoner", "floyo::claude-sonnet-4-5"},
+		"ignore_patterns":          ".git\nnode_modules\ncustom_dir",
 		"auto_update_enabled":      false,
 		"update_server_url":        "https://custom.example.com/version.json",
 		"shadow_worktree_mode":     true,
@@ -269,6 +270,13 @@ func TestApplySettingsUpdate(t *testing.T) {
 	}
 	if len(s.FallbackChain) != 2 || s.FallbackChain[0] != "openai/gpt-4o" {
 		t.Errorf("expected fallback chain parsed, got %v", s.FallbackChain)
+	}
+	if len(s.StarredModels) != 2 || s.StarredModels[0] != "floyo::claude-sonnet-4-5" || s.StarredModels[1] != "deepseek::deepseek-reasoner" {
+		t.Errorf("expected deduplicated starred_models persisted, got %v", s.StarredModels)
+	}
+	reloadedStars := LoadConfig()
+	if len(reloadedStars.StarredModels) != 2 || reloadedStars.StarredModels[0] != "floyo::claude-sonnet-4-5" {
+		t.Errorf("expected reloaded starred_models to match, got %v", reloadedStars.StarredModels)
 	}
 	if len(s.IgnorePatterns) != 3 || s.IgnorePatterns[2] != "custom_dir" {
 		t.Errorf("expected ignore patterns parsed, got %v", s.IgnorePatterns)
