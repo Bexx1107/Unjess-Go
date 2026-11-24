@@ -22,8 +22,9 @@ import (
 )
 
 const (
-	CurrentVersion   = version.Current
-	DefaultUpdateURL = "https://unjess.si/releases/version.json"
+	CurrentVersion          = version.Current
+	DefaultUpdateURL        = "https://unjess.si/releases/version.json"
+	GitHubFallbackUpdateURL = "https://raw.githubusercontent.com/Bexx1107/Unjess-Go/main/version.json"
 )
 
 var (
@@ -236,16 +237,30 @@ func CheckForUpdates(updateURL string, autoUpdateEnabled bool) map[string]any {
 	source := "builtin"
 	fetched := false
 
-	// 1. Try remote HTTP GET with 4s timeout
+	// 1. Try remote HTTP GET with 4s timeout (and check GitHub canonical manifest when using DefaultUpdateURL so CDN lag never hides a newer release)
 	client := &http.Client{Timeout: 4 * time.Second}
-	resp, err := client.Get(updateURL)
-	if err == nil {
-		defer resp.Body.Close()
-		if resp.StatusCode == http.StatusOK {
-			data, readErr := io.ReadAll(resp.Body)
-			if readErr == nil {
-				data = bytes.TrimPrefix(data, []byte("\xef\xbb\xbf"))
-				if json.Unmarshal(data, &manifest) == nil && manifest.Version != "" {
+	candidateURLs := []string{updateURL}
+	if strings.EqualFold(strings.TrimSpace(updateURL), DefaultUpdateURL) {
+		candidateURLs = append(candidateURLs, GitHubFallbackUpdateURL)
+	}
+	for _, candURL := range candidateURLs {
+		req, reqErr := http.NewRequest(http.MethodGet, candURL, nil)
+		if reqErr != nil {
+			continue
+		}
+		req.Header.Set("Cache-Control", "no-cache")
+		resp, err := client.Do(req)
+		if err != nil {
+			continue
+		}
+		data, readErr := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		if resp.StatusCode == http.StatusOK && readErr == nil {
+			data = bytes.TrimPrefix(data, []byte("\xef\xbb\xbf"))
+			var candManifest VersionManifest
+			if json.Unmarshal(data, &candManifest) == nil && candManifest.Version != "" {
+				if !fetched || CompareVersions(candManifest.Version, manifest.Version) > 0 {
+					manifest = candManifest
 					source = "remote"
 					fetched = true
 				}

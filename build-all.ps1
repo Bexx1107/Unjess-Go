@@ -252,10 +252,11 @@ foreach ($dest in $destinations) {
     }
 }
 
-# Also update local installed locations (%LOCALAPPDATA%\Programs\Unjess and %LOCALAPPDATA%\Unjess) if present
+# Also update local installed locations (%LOCALAPPDATA%\Programs\Unjess, %LOCALAPPDATA%\Unjess, and Unjess-Go-src\dist) if present
 $localInstallDirs = @(
     "$env:LOCALAPPDATA\Programs\Unjess",
-    "$env:LOCALAPPDATA\Unjess"
+    "$env:LOCALAPPDATA\Unjess",
+    "$env:USERPROFILE\Unjess-Go-src\dist"
 ) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -Unique
 
 foreach ($instDir in $localInstallDirs) {

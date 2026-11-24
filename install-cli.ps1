@@ -8,7 +8,7 @@ Write-Host "Downloading Unjess CLI from GitHub Releases..." -ForegroundColor Gra
 
 $cliUrl = "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.0/unjess-cli.exe"
 $targetDir = Join-Path $env:USERPROFILE ".unjess\bin"
-$expectedHash = "5839c50ebb726dd91ef367e48aeb9e9fc11be0a74b6f29d60307e7772d5f2809"
+$expectedHash = "6ffcc37cadacea2d7b34859a9e0be6dea9fc25f6b05d0c1a9935b081391f122f"
 
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
 
