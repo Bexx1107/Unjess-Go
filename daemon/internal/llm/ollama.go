@@ -132,21 +132,40 @@ func normalizeOllamaBaseURL(raw string) string {
 	return u
 }
 
+func isLoopbackOllamaURL(raw string) bool {
+	low := strings.ToLower(strings.TrimSpace(raw))
+	return strings.Contains(low, "localhost") || strings.Contains(low, "127.0.0.1") || strings.Contains(low, "[::1]")
+}
+
 func streamOllama(ctx context.Context, opts ChatOptions, cb StreamCallbacks) (*ChatResult, error) {
 	baseURL := opts.OllamaBaseURL
 	var apiKey string
 
 	if opts.Provider == "ollama-api" {
+		apiKey = getAPIKey(opts, "ollama-api", "OLLAMA_API_KEY")
 		baseURL = opts.OllamaAPIBaseURL
 		if baseURL == "" {
 			baseURL = getBaseURL(opts, "ollama-api", "https://ollama.com")
 		}
-		apiKey = getAPIKey(opts, "ollama-api", "OLLAMA_API_KEY")
+		// If provider was left on ollama-api without any API key configured, route to local Ollama instead of failing 401 on ollama.com
+		if strings.TrimSpace(apiKey) == "" || apiKey == "ollama" {
+			localCandidate := opts.OllamaBaseURL
+			if localCandidate == "" {
+				localCandidate = getBaseURL(opts, "ollama", "http://localhost:11434")
+			}
+			if strings.Contains(strings.ToLower(baseURL), "ollama.com") {
+				baseURL = localCandidate
+				apiKey = ""
+			}
+		}
 	} else {
 		if baseURL == "" {
 			baseURL = getBaseURL(opts, "ollama", "http://localhost:11434")
 		}
-		apiKey = getAPIKey(opts, "ollama", "OLLAMA_API_KEY")
+		// Only attach Bearer key for non-loopback remote Ollama hosts; local Ollama daemon authenticates :cloud models itself
+		if !isLoopbackOllamaURL(baseURL) {
+			apiKey = getAPIKey(opts, "ollama", "OLLAMA_API_KEY")
+		}
 	}
 
 	baseURL = normalizeOllamaBaseURL(baseURL)
@@ -248,6 +267,30 @@ func streamOllama(ctx context.Context, opts ChatOptions, cb StreamCallbacks) (*C
 		if resp.StatusCode != http.StatusOK {
 			errBytes, _ := io.ReadAll(resp.Body)
 			_ = resp.Body.Close()
+			// If ollama-api returned 401 Unauthorized (e.g. stale provider selection or expired key) and local Ollama is running,
+			// transparently retry against the local Ollama daemon (which handles :cloud and local models natively).
+			if resp.StatusCode == http.StatusUnauthorized && strings.Contains(strings.ToLower(baseURL), "ollama.com") {
+				localBase := opts.OllamaBaseURL
+				if localBase == "" {
+					localBase = getBaseURL(opts, "ollama", "http://localhost:11434")
+				}
+				localBase = normalizeOllamaBaseURL(localBase)
+				if localBase != "" && localBase != baseURL {
+					if localReq, lErr := http.NewRequestWithContext(ctx, "POST", localBase+"/api/chat", bytes.NewReader(bodyBytes)); lErr == nil {
+						localReq.Header.Set("Content-Type", "application/json")
+						localReq.Header.Set("User-Agent", "Unjess-Daemon/1.0")
+						if localResp, doErr := http.DefaultClient.Do(localReq); doErr == nil {
+							if localResp.StatusCode == http.StatusOK {
+								baseURL = localBase
+								chatEndpoint = localBase + "/api/chat"
+								apiKey = ""
+								return localResp, nil, nil
+							}
+							_ = localResp.Body.Close()
+						}
+					}
+				}
+			}
 			return resp, errBytes, nil
 		}
 		return resp, nil, nil

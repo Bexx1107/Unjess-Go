@@ -246,11 +246,11 @@ var CloudProviderModels = map[string][]map[string]any{
 		{"id": "qwen3.7-max", "name": "Qwen 3.7 Max", "provider": "Qwen", "desc": "Alibaba Qwen 3.7 Max model", "has_tools": true, "has_thinking": true, "supports_effort": true, "is_cloud": true},
 	},
 	"ollama-api": {
-		{"id": "deepseek-v4-pro:cloud", "name": "DeepSeek V4 Pro (Ollama API)", "provider": "Ollama API", "desc": "Hosted Ollama API model", "has_tools": true, "has_thinking": true, "supports_effort": true, "is_cloud": true},
-		{"id": "deepseek-v4.1-flash:cloud", "name": "DeepSeek V4.1 Flash (Ollama API)", "provider": "Ollama API", "desc": "Hosted Ollama API model", "has_tools": true, "has_thinking": true, "supports_effort": true, "is_cloud": true},
-		{"id": "kimi-k3:cloud", "name": "Kimi K3 (Ollama API)", "provider": "Ollama API", "desc": "Hosted Ollama API model", "has_tools": true, "has_thinking": true, "supports_effort": true, "is_cloud": true},
-		{"id": "glm-5.3:cloud", "name": "GLM 5.3 (Ollama API)", "provider": "Ollama API", "desc": "Hosted Ollama API model", "has_tools": true, "has_thinking": true, "supports_effort": true, "is_cloud": true},
-		{"id": "mistral-large-4:cloud", "name": "Mistral Large 4 (Ollama API)", "provider": "Ollama API", "desc": "Hosted Ollama API model", "has_tools": true, "has_thinking": true, "supports_effort": true, "is_cloud": true},
+	{"id": "deepseek-v4-pro:cloud", "name": "DeepSeek V4 Pro (Ollama API)", "provider": "Ollama API", "provider_id": "ollama-api", "desc": "Hosted Ollama API model", "has_tools": true, "has_thinking": true, "supports_effort": true, "is_cloud": true},
+		{"id": "deepseek-v4.1-flash:cloud", "name": "DeepSeek V4.1 Flash (Ollama API)", "provider": "Ollama API", "provider_id": "ollama-api", "desc": "Hosted Ollama API model", "has_tools": true, "has_thinking": true, "supports_effort": true, "is_cloud": true},
+		{"id": "kimi-k3:cloud", "name": "Kimi K3 (Ollama API)", "provider": "Ollama API", "provider_id": "ollama-api", "desc": "Hosted Ollama API model", "has_tools": true, "has_thinking": true, "supports_effort": true, "is_cloud": true},
+		{"id": "glm-5.3:cloud", "name": "GLM 5.3 (Ollama API)", "provider": "Ollama API", "provider_id": "ollama-api", "desc": "Hosted Ollama API model", "has_tools": true, "has_thinking": true, "supports_effort": true, "is_cloud": true},
+		{"id": "mistral-large-4:cloud", "name": "Mistral Large 4 (Ollama API)", "provider": "Ollama API", "provider_id": "ollama-api", "desc": "Hosted Ollama API model", "has_tools": true, "has_thinking": true, "supports_effort": true, "is_cloud": true},
 	},
 }
 
@@ -302,9 +302,10 @@ func DiscoverModels(s *Settings, overrideOllamaURL string, overrideOllamaKey str
 		Timeout: 3 * time.Second,
 	}
 
+	isDirectOllamaCom := strings.Contains(strings.ToLower(cleanURL), "ollama.com")
 	req, err := http.NewRequest("GET", tagsURL, nil)
 	if err == nil {
-		if apiKey != "" && apiKey != "ollama" {
+		if isDirectOllamaCom && apiKey != "" && apiKey != "ollama" {
 			req.Header.Set("Authorization", "Bearer "+apiKey)
 		}
 		resp, reqErr := client.Do(req)
@@ -336,7 +337,8 @@ func DiscoverModels(s *Settings, overrideOllamaURL string, overrideOllamaKey str
 					if name == "" {
 						continue
 					}
-					isCloud := strings.Contains(cleanURL, "ollama.com") || strings.Contains(name, ":cloud") || m.RemoteHost != ""
+					isLocalCloud := !isDirectOllamaCom && (strings.Contains(strings.ToLower(name), ":cloud") || m.RemoteHost != "")
+					isCloud := isDirectOllamaCom || isLocalCloud
 					paramSize := m.Details.ParameterSize
 					capabilities := m.Capabilities
 					if capabilities == nil {
@@ -396,13 +398,16 @@ func DiscoverModels(s *Settings, overrideOllamaURL string, overrideOllamaKey str
 					if paramSize == "" {
 						desc = "Local model (GGUF)"
 					}
-					if isCloud {
-						desc = "Ollama API model"
-					}
-
 					providerName := "Ollama"
-					if isCloud {
+					providerID := "ollama"
+					if isDirectOllamaCom {
 						providerName = "Ollama API"
+						providerID = "ollama-api"
+						desc = "Ollama API model (ollama.com)"
+					} else if isLocalCloud {
+						providerName = "Ollama Cloud (Local)"
+						providerID = "ollama"
+						desc = "Cloud model via local Ollama daemon"
 					}
 
 					parsedModels = append(parsedModels, map[string]any{
@@ -410,6 +415,7 @@ func DiscoverModels(s *Settings, overrideOllamaURL string, overrideOllamaKey str
 						"name":            cleanName,
 						"raw_name":        name,
 						"provider":        providerName,
+						"provider_id":     providerID,
 						"is_cloud":        isCloud,
 						"size":            m.Size,
 						"parameter_size":  paramSize,
@@ -664,9 +670,11 @@ func DiscoverModels(s *Settings, overrideOllamaURL string, overrideOllamaKey str
 			if mID == "" {
 				continue
 			}
+			candProv, _ := modelInfo["provider"].(string)
 			exists := false
 			for _, existing := range parsedModels {
-				if existing["id"] == mID {
+				exProv, _ := existing["provider"].(string)
+				if existing["id"] == mID && strings.EqualFold(exProv, candProv) {
 					exists = true
 					break
 				}
@@ -675,6 +683,9 @@ func DiscoverModels(s *Settings, overrideOllamaURL string, overrideOllamaKey str
 				copyModel := make(map[string]any)
 				for k, v := range modelInfo {
 					copyModel[k] = v
+				}
+				if _, hasPID := copyModel["provider_id"]; !hasPID {
+					copyModel["provider_id"] = prov
 				}
 				parsedModels = append(parsedModels, copyModel)
 			}
@@ -1219,6 +1230,7 @@ func fetchLiveCloudModels(prov string, apiKey string, baseURLs map[string]string
 					"name":            id + " (Ollama API)",
 					"raw_name":        id,
 					"provider":        "Ollama API",
+					"provider_id":     "ollama-api",
 					"desc":            fmt.Sprintf("Ollama API model (%s)", apiBase),
 					"has_tools":       true,
 					"has_thinking":    hasThinking,

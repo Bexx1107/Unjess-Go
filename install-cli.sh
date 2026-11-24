@@ -26,11 +26,11 @@ ARCH="$(uname -m)"
 case "$ARCH" in
     x86_64|amd64)
         BIN_NAME="unjess-linux-amd64"
-        EXPECTED_HASH="a6719dc790e903692ceb2b69a708a8e78202b231e5ee6aa406e93571c3b27115"
+        EXPECTED_HASH="d53c09fe0b57b9879c1d0d8022cf2e6ef92c352c87a88fb9709d4ae73f455f83"
         ;;
     aarch64|arm64)
         BIN_NAME="unjess-linux-arm64"
-        EXPECTED_HASH="530fcc0ac31d6d41612eaa0542ed4e59da108a035e6184021681f9a0c1e984c7"
+        EXPECTED_HASH="360e86f95304d17c9fcd409d85f60239f8aed476a3921c409768665607b96720"
         ;;
     *)
         echo -e "${RED}Unsupported architecture: $ARCH${NC}"

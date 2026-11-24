@@ -309,6 +309,12 @@ func TestDiscoverModelsWithMockOllama(t *testing.T) {
 							"quantization_level": "Q4_K_M"
 						},
 						"capabilities": ["tools"]
+					},
+					{
+						"name": "deepseek-v4.1-flash:cloud",
+						"model": "deepseek-v4.1-flash:cloud",
+						"remote_host": "https://ollama.com:443",
+						"size": 0
 					}
 				]
 			}`))
@@ -335,10 +341,14 @@ func TestDiscoverModelsWithMockOllama(t *testing.T) {
 	}
 
 	foundOllama := false
+	foundLocalCloud := false
 	foundOpenAI := false
 	for _, m := range models {
 		if m["id"] == "qwen2.5-coder:7b" {
 			foundOllama = true
+			if m["provider"] != "Ollama" || m["provider_id"] != "ollama" {
+				t.Errorf("expected local model provider=Ollama/ollama, got %v/%v", m["provider"], m["provider_id"])
+			}
 			if m["family"] != "qwen2" {
 				t.Errorf("expected family 'qwen2', got '%v'", m["family"])
 			}
@@ -349,6 +359,12 @@ func TestDiscoverModelsWithMockOllama(t *testing.T) {
 				t.Errorf("expected size 4700000000, got %v", m["size"])
 			}
 		}
+		if m["id"] == "deepseek-v4.1-flash:cloud" && m["provider"] == "Ollama Cloud (Local)" {
+			foundLocalCloud = true
+			if m["provider_id"] != "ollama" {
+				t.Errorf("expected local Ollama :cloud model to route to provider_id='ollama', got %v", m["provider_id"])
+			}
+		}
 		if m["id"] == "gpt-6-astra" {
 			foundOpenAI = true
 		}
@@ -356,6 +372,9 @@ func TestDiscoverModelsWithMockOllama(t *testing.T) {
 
 	if !foundOllama {
 		t.Errorf("expected qwen2.5-coder:7b in models list")
+	}
+	if !foundLocalCloud {
+		t.Errorf("expected deepseek-v4.1-flash:cloud grouped under 'Ollama Cloud (Local)'")
 	}
 	if !foundOpenAI {
 		t.Errorf("expected gpt-6-astra in models list since openai key was configured")

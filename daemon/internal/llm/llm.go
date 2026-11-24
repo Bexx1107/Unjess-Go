@@ -176,6 +176,8 @@ func DetectProvider(model string, configuredProvider string) string {
 		normConfigured = "llamacpp"
 	case "lm studio":
 		normConfigured = "lmstudio"
+	case "ollama cloud (local)", "ollama (local)", "ollama local":
+		normConfigured = "ollama"
 	case "ollama api", "ollama cloud":
 		normConfigured = "ollama-api"
 	}

@@ -8,7 +8,7 @@ Write-Host "Downloading Unjess Setup from GitHub Releases..." -ForegroundColor G
 
 $installerUrl = "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.0/Unjess-Setup.exe"
 $tempPath = Join-Path $env:TEMP "Unjess-Setup.exe"
-$expectedHash = "181e7d6c5701ef5541a1300f1f7d0b6b3e9505ba22f561a339865b0ffdbd5ad2"
+$expectedHash = "dd8df443acbeb36522b708a0d588dd29fc6aa80f86b03190783f15154d5be85d"
 
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
 
