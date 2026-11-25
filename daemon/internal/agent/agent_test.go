@@ -1161,6 +1161,43 @@ func TestBuildConversationHistoryMessages(t *testing.T) {
 	if last.Role != "user" || last.Content != "Current turn effective prompt" {
 		t.Errorf("unexpected last message: %+v", last)
 	}
+
+	// 4. Verify turns with >18 tool calls preserve mutating calls and final tail verifications instead of dropping after 12
+	manyTools := make([]any, 0, 25)
+	for i := 0; i < 15; i++ {
+		manyTools = append(manyTools, map[string]any{
+			"name":      "run_command",
+			"status":    "completed",
+			"arguments": map[string]any{"command": fmt.Sprintf("early_probe_%d", i)},
+			"result":    "NOT FOUND",
+		})
+	}
+	manyTools = append(manyTools, map[string]any{
+		"name":      "write_file",
+		"status":    "completed",
+		"arguments": map[string]any{"path": "mod/DSB_GM/DSB_Dispensary.conf"},
+		"result":    "Successfully wrote 11 lines",
+	})
+	for i := 16; i < 24; i++ {
+		manyTools = append(manyTools, map[string]any{
+			"name":      "run_command",
+			"status":    "completed",
+			"arguments": map[string]any{"command": fmt.Sprintf("final_verify_%d", i)},
+			"result":    "Configs/Editor/PlaceableEntities/DSB_Dispensary.conf True",
+		})
+	}
+	convMany := map[string]any{
+		"id": "conv_many_tools",
+		"turns": []any{
+			map[string]any{"role": "user", "text": "Register prefabs for GM"},
+			map[string]any{"role": "agent", "text": "GM registration indexed.", "toolCalls": manyTools},
+			map[string]any{"role": "user", "text": "Can I test in Workbench?"},
+		},
+	}
+	msgsMany := buildConversationHistoryMessages(convMany, "Can I test in Workbench?", nil)
+	if len(msgsMany) < 2 || !strings.Contains(msgsMany[1].Content, "DSB_Dispensary.conf") || !strings.Contains(msgsMany[1].Content, "final_verify_23") {
+		t.Errorf("expected mutating write_file and final verification tool calls preserved in history summary, got:\n%s", msgsMany[1].Content)
+	}
 }
 
 func TestZombieSubagentCleanupOnLoad(t *testing.T) {

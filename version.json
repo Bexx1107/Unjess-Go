@@ -14,12 +14,12 @@
     "cli_linux_arm64_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.0/unjess-linux-arm64",
     "daemon_linux_amd64_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.0/unjessd-linux-amd64",
     "daemon_linux_arm64_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.0/unjessd-linux-arm64",
-    "sha256":  "02442b1b3ca07971b69bb634c180578256c6ed148f443ba06543dc0e1c3236d4",
-    "installer_sha256":  "a3a6f4eb3e5172aaca01abe05ad7f2291f3ffc82ee745a95eb829218ea9a60f9",
-    "portable_sha256":  "ecdd7d0b004b9ab61beaf37fcb15d342453cc60d32d8ba7e18e182c384d93729",
-    "daemon_sha256":  "386bb15f179e613d9dcffde8eb34892ea575752af97ca4120d9037a94ba82604",
-    "cli_sha256":  "c6e0786bfb3e274cc7340466e2f5f6320f7332db8ed88d7c49022b657317c425",
-    "desktop_sha256":  "02442b1b3ca07971b69bb634c180578256c6ed148f443ba06543dc0e1c3236d4",
+    "sha256":  "6f2f09af2c043db8be84c809712de3482749c60005e46684ccd3a1af227cac35",
+    "installer_sha256":  "70a0573d09004d9ba76ae1351ad96a385aa34ed3816bda0aea49e825d84212a2",
+    "portable_sha256":  "ccdbb180cfb2ff3cb33531c22d3cf00c338c88099377e5d62f0b939f502b7673",
+    "daemon_sha256":  "0e48cdc82c4ebd52f032f5a4450623fef018a117aa350f94082dd6f558975592",
+    "cli_sha256":  "b6502332c4fde73fc5e89e6c90b7a0dd61d61ed506e43e6bd53c4e32f52ca2e1",
+    "desktop_sha256":  "6f2f09af2c043db8be84c809712de3482749c60005e46684ccd3a1af227cac35",
     "webview2_loader_sha256":  "86545b66cdb0603bc26b626fb9ad610cb6e71f28d468f5ea66df23b03dda96d5",
     "notes":  "Unjess v3.1.0 - Native Sidebar Browser (embedded WebView2 with persistent logins \u0026 zero headless bot flags), Model Selector live search + Starred model pinning, local Ollama Cloud vs Ollama API separation, and transient LLM stream retries.",
     "changelog":  [
@@ -126,11 +126,11 @@
                                       ]
                       }
                   ],
-    "cli_linux_amd64_sha256":  "e83655814cc910ba92d358877451416efdc51c13c797134a16bfed7988ba88b8",
-    "cli_linux_arm64_sha256":  "6d5da12ebf045204d85e0e3a87bb0822a2acef77f7c49da5543d819796edbba0",
-    "daemon_linux_amd64_sha256":  "7ceab57aeb72fab4bd08a1e0f2be9694649443d07cbc86c6f90824c6f2561dd5",
-    "daemon_linux_arm64_sha256":  "3aed928b81bf83002fb0887f1d197e6b07fc63413583c6c7fc492ff406e90dc1",
-    "cli_windows_amd64_sha256":  "c6e0786bfb3e274cc7340466e2f5f6320f7332db8ed88d7c49022b657317c425",
-    "daemon_windows_amd64_sha256":  "386bb15f179e613d9dcffde8eb34892ea575752af97ca4120d9037a94ba82604",
-    "setup_windows_amd64_sha256":  "a3a6f4eb3e5172aaca01abe05ad7f2291f3ffc82ee745a95eb829218ea9a60f9"
+    "cli_linux_amd64_sha256":  "48ad2e9ff24028d11a6a6d56c7f79b72b6395c236645673483283de4c2e375a0",
+    "cli_linux_arm64_sha256":  "fab3b501e730624f082cb6d66f553ca36de0615f8a524ebda9305473922272b4",
+    "daemon_linux_amd64_sha256":  "b17d690d9baa4fc6b8fdae93e5e925bf926c6ca88b96de7fb0faaaa0e5820998",
+    "daemon_linux_arm64_sha256":  "af2e718d4e330bac41ee9e97e17cdefd944f31c058db740e0da29ec475daef70",
+    "cli_windows_amd64_sha256":  "b6502332c4fde73fc5e89e6c90b7a0dd61d61ed506e43e6bd53c4e32f52ca2e1",
+    "daemon_windows_amd64_sha256":  "0e48cdc82c4ebd52f032f5a4450623fef018a117aa350f94082dd6f558975592",
+    "setup_windows_amd64_sha256":  "70a0573d09004d9ba76ae1351ad96a385aa34ed3816bda0aea49e825d84212a2"
 }

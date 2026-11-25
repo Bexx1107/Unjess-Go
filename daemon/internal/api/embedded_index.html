@@ -3099,26 +3099,184 @@
       renderPendingAttachments();
     }
 
-    // Helper: Lightweight Markdown renderer for Agent responses
+    // Helper: Rich GitHub-Flavored Markdown renderer for Agent responses (tables, lists, code, links, blockquotes)
+    function formatInlineMarkdown(escapedLine) {
+      let s = escapedLine;
+      // Inline code spans (`code`)
+      const codeSpans = [];
+      s = s.replace(/`([^`\n]+)`/g, (_, code) => {
+        const token = `\x00CODE_${codeSpans.length}\x00`;
+        codeSpans.push(`<code class="px-1.5 py-0.5 rounded bg-zinc-900/90 text-sky-300 border border-white/10 font-mono text-[11px]">${code}</code>`);
+        return token;
+      });
+      // Markdown links [label](url)
+      s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, label, rawUrl) => {
+        const cleanUrl = rawUrl.replace(/&amp;/g, '&');
+        if (cleanUrl.startsWith('file://')) {
+          const localPath = decodeURIComponent(cleanUrl.replace(/^file:\/\/\/?/, '')).replace(/#L\d+(?:-L?\d+)?$/, '');
+          return `<a href="javascript:void(0)" onclick="openFileInViewer('${localPath.replace(/\\/g, '/').replace(/'/g, "\\'")}')" class="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded bg-sky-950/60 hover:bg-sky-900/70 text-sky-300 border border-sky-500/30 font-mono text-[11px] transition" title="${escapeHtml(localPath)}"><span>${label}</span></a>`;
+        }
+        if (/^https?:\/\//i.test(cleanUrl)) {
+          return `<a href="${escapeHtml(cleanUrl)}" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:text-sky-300 underline underline-offset-2">${label}</a>`;
+        }
+        return `<span class="text-sky-300 font-mono">${label}</span>`;
+      });
+      // Bold + Italic
+      s = s.replace(/\*\*\*([^*]+)\*\*\*/g, '<strong class="text-white font-semibold"><em>$1</em></strong>');
+      s = s.replace(/\*\*([^*]+)\*\*/g, '<strong class="text-white font-semibold">$1</strong>');
+      s = s.replace(/(^|[\s(])\*([^*\n]+)\*(?=[\s.,!?:;)]|$)/g, '$1<em class="text-slate-200 italic">$2</em>');
+      // Restore inline code spans
+      s = s.replace(/\x00CODE_(\d+)\x00/g, (_, idx) => codeSpans[Number(idx)] || '');
+      return s;
+    }
+
+    function renderMarkdownBlockSegment(escapedSegment) {
+      const lines = escapedSegment.replace(/\r\n/g, '\n').split('\n');
+      const out = [];
+      let i = 0;
+
+      const isTableSeparator = (ln) => /^\s*\|?(?:\s*:?-{2,}:?\s*\|)+\s*(?::?-{2,}:?\s*\|?)?\s*$/.test(ln);
+      const splitTableRow = (ln) => {
+        let trimmed = ln.trim();
+        if (trimmed.startsWith('|')) trimmed = trimmed.slice(1);
+        if (trimmed.endsWith('|')) trimmed = trimmed.slice(0, -1);
+        return trimmed.split('|').map(c => formatInlineMarkdown(c.trim()));
+      };
+
+      while (i < lines.length) {
+        const line = lines[i];
+        const trimmed = line.trim();
+
+        // Blank line
+        if (!trimmed) {
+          i++;
+          continue;
+        }
+
+        // Horizontal rule
+        if (/^(?:---+|___+|\*\*\*+)$/.test(trimmed)) {
+          out.push('<hr class="my-3 border-white/10" />');
+          i++;
+          continue;
+        }
+
+        // Headings (# to ####)
+        const hMatch = line.match(/^\s*(#{1,4})\s+(.*)$/);
+        if (hMatch) {
+          const level = hMatch[1].length;
+          const content = formatInlineMarkdown(hMatch[2].trim());
+          if (level === 1) {
+            out.push(`<h2 class="text-white font-bold text-base mt-3.5 mb-1.5">${content}</h2>`);
+          } else if (level === 2) {
+            out.push(`<h3 class="text-white font-bold text-sm mt-3.5 mb-1.5">${content}</h3>`);
+          } else if (level === 3) {
+            out.push(`<h4 class="text-white font-semibold text-xs mt-3 mb-1">${content}</h4>`);
+          } else {
+            out.push(`<h5 class="text-slate-200 font-semibold text-xs mt-2.5 mb-1">${content}</h5>`);
+          }
+          i++;
+          continue;
+        }
+
+        // GitHub-Flavored Markdown Table
+        if (trimmed.includes('|') && i + 1 < lines.length && isTableSeparator(lines[i + 1])) {
+          const headers = splitTableRow(line);
+          i += 2; // skip header + separator
+          const rows = [];
+          while (i < lines.length && lines[i].trim().includes('|') && lines[i].trim() !== '') {
+            if (!isTableSeparator(lines[i])) {
+              rows.push(splitTableRow(lines[i]));
+            }
+            i++;
+          }
+          const thHtml = headers.map(h => `<th class="px-2.5 py-1.5 font-semibold text-zinc-200 bg-zinc-900/90 border-b border-white/10">${h}</th>`).join('');
+          const trHtml = rows.map(r => {
+            const cells = headers.map((_, colIdx) => `<td class="px-2.5 py-1.5 text-slate-300 border-t border-white/5 align-top">${r[colIdx] !== undefined ? r[colIdx] : ''}</td>`).join('');
+            return `<tr class="hover:bg-white/[0.02]">${cells}</tr>`;
+          }).join('');
+          out.push(`<div class="my-2.5 overflow-x-auto rounded-lg border border-white/10 bg-zinc-950/60"><table class="w-full text-left text-xs border-collapse"><thead><tr>${thHtml}</tr></thead><tbody>${trHtml}</tbody></table></div>`);
+          continue;
+        }
+
+        // Blockquote (> ...)
+        if (/^\s*&gt;\s?/.test(line)) {
+          const qLines = [];
+          while (i < lines.length && /^\s*&gt;\s?/.test(lines[i])) {
+            qLines.push(formatInlineMarkdown(lines[i].replace(/^\s*&gt;\s?/, '')));
+            i++;
+          }
+          out.push(`<blockquote class="my-2 pl-3 border-l-2 border-sky-500/50 text-slate-300 bg-sky-950/15 py-1.5 pr-2 rounded-r">${qLines.join('<br>')}</blockquote>`);
+          continue;
+        }
+
+        // Unordered list (- or *)
+        if (/^\s*[-*]\s+/.test(line)) {
+          const items = [];
+          while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) {
+            const indent = (lines[i].match(/^(\s*)/)?.[1]?.length || 0) >= 2;
+            const itemText = formatInlineMarkdown(lines[i].replace(/^\s*[-*]\s+/, ''));
+            items.push(`<li class="${indent ? 'ml-8 list-[circle]' : 'ml-4 list-disc'} my-0.5 leading-relaxed">${itemText}</li>`);
+            i++;
+          }
+          out.push(`<ul class="my-1.5 space-y-0.5">${items.join('')}</ul>`);
+          continue;
+        }
+
+        // Ordered list (1. 2. ...)
+        if (/^\s*\d+\.\s+/.test(line)) {
+          const items = [];
+          while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i])) {
+            const m = lines[i].match(/^\s*(\d+)\.\s+(.*)$/);
+            if (m) {
+              items.push(`<li value="${m[1]}" class="ml-5 list-decimal my-1 leading-relaxed">${formatInlineMarkdown(m[2])}</li>`);
+            }
+            i++;
+          }
+          out.push(`<ol class="my-1.5 space-y-0.5">${items.join('')}</ol>`);
+          continue;
+        }
+
+        // Standard paragraph (collect consecutive non-special lines)
+        const pLines = [];
+        while (
+          i < lines.length &&
+          lines[i].trim() !== '' &&
+          !/^(?:---+|___+|\*\*\*+)$/.test(lines[i].trim()) &&
+          !/^\s*#{1,4}\s+/.test(lines[i]) &&
+          !/^\s*&gt;\s?/.test(lines[i]) &&
+          !/^\s*[-*]\s+/.test(lines[i]) &&
+          !/^\s*\d+\.\s+/.test(lines[i]) &&
+          !(lines[i].trim().includes('|') && i + 1 < lines.length && isTableSeparator(lines[i + 1]))
+        ) {
+          pLines.push(formatInlineMarkdown(lines[i]));
+          i++;
+        }
+        if (pLines.length > 0) {
+          out.push(`<p class="my-1.5 leading-relaxed">${pLines.join('<br>')}</p>`);
+        }
+      }
+
+      return out.join('');
+    }
+
     function renderMarkdownText(md) {
       if (!md) return '';
       let html = escapeHtml(md);
-      // Fenced code blocks
-      html = html.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (_, lang, code) => {
-        return `<pre><code>${code.trim()}</code></pre>`;
+      const codeBlocks = [];
+      // Extract fenced code blocks first so their contents are untouched by block/inline markdown
+      html = html.replace(/```([a-zA-Z0-9_+-]*)\r?\n([\s\S]*?)```/g, (_, lang, code) => {
+        const token = `\x00PRE_${codeBlocks.length}\x00`;
+        const langBadge = lang ? `<div class="px-2.5 py-1 text-[10px] font-mono text-zinc-400 bg-zinc-900/90 border-b border-white/5 flex items-center justify-between"><span>${lang}</span></div>` : '';
+        codeBlocks.push(`<div class="my-2 rounded-lg overflow-hidden border border-white/10 bg-zinc-950/90">${langBadge}<pre class="!my-0 !border-0 !rounded-none p-2.5 overflow-x-auto text-[11px] font-mono text-zinc-200"><code>${code.trim()}</code></pre></div>`);
+        return token;
       });
-      // Inline code
-      html = html.replace(/`([^`\n]+)`/g, '<code>$1</code>');
-      // Bold
-      html = html.replace(/\*\*([^*]+)\*\*/g, '<strong class="text-white font-semibold">$1</strong>');
-      // Headings
-      html = html.replace(/^### (.*)$/gm, '<h4 class="text-white font-semibold text-xs mt-3 mb-1">$1</h4>');
-      html = html.replace(/^## (.*)$/gm, '<h3 class="text-white font-bold text-sm mt-3 mb-1">$1</h3>');
-      // Bullet lists
-      html = html.replace(/^\s*[-*] (.*)$/gm, '<li class="ml-4 list-disc">$1</li>');
-      // Line breaks (outside pre)
-      const parts = html.split(/(<pre>[\s\S]*?<\/pre>)/g);
-      return parts.map(p => p.startsWith('<pre>') ? p : p.replace(/\n/g, '<br>')).join('');
+
+      const segments = html.split(/(\x00PRE_\d+\x00)/g);
+      return segments.map(seg => {
+        const m = seg.match(/^\x00PRE_(\d+)\x00$/);
+        if (m) return codeBlocks[Number(m[1])] || '';
+        return renderMarkdownBlockSegment(seg);
+      }).join('');
     }
 
     function formatRelativeTime(ts) {
