@@ -83,14 +83,26 @@ type VersionManifest struct {
 func BuiltinChangelog() []ChangelogEntry {
 	return []ChangelogEntry{
 		{
-			Version: "3.1.0",
-			Date:    "2026-11-24",
-			Title:   "Unjess v3.1.0 - Native Sidebar Browser (WebView2), Model Search & Starred Favorites",
+			Version: "3.1.1",
+			Date:    "2026-11-25",
+			Title:   "Unjess v3.1.1 - Response Clarity, Cross-Turn Memory Retention, Model Search & Starred Favorites",
 			Tag:     "LATEST",
 			Changes: []string{
+				"Eliminated cross-turn tool history amnesia: buildConversationHistoryMessages now preserves all file-mutating tool calls and final verification steps instead of dropping calls after step 12",
+				"Fixed CompactConversation live-turn struct extraction, auto-attached PLAN.md into <workspace_overview>, and silenced pre-exit scratch cleanup so internal checks never hijack user-facing replies",
+				"Added Antigravity / OpenCode communication & work-efficiency protocol (direct answer first, clear 'What Works vs. What Is Missing' structure, batched commands, and no unsolicited desktop GUI hijacking)",
+				"Added instant multi-token Model Search, ★ Starred model pinning (persisted to config.yaml), GFM Markdown table/list/link renderer, and separate 'Ollama Cloud (Local)' vs. 'Ollama API' routing",
+			},
+		},
+		{
+			Version: "3.1.0",
+			Date:    "2026-11-24",
+			Title:   "Unjess v3.1.0 - Native Sidebar Browser (WebView2), Persistent Sessions & Transient Retry Hardening",
+			Tag:     "UPDATE",
+			Changes: []string{
 				"Added embedded Native Sidebar Browser (child WebView2) docked in the Right Inspector (Diffs | Browser | Controls) — zero iframe restrictions, real GPU rendering, persistent logins, and no headless CDP bot flags",
-				"Added instant multi-token Model Search (with Arrow/Enter keyboard navigation) and Starred Favorites (★ Starred always pinned to the top across selectors and persisted to config.yaml)",
-				"Separated local Ollama Cloud (:cloud) models into 'Ollama Cloud (Local)' routed via local localhost:11434 vs direct 'Ollama API' (ollama.com)",
+				"Persistent Browser Sessions & Human Handoff: Preserves logins, cookies, and localStorage across restarts in %LOCALAPPDATA%\\Unjess\\browser_webview so you and the agent share authenticated web sessions",
+				"Live Agent Browser Auto-Open & Set-of-Mark Bridge: Automatically opens the Sidebar Browser when browser_use runs, indexing [1..N] DOM elements via native ExecuteScript and capturing screenshots in-process",
 				"Added automatic exponential backoff retries for transient upstream LLM errors (503, 429, 502, 504, 529), orphaned workspace pruning, workspace removal endpoints, and skill folder frontmatter normalization",
 			},
 		},

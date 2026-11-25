@@ -1,14 +1,14 @@
 # Unjess Windows PowerShell One-Line Installer
 $ErrorActionPreference = 'Stop'
 Write-Host "══════════════════════════════════════════════════" -ForegroundColor Cyan
-Write-Host "  UNJESS — Universal Agentic Coding Harness v3.1.0 " -ForegroundColor White
+Write-Host "  UNJESS — Universal Agentic Coding Harness v3.1.1 " -ForegroundColor White
 Write-Host "══════════════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Downloading Unjess Setup from GitHub Releases..." -ForegroundColor Gray
 
-$installerUrl = "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.0/Unjess-Setup.exe"
+$installerUrl = "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.1/Unjess-Setup.exe"
 $tempPath = Join-Path $env:TEMP "Unjess-Setup.exe"
-$expectedHash = "70a0573d09004d9ba76ae1351ad96a385aa34ed3816bda0aea49e825d84212a2"
+$expectedHash = "09a14822d2f4c6c6f393668c02644fef13c81765a268c199febbcfafb5cff29f"
 
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
 
