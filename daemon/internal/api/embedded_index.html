@@ -4675,6 +4675,10 @@
                 if (hs.workspaces && hs.workspaces.length > 0) state.workspaces = hs.workspaces;
                 if (hs.conversations && hs.conversations.length > 0) {
                   state.conversations = hs.conversations;
+                  if (isAgentRunning && activePendingTurn) {
+                    const runningConv = state.conversations.find(c => c && c.id === activePendingTurn._convId);
+                    if (runningConv) ensurePendingTurnAttached(runningConv);
+                  }
                   hs.conversations.forEach(c => {
                     (c.turns || []).forEach(t => {
                       if (Array.isArray(t.subagents) && t.subagents.length > 0) {
@@ -5464,6 +5468,7 @@
       ensureMessagesScrollListener(container);
 
       const conv = getActiveConversation();
+      if (conv) ensurePendingTurnAttached(conv);
       const currentConvId = conv ? conv.id : '';
       const turns = conv ? (conv.turns || []) : [];
 
@@ -5656,6 +5661,11 @@
 
       const conv = getActiveConversation();
       if (!conv || !conv.turns) return;
+      if (pendingTurn._convId && conv.id !== pendingTurn._convId) {
+        // User is currently viewing a different conversation while this turn runs in the background
+        return;
+      }
+      ensurePendingTurnAttached(conv);
       const turnIdx = conv.turns.indexOf(pendingTurn);
       if (turnIdx === -1) {
         renderMessages();
@@ -8224,6 +8234,7 @@
       }
       const conv = getActiveConversation();
       if (conv) {
+        ensurePendingTurnAttached(conv);
         document.getElementById('feed-project-title').textContent = conv.title;
         if (conv.workspace && conv.workspace !== state.activeWorkspace) {
           const matchingWs = state.workspaces.find(w => w.path.toLowerCase() === conv.workspace.toLowerCase());
@@ -9063,9 +9074,24 @@ function openNewChatModal(initialMode = 'quick') {
     let activeChatAbortController = null;
     let activeLivePollTimer = null;
     let activeTurnRunId = 0;
+    let activePendingTurn = null;
+
+    function ensurePendingTurnAttached(conv) {
+      if (!conv || !Array.isArray(conv.turns) || !isAgentRunning || !activePendingTurn) return;
+      if (activePendingTurn._convId && conv.id !== activePendingTurn._convId) return;
+      if (!conv.turns.includes(activePendingTurn)) {
+        const lastIdx = conv.turns.length - 1;
+        if (lastIdx >= 0 && conv.turns[lastIdx] && conv.turns[lastIdx].role === 'agent' && String(conv.turns[lastIdx].timestamp || '').startsWith('running')) {
+          conv.turns[lastIdx] = activePendingTurn;
+        } else {
+          conv.turns.push(activePendingTurn);
+        }
+      }
+    }
 
     function resetSendButtonUI() {
       isAgentRunning = false;
+      activePendingTurn = null;
       if (activeLivePollTimer) {
         clearInterval(activeLivePollTimer);
         activeLivePollTimer = null;
@@ -10448,6 +10474,8 @@ function openNewChatModal(initialMode = 'quick') {
       });
 
       const pendingTurn = {
+        _isLivePendingTurn: true,
+        _convId: conv.id,
         role: 'agent',
         model: state.selectedModel,
         reasoning_effort: state.reasoningEffort || 'high',
@@ -10462,6 +10490,7 @@ function openNewChatModal(initialMode = 'quick') {
         diffs: [],
         text: ''
       };
+      activePendingTurn = pendingTurn;
       conv.turns.push(pendingTurn);
       _chatStickToBottom = true;
       renderMessages(true);
@@ -10496,6 +10525,11 @@ function openNewChatModal(initialMode = 'quick') {
                 hidePlanCard();
               }
               if (live.running) {
+                if (typeof live.conv_id === 'string' && live.conv_id) {
+                  pendingTurn._convId = live.conv_id;
+                  const targetConv = (state.conversations || []).find(c => c && c.id === live.conv_id);
+                  if (targetConv) ensurePendingTurnAttached(targetConv);
+                }
                 if (typeof live.reasoning_effort === 'string' && live.reasoning_effort) pendingTurn.reasoning_effort = live.reasoning_effort;
                 if (typeof live.caveman_mode === 'boolean') pendingTurn.caveman_mode = live.caveman_mode;
                 if (typeof live.ponytail_mode === 'boolean') pendingTurn.ponytail_mode = live.ponytail_mode;
@@ -10604,8 +10638,9 @@ function openNewChatModal(initialMode = 'quick') {
             const stateResp = await fetch(`${API_BASE}/api/harness/state`);
             if (stateResp.ok) {
               const stateData = await stateResp.json();
-              if (Array.isArray(stateData.conversations)) {
-                state.conversations = stateData.conversations;
+              const syncedConvs = (stateData.state && stateData.state.conversations) || stateData.conversations;
+              if (Array.isArray(syncedConvs)) {
+                state.conversations = syncedConvs;
               }
               await refreshWorkspaceFiles();
               syncedViaLiveState = true;

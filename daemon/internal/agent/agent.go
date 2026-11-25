@@ -5487,9 +5487,9 @@ func (hm *HarnessManager) RunAgentTurn(ctx context.Context, req ChatTurnRequest)
 		if turnMode == "Plan" {
 			planProto.WriteString("Plan Mode Active (`propose_plan`):\n")
 			planProto.WriteString("- You are currently in PLAN MODE. Workspace file modifications (`write_file`, `edit_file`) are STRICTLY LOCKED until you propose a plan and the user approves it.\n")
-			planProto.WriteString("- Explore the codebase first using read_file, list_dir, grep_search, and find_by_name.\n")
-			planProto.WriteString("- If requirements need clarifying, call `ask_question`.\n")
-			planProto.WriteString("- Once you understand the task, call `propose_plan` with a detailed title, summary, numbered action steps, and open questions/risks.\n")
+			planProto.WriteString("- Distinguish between a QUICK QUESTION vs. a FEATURE PLANNING REQUEST:\n")
+			planProto.WriteString("  * If the user is asking a conversational or feasibility question (e.g. 'Is it possible to make X?', 'How does Y work?', 'Can we do Z?'), do at most 1-3 quick read-only checks and answer directly in plain text (explaining how it works and asking if they want you to generate a full implementation plan). Do NOT spend 20+ commands reverse-engineering binary databases or packed archives for a simple feasibility question.\n")
+			planProto.WriteString("  * If the user asks you to plan or build a feature, explore the codebase using read_file, list_dir, grep_search, and find_by_name (call `ask_question` if requirements are ambiguous), and then call `propose_plan` with a title, summary, numbered action steps, and open questions/risks.\n")
 			planProto.WriteString("- Calling `propose_plan` automatically writes PLAN.md to the workspace root and displays an interactive Plan Approval review card with 'Approve Plan' and 'Provide Feedback' buttons.\n")
 			planProto.WriteString("- Once the user clicks 'Approve Plan', file modifications will unlock and you may begin implementing.\n")
 		} else {
