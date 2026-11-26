@@ -159,7 +159,7 @@
       </div>
       <button id="btn-header-version" type="button" class="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono bg-zinc-900/90 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700/60 transition cursor-pointer select-none" title="Unjess Version & Updates (Click to check)">
         <span id="header-version-dot" class="hidden w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
-        <span id="header-version-text">v3.1.1</span>
+        <span id="header-version-text">v3.1.2</span>
       </button>
       <span id="backend-status-pill" class="hidden">
         <span id="backend-status-dot"></span>
@@ -200,6 +200,10 @@
 
     <!-- Right: Header Quick Utilities -->
     <div class="flex items-center space-x-1 sm:space-x-2 text-slate-400">
+      <button id="btn-header-apply-update" type="button" class="hidden items-center space-x-1.5 px-2.5 py-1 rounded-md bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 hover:text-white border border-emerald-500/50 text-[11px] font-mono font-semibold transition shadow-sm cursor-pointer select-none" title="Download, install update, and restart Unjess">
+        <i id="header-apply-update-icon" data-lucide="download" class="w-3.5 h-3.5 text-emerald-400 flex-shrink-0"></i>
+        <span id="header-apply-update-text">Restart & Update</span>
+      </button>
       <button id="btn-toggle-subagent-split" onclick="toggleSubagentSplitPanel()" class="hover:text-white transition px-2 py-1 rounded hover:bg-unjessCard flex items-center space-x-1 text-[11px] border border-transparent hover:border-unjessBorder font-mono" title="Toggle Subagent Split-Screen Inspector">
         <i data-lucide="cpu" class="w-3.5 h-3.5 text-zinc-300"></i>
         <span class="hidden sm:inline">Subagents</span>
@@ -1804,7 +1808,7 @@
                   <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-unjessBorder pb-4">
                     <div class="space-y-1">
                       <div class="flex items-center space-x-2.5">
-                        <span id="update-current-version-title" class="text-sm font-bold text-white tracking-tight">Unjess v3.1.1</span>
+                        <span id="update-current-version-title" class="text-sm font-bold text-white tracking-tight">Unjess v3.1.2</span>
                         <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-900 text-zinc-300 border border-zinc-700/60">
                           Go + Rust Native Engine • unjess.si
                         </span>
@@ -1816,7 +1820,7 @@
                       <!-- Status Pill -->
                       <span id="update-check-status-badge" class="px-2.5 py-1 rounded-full text-[11px] font-mono flex items-center space-x-1.5 bg-zinc-900 border border-zinc-700/60 text-zinc-300">
                         <span id="update-status-badge-dot" class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                        <span id="update-status-badge-text">Up to date (v3.1.1)</span>
+                        <span id="update-status-badge-text">Up to date (v3.1.2)</span>
                       </span>
 
                       <!-- Check for Updates Button -->
@@ -4314,7 +4318,7 @@
 
       // Include non-quick workspaces referenced by conversations so no folder is orphaned
       (state.conversations || []).forEach(conv => {
-        if (conv && conv.workspace && !isQuickWorkspacePath(conv.workspace, '')) {
+        if (conv && conv.workspace && conv.mode !== 'quick' && !isQuickWorkspacePath(conv.workspace, '')) {
           const np = normPath(conv.workspace);
           if (np && !seenWsPaths.has(np)) {
             seenWsPaths.add(np);
@@ -4338,7 +4342,7 @@
       projectWorkspaces.forEach(ws => {
         const wsNorm = normPath(ws.path);
         const wsConvs = (state.conversations || []).filter(conv => {
-          if (normPath(conv.workspace) === wsNorm) {
+          if (conv && conv.mode !== 'quick' && normPath(conv.workspace) === wsNorm) {
             matchedConvIds.add(conv.id);
             return true;
           }
@@ -11871,10 +11875,22 @@ function openNewChatModal(initialMode = 'quick') {
       if (!Array.isArray(changelog) || changelog.length === 0) {
         changelog = [
           {
+            version: "3.1.2",
+            date: "2026-11-26",
+            title: "Unjess v3.1.2 - Automatic Update Polling, Top-Bar Restart & Update Button & Quick Chats Fix",
+            tag: "LATEST",
+            changes: [
+              "Added prominent one-click 'Restart & Update (vX.Y.Z)' button directly in the top header bar whenever a new version is available",
+              "Added automatic background update polling (on startup and every 15 minutes) across both unjess.si and the GitHub release manifest so new releases appear automatically",
+              "Fixed Quick Chats being absorbed into the Projects folder tree when given custom titles or reloaded across daemon restarts",
+              "Synchronized both Unjess.exe and unjess-desktop.exe sibling binaries during in-app updates with automatic .old backup cleanup on restart"
+            ]
+          },
+          {
             version: "3.1.1",
             date: "2026-11-25",
             title: "Unjess v3.1.1 - Response Clarity, Cross-Turn Memory Retention, Model Search & Starred Favorites",
-            tag: "LATEST",
+            tag: "UPDATE",
             changes: [
               "Eliminated cross-turn tool history amnesia: buildConversationHistoryMessages now preserves all file-mutating tool calls and final verification steps instead of dropping calls after step 12",
               "Fixed CompactConversation live-turn struct extraction, auto-attached PLAN.md into <workspace_overview>, and silenced pre-exit scratch cleanup so internal checks never hijack user-facing replies",
@@ -12226,6 +12242,8 @@ function openNewChatModal(initialMode = 'quick') {
       const badgeDot = document.getElementById('update-status-badge-dot');
       const badgeText = document.getElementById('update-status-badge-text');
       const applyBtn = document.getElementById('btn-apply-update');
+      const headerApplyBtn = document.getElementById('btn-header-apply-update');
+      const headerApplyText = document.getElementById('header-apply-update-text');
       const lastCheckedEl = document.getElementById('update-last-checked');
       const headerVersionDot = document.getElementById('header-version-dot');
       const headerVersionText = document.getElementById('header-version-text');
@@ -12263,7 +12281,7 @@ function openNewChatModal(initialMode = 'quick') {
         if (resp && resp.ok) {
           const data = await resp.json();
           state.updates = data;
-          const currentVer = data.current_version || '3.1.1';
+          const currentVer = data.current_version || '3.1.2';
           const latestVer = data.latest_version || currentVer;
           const isAvailable = Boolean(data.update_available);
           state.updateAvailable = isAvailable;
@@ -12284,6 +12302,14 @@ function openNewChatModal(initialMode = 'quick') {
               badge.className = 'px-2.5 py-1 rounded-full text-[11px] font-mono flex items-center space-x-1.5 bg-cyan-950/60 border border-cyan-800/80 text-cyan-300';
             }
             if (applyBtn) applyBtn.classList.remove('hidden');
+            if (headerApplyBtn) {
+              headerApplyBtn.classList.remove('hidden');
+              headerApplyBtn.classList.add('inline-flex');
+              headerApplyBtn.title = `Click to install Unjess v${latestVer} and restart automatically`;
+            }
+            if (headerApplyText) {
+              headerApplyText.textContent = `Restart & Update (v${latestVer})`;
+            }
             if (headerVersionDot) headerVersionDot.classList.remove('hidden');
             if (headerVersionText) headerVersionText.textContent = `Update v${latestVer}`;
             if (subtabBadge) subtabBadge.classList.remove('hidden');
@@ -12302,6 +12328,10 @@ function openNewChatModal(initialMode = 'quick') {
               badge.className = 'px-2.5 py-1 rounded-full text-[11px] font-mono flex items-center space-x-1.5 bg-zinc-900 border border-zinc-700/60 text-zinc-300';
             }
             if (applyBtn) applyBtn.classList.add('hidden');
+            if (headerApplyBtn) {
+              headerApplyBtn.classList.add('hidden');
+              headerApplyBtn.classList.remove('inline-flex');
+            }
             if (headerVersionDot) headerVersionDot.classList.add('hidden');
             if (headerVersionText) headerVersionText.textContent = `v${currentVer}`;
             if (subtabBadge) subtabBadge.classList.add('hidden');
@@ -12343,12 +12373,18 @@ function openNewChatModal(initialMode = 'quick') {
 
     async function applyUpdate() {
       const applyBtn = document.getElementById('btn-apply-update');
+      const headerApplyBtn = document.getElementById('btn-header-apply-update');
       const originalHtml = applyBtn ? applyBtn.innerHTML : '<i data-lucide="download" class="w-3.5 h-3.5"></i><span>Install Update & Restart</span>';
+      const originalHeaderHtml = headerApplyBtn ? headerApplyBtn.innerHTML : '<i data-lucide="download" class="w-3.5 h-3.5 text-emerald-400 flex-shrink-0"></i><span>Restart & Update</span>';
       if (applyBtn) {
         applyBtn.disabled = true;
         applyBtn.innerHTML = '<i data-lucide="refresh-cw" class="w-3.5 h-3.5 animate-spin"></i><span>Applying Update...</span>';
-        lucide.createIcons();
       }
+      if (headerApplyBtn) {
+        headerApplyBtn.disabled = true;
+        headerApplyBtn.innerHTML = '<i data-lucide="refresh-cw" class="w-3.5 h-3.5 animate-spin text-emerald-400"></i><span>Updating...</span>';
+      }
+      lucide.createIcons();
 
       showToast('Downloading and applying update...', 'info');
 
@@ -12370,8 +12406,11 @@ function openNewChatModal(initialMode = 'quick') {
           if (badgeText) badgeText.textContent = 'Restarting Unjess...';
           if (applyBtn) {
             applyBtn.innerHTML = '<i data-lucide="refresh-cw" class="w-3.5 h-3.5 animate-spin"></i><span>Restarting...</span>';
-            lucide.createIcons();
           }
+          if (headerApplyBtn) {
+            headerApplyBtn.innerHTML = '<i data-lucide="refresh-cw" class="w-3.5 h-3.5 animate-spin text-emerald-400"></i><span>Restarting...</span>';
+          }
+          lucide.createIcons();
 
           // Active health check polling to detect when the newly spawned Unjess is live
           setTimeout(() => {
@@ -12398,8 +12437,12 @@ function openNewChatModal(initialMode = 'quick') {
                 if (applyBtn) {
                   applyBtn.disabled = false;
                   applyBtn.innerHTML = originalHtml;
-                  lucide.createIcons();
                 }
+                if (headerApplyBtn) {
+                  headerApplyBtn.disabled = false;
+                  headerApplyBtn.innerHTML = originalHeaderHtml;
+                }
+                lucide.createIcons();
                 showToast('Update staged. Please restart Unjess manually to finish.', 'info');
               }
             }, 600);
@@ -12411,8 +12454,12 @@ function openNewChatModal(initialMode = 'quick') {
           if (applyBtn) {
             applyBtn.disabled = false;
             applyBtn.innerHTML = originalHtml;
-            lucide.createIcons();
           }
+          if (headerApplyBtn) {
+            headerApplyBtn.disabled = false;
+            headerApplyBtn.innerHTML = originalHeaderHtml;
+          }
+          lucide.createIcons();
         }
       } catch (err) {
         clearTimeout(timeoutId);
@@ -12420,8 +12467,12 @@ function openNewChatModal(initialMode = 'quick') {
         if (applyBtn) {
           applyBtn.disabled = false;
           applyBtn.innerHTML = originalHtml;
-          lucide.createIcons();
         }
+        if (headerApplyBtn) {
+          headerApplyBtn.disabled = false;
+          headerApplyBtn.innerHTML = originalHeaderHtml;
+        }
+        lucide.createIcons();
       }
     }
 
@@ -13681,6 +13732,7 @@ function openNewChatModal(initialMode = 'quick') {
       // Settings: Updates & Changelog buttons & triggers
       document.getElementById('btn-check-updates')?.addEventListener('click', () => checkForUpdates(false));
       document.getElementById('btn-apply-update')?.addEventListener('click', applyUpdate);
+      document.getElementById('btn-header-apply-update')?.addEventListener('click', applyUpdate);
       document.getElementById('btn-settings-subtab-updates')?.addEventListener('click', () => switchSettingsSubTab('updates'));
       document.querySelector('[data-settings-tab="updates"]')?.addEventListener('click', () => switchSettingsSubTab('updates'));
 
@@ -13711,12 +13763,17 @@ function openNewChatModal(initialMode = 'quick') {
       // Initial render of default changelog
       renderChangelog();
 
-      // Startup background update check (after 2.5 seconds)
+      // Startup background update check (after 2.5 seconds) & periodic 15-minute auto-polling
       setTimeout(() => {
         if (state.settings?.auto_update_enabled !== false) {
           checkForUpdates(true);
         }
       }, 2500);
+      setInterval(() => {
+        if (state.settings?.auto_update_enabled !== false) {
+          checkForUpdates(true);
+        }
+      }, 15 * 60 * 1000);
 
       // Startup Ghost-Coder Sentinel Watchdog check (after 3 seconds)
       setTimeout(() => {

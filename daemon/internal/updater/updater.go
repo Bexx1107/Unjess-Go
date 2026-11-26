@@ -52,6 +52,13 @@ func init() {
 			if _, err := os.Stat(oldExe); err == nil {
 				_ = os.Remove(oldExe)
 			}
+			dir := filepath.Dir(resolved)
+			for _, name := range []string{"Unjess.exe.old", "unjess-desktop.exe.old", "unjessd.exe.old", "unjess-cli.exe.old", "WebView2Loader.dll.old"} {
+				p := filepath.Join(dir, name)
+				if _, err := os.Stat(p); err == nil {
+					_ = os.Remove(p)
+				}
+			}
 		}
 	}
 }
@@ -83,10 +90,22 @@ type VersionManifest struct {
 func BuiltinChangelog() []ChangelogEntry {
 	return []ChangelogEntry{
 		{
+			Version: "3.1.2",
+			Date:    "2026-11-26",
+			Title:   "Unjess v3.1.2 - Automatic Update Polling, Top-Bar Restart & Update Button & Quick Chats Fix",
+			Tag:     "LATEST",
+			Changes: []string{
+				"Added prominent one-click 'Restart & Update (vX.Y.Z)' button directly in the top header bar whenever a new version is available",
+				"Added automatic background update polling (on startup and every 15 minutes) across both unjess.si and the GitHub release manifest so new releases appear automatically",
+				"Fixed Quick Chats being absorbed into the Projects folder tree when given custom titles or reloaded across daemon restarts",
+				"Synchronized both Unjess.exe and unjess-desktop.exe sibling binaries during in-app updates with automatic .old backup cleanup on restart",
+			},
+		},
+		{
 			Version: "3.1.1",
 			Date:    "2026-11-25",
 			Title:   "Unjess v3.1.1 - Response Clarity, Cross-Turn Memory Retention, Model Search & Starred Favorites",
-			Tag:     "LATEST",
+			Tag:     "UPDATE",
 			Changes: []string{
 				"Eliminated cross-turn tool history amnesia: buildConversationHistoryMessages now preserves all file-mutating tool calls and final verification steps instead of dropping calls after step 12",
 				"Fixed CompactConversation live-turn struct extraction, auto-attached PLAN.md into <workspace_overview>, and silenced pre-exit scratch cleanup so internal checks never hijack user-facing replies",
@@ -251,8 +270,9 @@ func CheckForUpdates(updateURL string, autoUpdateEnabled bool) map[string]any {
 
 	// 1. Try remote HTTP GET with 4s timeout (and check GitHub canonical manifest when using DefaultUpdateURL so CDN lag never hides a newer release)
 	client := &http.Client{Timeout: 4 * time.Second}
-	candidateURLs := []string{updateURL}
-	if strings.EqualFold(strings.TrimSpace(updateURL), DefaultUpdateURL) {
+	trimmedUpdateURL := strings.TrimSpace(updateURL)
+	candidateURLs := []string{trimmedUpdateURL}
+	if strings.EqualFold(trimmedUpdateURL, DefaultUpdateURL) || strings.Contains(strings.ToLower(trimmedUpdateURL), "unjess.si/") {
 		candidateURLs = append(candidateURLs, GitHubFallbackUpdateURL)
 	}
 	for _, candURL := range candidateURLs {
@@ -490,10 +510,17 @@ func ApplyUpdate(updateURL string) (map[string]any, error) {
 
 	var updatedAny bool
 
-	// 1. Stage desktop executable if found
+	// 1. Stage desktop executable if found (and keep sibling Unjess.exe / unjess-desktop.exe in sync)
 	if desktopExe != "" && downloadURL != "" {
 		if err := stageBinary(downloadURL, desktopExe, "Unjess.exe"); err == nil {
 			updatedAny = true
+		}
+		desktopDir := filepath.Dir(desktopExe)
+		for _, altName := range []string{"Unjess.exe", "unjess-desktop.exe"} {
+			altPath := filepath.Join(desktopDir, altName)
+			if filepath.Clean(altPath) != filepath.Clean(desktopExe) && fileExists(altPath) {
+				_ = stageBinary(downloadURL, altPath, "Unjess.exe")
+			}
 		}
 	}
 

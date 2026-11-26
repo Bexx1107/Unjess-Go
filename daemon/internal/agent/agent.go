@@ -1613,16 +1613,17 @@ func (hm *HarnessManager) CreateConversation(title, workspacePath, mode string) 
 	isQuick := (workspacePath == "__quick__") || (mode == "quick" && strings.TrimSpace(workspacePath) == "")
 	if isQuick {
 		rawTitle := strings.TrimSpace(title)
-		folderName := ""
+		slug := ""
 		if rawTitle != "" {
-			slug := toSlug(rawTitle)
-			if len(slug) > 32 {
-				slug = slug[:32]
+			slug = toSlug(rawTitle)
+			if len(slug) > 28 {
+				slug = slug[:28]
 			}
-			folderName = slug
 		}
-		if folderName == "" {
-			folderName = fmt.Sprintf("quick-%s", time.Now().Format("20060102-150405"))
+		stamp := time.Now().Format("20060102-150405")
+		folderName := fmt.Sprintf("quick-%s", stamp)
+		if slug != "" {
+			folderName = fmt.Sprintf("quick-%s-%s", stamp, slug)
 		}
 		home, err := os.UserHomeDir()
 		if err != nil {

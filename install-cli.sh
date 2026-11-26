@@ -9,7 +9,7 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 echo -e "${CYAN}══════════════════════════════════════════════════${NC}"
-echo -e "  UNJESS CLI — Universal Agentic Coding Harness v3.1.1 "
+echo -e "  UNJESS CLI — Universal Agentic Coding Harness v3.1.2 "
 echo -e "${CYAN}══════════════════════════════════════════════════${NC}"
 echo ""
 
@@ -26,11 +26,11 @@ ARCH="$(uname -m)"
 case "$ARCH" in
     x86_64|amd64)
         BIN_NAME="unjess-linux-amd64"
-        EXPECTED_HASH="86654132be4a220cdeaae68593d2682e91a06dbb9fd9daa3168bed4d9d32c475"
+        EXPECTED_HASH="1e84e786391dcaf1da927c2b153595f0e44b9802f263820a0877877f1d7db59b"
         ;;
     aarch64|arm64)
         BIN_NAME="unjess-linux-arm64"
-        EXPECTED_HASH="f11e9d41ff66d8602fb3e2a7a7ea8a60ce494c1dbf9f24d8b76dfdfa51d6df96"
+        EXPECTED_HASH="ef4e0224062b01bea0e35f47f03b68bd14e24bd09949e476cf3ade826fe6fef2"
         ;;
     *)
         echo -e "${RED}Unsupported architecture: $ARCH${NC}"
@@ -42,7 +42,7 @@ esac
 TARGET_DIR="$HOME/.unjess/bin"
 TARGET_EXE="$TARGET_DIR/unjess"
 ALIAS_EXE="$TARGET_DIR/njss"
-DOWNLOAD_URL="https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.1/${BIN_NAME}"
+DOWNLOAD_URL="https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.2/${BIN_NAME}"
 TEMP_FILE="$(mktemp -t unjess-cli.XXXXXX)"
 
 echo -e "${GRAY}Downloading Unjess CLI (${ARCH}) from https://unjess.si...${NC}"
@@ -95,7 +95,7 @@ for RC_FILE in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile"; do
 done
 
 echo ""
-echo -e "${GREEN}✓ Unjess CLI v3.1.1 installed successfully!${NC}"
+echo -e "${GREEN}✓ Unjess CLI v3.1.2 installed successfully!${NC}"
 echo -e "  Location : ${GRAY}$TARGET_EXE${NC}"
 echo -e "  Commands : ${CYAN}'unjess'${NC} or ${CYAN}'njss'${NC}"
 echo ""

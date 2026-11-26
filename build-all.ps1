@@ -15,7 +15,9 @@
 
 param(
     [Parameter(Mandatory = $false)]
-    [switch]$SkipRust
+    [switch]$SkipRust,
+    [Parameter(Mandatory = $false)]
+    [switch]$SkipLocalInstall
 )
 
 $ErrorActionPreference = "Stop"
@@ -24,8 +26,10 @@ Write-Host "==========================================================" -Foregro
 Write-Host "  UNJESS NATIVE BUILD PIPELINE (Go + Rust + Installer)   " -ForegroundColor Green
 Write-Host "==========================================================" -ForegroundColor Cyan
 
-Get-Process -Name "Unjess*", "unjess*" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-Start-Sleep -Milliseconds 400
+if (-not $SkipLocalInstall) {
+    Get-Process -Name "Unjess*", "unjess*" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Milliseconds 400
+}
 
 $RepoRoot = $PSScriptRoot
 $distDir = Join-Path $RepoRoot "dist"
@@ -253,26 +257,30 @@ foreach ($dest in $destinations) {
 }
 
 # Also update local installed locations (%LOCALAPPDATA%\Programs\Unjess, %LOCALAPPDATA%\Unjess, and Unjess-Go-src\dist) if present
-$localInstallDirs = @(
-    "$env:LOCALAPPDATA\Programs\Unjess",
-    "$env:LOCALAPPDATA\Unjess",
-    "$env:USERPROFILE\Unjess-Go-src\dist"
-) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -Unique
+if (-not $SkipLocalInstall) {
+    $localInstallDirs = @(
+        "$env:LOCALAPPDATA\Programs\Unjess",
+        "$env:LOCALAPPDATA\Unjess",
+        "$env:USERPROFILE\Unjess-Go-src\dist"
+    ) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -Unique
 
-foreach ($instDir in $localInstallDirs) {
-    Write-Host "  -> Updating installed binaries in $instDir..." -ForegroundColor Green
-    Copy-Item (Join-Path $distDir "Unjess.exe") (Join-Path $instDir "Unjess.exe") -Force -ErrorAction SilentlyContinue
-    Copy-Item (Join-Path $distDir "Unjess.exe") (Join-Path $instDir "unjess-desktop.exe") -Force -ErrorAction SilentlyContinue
-    Copy-Item (Join-Path $distDir "unjessd.exe") (Join-Path $instDir "unjessd.exe") -Force -ErrorAction SilentlyContinue
-    Copy-Item (Join-Path $distDir "Unjess-Uninstall.exe") (Join-Path $instDir "Unjess-Uninstall.exe") -Force -ErrorAction SilentlyContinue
-    if (Test-Path (Join-Path $distDir "unjess-cli.exe")) {
-        Copy-Item (Join-Path $distDir "unjess-cli.exe") (Join-Path $instDir "unjess-cli.exe") -Force -ErrorAction SilentlyContinue
+    foreach ($instDir in $localInstallDirs) {
+        Write-Host "  -> Updating installed binaries in $instDir..." -ForegroundColor Green
+        Copy-Item (Join-Path $distDir "Unjess.exe") (Join-Path $instDir "Unjess.exe") -Force -ErrorAction SilentlyContinue
+        Copy-Item (Join-Path $distDir "Unjess.exe") (Join-Path $instDir "unjess-desktop.exe") -Force -ErrorAction SilentlyContinue
+        Copy-Item (Join-Path $distDir "unjessd.exe") (Join-Path $instDir "unjessd.exe") -Force -ErrorAction SilentlyContinue
+        Copy-Item (Join-Path $distDir "Unjess-Uninstall.exe") (Join-Path $instDir "Unjess-Uninstall.exe") -Force -ErrorAction SilentlyContinue
+        if (Test-Path (Join-Path $distDir "unjess-cli.exe")) {
+            Copy-Item (Join-Path $distDir "unjess-cli.exe") (Join-Path $instDir "unjess-cli.exe") -Force -ErrorAction SilentlyContinue
+        }
+        $instBin = Join-Path $instDir "bin"
+        if (Test-Path (Join-Path $distBinDir "unjess.exe")) {
+            if (-not (Test-Path $instBin)) { New-Item -ItemType Directory -Path $instBin -Force | Out-Null }
+            Copy-Item (Join-Path $distBinDir "unjess.exe") (Join-Path $instBin "unjess.exe") -Force -ErrorAction SilentlyContinue
+        }
     }
-    $instBin = Join-Path $instDir "bin"
-    if (Test-Path (Join-Path $distBinDir "unjess.exe")) {
-        if (-not (Test-Path $instBin)) { New-Item -ItemType Directory -Path $instBin -Force | Out-Null }
-        Copy-Item (Join-Path $distBinDir "unjess.exe") (Join-Path $instBin "unjess.exe") -Force -ErrorAction SilentlyContinue
-    }
+} else {
+    Write-Host "  -> Skipping local install directory updates (-SkipLocalInstall)" -ForegroundColor Gray
 }
 
 Write-Host "`n==========================================================" -ForegroundColor Green
