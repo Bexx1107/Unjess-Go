@@ -159,7 +159,7 @@
       </div>
       <button id="btn-header-version" type="button" class="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono bg-zinc-900/90 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700/60 transition cursor-pointer select-none" title="Unjess Version & Updates (Click to check)">
         <span id="header-version-dot" class="hidden w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
-        <span id="header-version-text">v3.1.2</span>
+        <span id="header-version-text">v3.1.3</span>
       </button>
       <span id="backend-status-pill" class="hidden">
         <span id="backend-status-dot"></span>
@@ -620,10 +620,10 @@
         </div>
 
         <!-- Draggable Split Resizer: Right Inspector -->
-        <div id="right-inspector-resizer" class="w-1 hover:w-1.5 bg-transparent hover:bg-zinc-600/60 active:bg-zinc-400 cursor-col-resize flex-shrink-0 transition-all z-20 select-none -mr-0.5" title="Drag to resize inspector"></div>
+        <div id="right-inspector-resizer" style="display: none;" class="w-1 hover:w-1.5 bg-transparent hover:bg-zinc-600/60 active:bg-zinc-400 cursor-col-resize flex-shrink-0 transition-all z-20 select-none -mr-0.5" title="Drag to resize inspector"></div>
 
-        <!-- COLUMN 3: RIGHT INSPECTOR / SIDEBAR BROWSER / CONTEXT PANEL -->
-        <aside id="right-inspector" class="w-[280px] lg:w-[340px] bg-unjessSidebar border-l border-unjessBorder flex flex-col flex-shrink-0 overflow-hidden text-xs">
+        <!-- COLUMN 3: RIGHT INSPECTOR / SIDEBAR BROWSER / CONTEXT PANEL (Hidden by default) -->
+        <aside id="right-inspector" class="hidden w-[280px] lg:w-[340px] bg-unjessSidebar border-l border-unjessBorder flex flex-col flex-shrink-0 overflow-hidden text-xs">
           <!-- Top Bar Header with 3-Segment Switcher: Diffs | Browser | Controls -->
           <div class="p-2.5 border-b border-unjessBorder flex items-center justify-between gap-2 flex-shrink-0 bg-unjessSidebar">
             <div class="inline-flex items-center bg-zinc-950 border border-unjessBorder rounded-lg p-0.5 text-[10.5px] font-mono flex-1 min-w-0">
@@ -1808,7 +1808,7 @@
                   <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-unjessBorder pb-4">
                     <div class="space-y-1">
                       <div class="flex items-center space-x-2.5">
-                        <span id="update-current-version-title" class="text-sm font-bold text-white tracking-tight">Unjess v3.1.2</span>
+                        <span id="update-current-version-title" class="text-sm font-bold text-white tracking-tight">Unjess v3.1.3</span>
                         <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-900 text-zinc-300 border border-zinc-700/60">
                           Go + Rust Native Engine • unjess.si
                         </span>
@@ -1820,7 +1820,7 @@
                       <!-- Status Pill -->
                       <span id="update-check-status-badge" class="px-2.5 py-1 rounded-full text-[11px] font-mono flex items-center space-x-1.5 bg-zinc-900 border border-zinc-700/60 text-zinc-300">
                         <span id="update-status-badge-dot" class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                        <span id="update-status-badge-text">Up to date (v3.1.2)</span>
+                        <span id="update-status-badge-text">Up to date (v3.1.3)</span>
                       </span>
 
                       <!-- Check for Updates Button -->
@@ -2583,6 +2583,39 @@
   </div>
 
   <!-- ========================================================================= -->
+  <!-- MODAL 8: DELETE PROJECT CONFIRMATION DIALOG                               -->
+  <!-- ========================================================================= -->
+  <div id="delete-project-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm select-none">
+    <div class="bg-[#0e0e12] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col">
+      <div class="h-12 border-b border-white/5 px-4 flex items-center justify-between bg-[#0a0a0d]">
+        <div class="flex items-center space-x-2">
+          <i data-lucide="alert-triangle" class="w-4 h-4 text-red-400"></i>
+          <span class="text-xs font-semibold text-white">Remove Project from Unjess?</span>
+        </div>
+        <button type="button" onclick="closeDeleteProjectModal()" class="p-1 text-zinc-400 hover:text-white rounded hover:bg-white/5 transition"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+      <div class="p-4 space-y-3 text-xs">
+        <p class="text-zinc-300 leading-relaxed">
+          Are you sure you want to remove project <strong id="delete-project-modal-name" class="text-white font-semibold">project</strong> from your Projects list?
+        </p>
+        <div class="p-2.5 rounded-lg bg-zinc-900/90 border border-white/10 font-mono text-[11px] text-zinc-400 break-all" id="delete-project-modal-path">
+        </div>
+        <p class="text-[11px] text-zinc-400 leading-relaxed">
+          <span id="delete-project-modal-convs-note">Associated chat history for this project will be removed from the sidebar.</span>
+          Your actual files on disk will <strong class="text-zinc-200">not</strong> be deleted.
+        </p>
+      </div>
+      <div class="p-3 border-t border-white/5 bg-[#0a0a0d] flex items-center justify-end space-x-2">
+        <button type="button" onclick="closeDeleteProjectModal()" class="px-3.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 text-xs transition cursor-pointer">Cancel</button>
+        <button id="btn-confirm-delete-project" type="button" onclick="confirmDeleteProject()" class="px-4 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-semibold text-xs transition flex items-center space-x-1.5 shadow cursor-pointer">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          <span>Remove Project</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
   <!-- JAVASCRIPT: REAL UNJESS CODING HARNESS ENGINE                             -->
   <!-- ========================================================================= -->
   <script>
@@ -2647,9 +2680,9 @@
       mcpServers: [],
       activeSettingsSubTab: 'models',
 
-      // Responsive & Collapsible Sidebar Drawer States
+      // Responsive & Collapsible Sidebar Drawer States (Right Inspector hidden by default)
       leftSidebarOpen: window.innerWidth >= 1024,
-      rightInspectorOpen: window.innerWidth >= 1024,
+      rightInspectorOpen: false,
       leftSidebarWidth: parseInt(localStorage.getItem('unjess_left_sidebar_width') || '245', 10),
       rightInspectorWidth: parseInt(localStorage.getItem('unjess_right_inspector_width') || '320', 10),
       collapsedProjectFolders: (() => {
@@ -4405,6 +4438,9 @@
                 </div>
                 <div class="flex items-center space-x-1 flex-shrink-0">
                   ${isFolderCollapsed && wsConvs.length > 0 ? `<span class="text-[10px] font-mono text-zinc-500 px-1 rounded bg-zinc-800/70" title="${wsConvs.length} chat(s) hidden">${wsConvs.length}</span>` : ''}
+                  <button type="button" class="btn-delete-ws hidden group-hover:inline-flex text-zinc-500 hover:text-red-400 p-0.5 rounded hover:bg-zinc-700/60 transition" title="Remove project ${escapeHtml(wsDisplayName)}">
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                  </button>
                   <button type="button" class="btn-new-conv-in-ws text-zinc-400 hover:text-white p-0.5 rounded hover:bg-zinc-700/60 transition" title="New conversation in ${escapeHtml(wsDisplayName)}">
                     <i data-lucide="plus" class="w-3.5 h-3.5"></i>
                   </button>
@@ -4412,6 +4448,11 @@
               `;
 
               folderRow.addEventListener('click', (e) => {
+                if (e.target.closest('.btn-delete-ws')) {
+                  e.stopPropagation();
+                  openDeleteProjectModal(ws, wsConvs.length, e);
+                  return;
+                }
                 if (e.target.closest('.btn-new-conv-in-ws')) {
                   e.stopPropagation();
                   createNewConversationInWorkspace(ws);
@@ -8997,6 +9038,119 @@ function openNewChatModal(initialMode = 'quick') {
       renderSidebarProjectsTree();
     }
 
+    let pendingDeleteWorkspace = null;
+
+    function openDeleteProjectModal(ws, convCount = 0, e = null) {
+      if (e && typeof e.stopPropagation === 'function') {
+        e.stopPropagation();
+        e.preventDefault();
+      }
+      if (!ws || !ws.path) return;
+      pendingDeleteWorkspace = ws;
+      const modal = document.getElementById('delete-project-modal');
+      if (!modal) return;
+
+      const wsDisplayName = ws.name || ws.path.split(/[/\\]/).filter(Boolean).pop() || 'project';
+      const nameEl = document.getElementById('delete-project-modal-name');
+      const pathEl = document.getElementById('delete-project-modal-path');
+      const noteEl = document.getElementById('delete-project-modal-convs-note');
+      if (nameEl) nameEl.textContent = wsDisplayName;
+      if (pathEl) pathEl.textContent = ws.path;
+      if (noteEl) {
+        noteEl.textContent = convCount > 0
+          ? `${convCount} conversation(s) under this project will also be removed from the sidebar.`
+          : 'This project has no saved conversations.';
+      }
+
+      document.getElementById('project-dropdown-menu')?.classList.add('hidden');
+      modal.classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeDeleteProjectModal() {
+      pendingDeleteWorkspace = null;
+      const modal = document.getElementById('delete-project-modal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    async function confirmDeleteProject() {
+      const ws = pendingDeleteWorkspace;
+      if (!ws || !ws.path) {
+        closeDeleteProjectModal();
+        return;
+      }
+      const targetPath = ws.path;
+      const wsDisplayName = ws.name || targetPath.split(/[/\\]/).filter(Boolean).pop() || 'project';
+      const btn = document.getElementById('btn-confirm-delete-project');
+      const origHtml = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Removing...</span>';
+        lucide.createIcons();
+      }
+
+      try {
+        const resp = await fetch(`${API_BASE}/api/harness/workspaces/remove`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: targetPath })
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          if (Array.isArray(data.workspaces)) state.workspaces = data.workspaces;
+          if (Array.isArray(data.conversations)) state.conversations = data.conversations;
+          if (data.active_workspace) {
+            state.activeWorkspace = data.active_workspace;
+            updateWorkspaceUI(data.active_workspace);
+          }
+          if (data.active_conversation_id !== undefined) {
+            state.activeConvId = data.active_conversation_id || (state.conversations[0]?.id || '');
+          }
+          if (data.workspace_files) {
+            state.workspaceFiles = Array.isArray(data.workspace_files) ? data.workspace_files : (data.workspace_files.files || []);
+            state.htmlFiles = Array.isArray(data.workspace_files.html_files) ? data.workspace_files.html_files : [];
+            const countBadge = document.getElementById('nav-files-count');
+            if (countBadge) countBadge.textContent = String(state.workspaceFiles.length);
+          }
+          if (data.git_info) {
+            updateGitBadge(data.git_info);
+          }
+        } else {
+          const targetNorm = normPath(targetPath);
+          state.workspaces = (state.workspaces || []).filter(w => normPath(w?.path) !== targetNorm);
+          state.conversations = (state.conversations || []).filter(c => normPath(c?.workspace) !== targetNorm);
+        }
+      } catch (err) {
+        const targetNorm = normPath(targetPath);
+        state.workspaces = (state.workspaces || []).filter(w => normPath(w?.path) !== targetNorm);
+        state.conversations = (state.conversations || []).filter(c => normPath(c?.workspace) !== targetNorm);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = origHtml;
+        }
+      }
+
+      const targetNorm = normPath(targetPath);
+      if (state.collapsedProjectFolders && state.collapsedProjectFolders[targetNorm]) {
+        delete state.collapsedProjectFolders[targetNorm];
+        saveSidebarCollapseState();
+      }
+
+      closeDeleteProjectModal();
+      if (state.activeConvId) {
+        selectConversation(state.activeConvId);
+      }
+      renderWorkspaces();
+      renderSidebarProjectsTree();
+      renderMessages();
+      showToast(`Removed project "${wsDisplayName}"`, 'info');
+    }
+
+    window.openDeleteProjectModal = openDeleteProjectModal;
+    window.closeDeleteProjectModal = closeDeleteProjectModal;
+    window.confirmDeleteProject = confirmDeleteProject;
+
     async function selectWorkspace(ws) {
       if (!ws || !ws.path) return;
       if (window.innerWidth < 1024) {
@@ -11875,10 +12029,20 @@ function openNewChatModal(initialMode = 'quick') {
       if (!Array.isArray(changelog) || changelog.length === 0) {
         changelog = [
           {
+            version: "3.1.3",
+            date: "2026-11-26",
+            title: "Unjess v3.1.3 - Project Removal with Confirmation Dialog & Hidden-by-Default Right Sidebar",
+            tag: "LATEST",
+            changes: [
+              "Added project removal button (trash icon) on project folders in the left sidebar and workspace switcher dropdown with a dedicated confirmation modal before removing the project and its chat sessions",
+              "Changed the Right Inspector sidebar (Diffs | Browser | Controls) to start hidden by default on startup for a cleaner, distraction-free chat workspace (still opens on demand or when toggling Browser / Inspector)"
+            ]
+          },
+          {
             version: "3.1.2",
             date: "2026-11-26",
             title: "Unjess v3.1.2 - Automatic Update Polling, Top-Bar Restart & Update Button & Quick Chats Fix",
-            tag: "LATEST",
+            tag: "UPDATE",
             changes: [
               "Added prominent one-click 'Restart & Update (vX.Y.Z)' button directly in the top header bar whenever a new version is available",
               "Added automatic background update polling (on startup and every 15 minutes) across both unjess.si and the GitHub release manifest so new releases appear automatically",
@@ -12281,7 +12445,7 @@ function openNewChatModal(initialMode = 'quick') {
         if (resp && resp.ok) {
           const data = await resp.json();
           state.updates = data;
-          const currentVer = data.current_version || '3.1.2';
+          const currentVer = data.current_version || '3.1.3';
           const latestVer = data.latest_version || currentVer;
           const isAvailable = Boolean(data.update_available);
           state.updateAvailable = isAvailable;
@@ -13174,14 +13338,14 @@ function openNewChatModal(initialMode = 'quick') {
     // -------------------------------------------------------------------------
     document.addEventListener('DOMContentLoaded', async () => {
       syncViewportHeight();
-      // Responsive initial drawer configuration
+      // Responsive initial drawer configuration (Right Inspector hidden by default)
       if (window.innerWidth < 1024) {
         state.leftSidebarOpen = false;
         state.rightInspectorOpen = false;
         state.isSubagentSplitOpen = false;
       } else {
         state.leftSidebarOpen = true;
-        state.rightInspectorOpen = true;
+        state.rightInspectorOpen = false;
       }
       syncResponsiveSidebars();
       initSidepanelResizers();
@@ -13281,17 +13445,30 @@ function openNewChatModal(initialMode = 'quick') {
           const container = document.getElementById('project-dropdown-items');
           container.innerHTML = '';
           state.workspaces.forEach(ws => {
-            const item = document.createElement('button');
+            const item = document.createElement('div');
             const isAct = ws.path === state.activeWorkspace;
-            item.className = 'w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white flex items-center justify-between text-xs font-mono transition';
+            const wsConvsCount = (state.conversations || []).filter(c => c && c.mode !== 'quick' && normPath(c.workspace) === normPath(ws.path)).length;
+            item.className = 'group w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white flex items-center justify-between text-xs font-mono transition cursor-pointer';
             item.innerHTML = `
-              <div class="truncate pr-2">
+              <div class="truncate pr-2 flex-1 min-w-0">
                 <div class="text-white font-medium truncate">${escapeHtml(ws.name)}</div>
                 <div class="text-[10px] text-slate-500 truncate">${escapeHtml(ws.path)}</div>
               </div>
-              ${isAct ? '<i data-lucide="check" class="w-3.5 h-3.5 text-unjessEmerald flex-shrink-0"></i>' : ''}
+              <div class="flex items-center space-x-1.5 flex-shrink-0">
+                ${isAct ? '<i data-lucide="check" class="w-3.5 h-3.5 text-unjessEmerald flex-shrink-0"></i>' : ''}
+                <button type="button" class="btn-dropdown-delete-ws hidden group-hover:inline-flex p-1 rounded text-zinc-500 hover:text-red-400 hover:bg-zinc-700/60 transition" title="Remove project ${escapeHtml(ws.name)}">
+                  <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
             `;
-            item.addEventListener('click', () => selectWorkspace(ws));
+            item.addEventListener('click', (ev) => {
+              if (ev.target.closest('.btn-dropdown-delete-ws')) {
+                ev.stopPropagation();
+                openDeleteProjectModal(ws, wsConvsCount, ev);
+                return;
+              }
+              selectWorkspace(ws);
+            });
             container.appendChild(item);
           });
           lucide.createIcons();
@@ -13638,6 +13815,7 @@ function openNewChatModal(initialMode = 'quick') {
         const mo = new MutationObserver(() => syncNativeBrowserBounds());
         [
           'new-chat-modal',
+          'delete-project-modal',
           'file-viewer-modal',
           'workflow-modal',
           'agent-modal',
@@ -13801,6 +13979,9 @@ function openNewChatModal(initialMode = 'quick') {
       document.getElementById('btn-refresh-mcp-tools')?.addEventListener('click', refreshMcpTools);
 
       // Modal backdrop click-to-close
+      document.getElementById('delete-project-modal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'delete-project-modal') closeDeleteProjectModal();
+      });
       document.getElementById('skill-modal')?.addEventListener('click', (e) => {
         if (e.target.id === 'skill-modal') closeSkillModal();
       });
@@ -13824,6 +14005,7 @@ function openNewChatModal(initialMode = 'quick') {
       // Global keyboard shortcuts
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
+          closeDeleteProjectModal();
           closeFileViewer();
           closeWorkflowModal();
           closeAgentModal();

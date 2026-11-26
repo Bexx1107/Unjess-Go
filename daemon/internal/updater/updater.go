@@ -90,10 +90,20 @@ type VersionManifest struct {
 func BuiltinChangelog() []ChangelogEntry {
 	return []ChangelogEntry{
 		{
+			Version: "3.1.3",
+			Date:    "2026-11-26",
+			Title:   "Unjess v3.1.3 - Project Removal with Confirmation Dialog & Hidden-by-Default Right Sidebar",
+			Tag:     "LATEST",
+			Changes: []string{
+				"Added project removal button (trash icon) on project folders in the left sidebar and workspace switcher dropdown with a dedicated confirmation modal before removing the project and its chat sessions",
+				"Changed the Right Inspector sidebar (Diffs | Browser | Controls) to start hidden by default on startup for a cleaner, distraction-free chat workspace (still opens on demand or when toggling Browser / Inspector)",
+			},
+		},
+		{
 			Version: "3.1.2",
 			Date:    "2026-11-26",
 			Title:   "Unjess v3.1.2 - Automatic Update Polling, Top-Bar Restart & Update Button & Quick Chats Fix",
-			Tag:     "LATEST",
+			Tag:     "UPDATE",
 			Changes: []string{
 				"Added prominent one-click 'Restart & Update (vX.Y.Z)' button directly in the top header bar whenever a new version is available",
 				"Added automatic background update polling (on startup and every 15 minutes) across both unjess.si and the GitHub release manifest so new releases appear automatically",
