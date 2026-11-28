@@ -90,10 +90,20 @@ type VersionManifest struct {
 func BuiltinChangelog() []ChangelogEntry {
 	return []ChangelogEntry{
 		{
+			Version: "3.1.4",
+			Date:    "2026-11-28",
+			Title:   "Unjess v3.1.4 - Rich Markdown, Syntax Highlighting, Mermaid & Sandboxed HTML UI Widgets",
+			Tag:     "LATEST",
+			Changes: []string{
+				"Upgraded chat response renderer to GFM Markdown (marked + DOMPurify) with Highlight.js syntax highlighting, Copy & Collapse buttons on code blocks, GitHub-style Callout Alerts, and Mermaid.js diagrams",
+				"Added `render_ui_widget` tool and fenced ```widget block renderer to display rich interactive HTML/CSS/SVG/JS cards safely inside auto-resizing sandboxed iframes",
+			},
+		},
+		{
 			Version: "3.1.3",
 			Date:    "2026-11-26",
 			Title:   "Unjess v3.1.3 - Project Removal with Confirmation Dialog & Hidden-by-Default Right Sidebar",
-			Tag:     "LATEST",
+			Tag:     "UPDATE",
 			Changes: []string{
 				"Added project removal button (trash icon) on project folders in the left sidebar and workspace switcher dropdown with a dedicated confirmation modal before removing the project and its chat sessions",
 				"Changed the Right Inspector sidebar (Diffs | Browser | Controls) to start hidden by default on startup for a cleaner, distraction-free chat workspace (still opens on demand or when toggling Browser / Inspector)",

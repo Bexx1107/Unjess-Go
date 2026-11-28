@@ -1407,6 +1407,51 @@ func CoreToolDefinitions() []map[string]any {
 		},
 		{
 			"type":        "function",
+			"name":        "render_ui_widget",
+			"description": "Render an interactive HTML/CSS/SVG/JS visual widget or rich formatted UI card directly inside the chat feed (tables, dashboards, charts, comparisons, diagrams, or styled documents). Rendered safely inside a sandboxed dark-theme iframe.",
+			"function": map[string]any{
+				"name":        "render_ui_widget",
+				"description": "Render an interactive HTML/CSS/SVG/JS visual widget or rich formatted UI card directly inside the chat feed (tables, dashboards, charts, comparisons, diagrams, or styled documents). Rendered safely inside a sandboxed dark-theme iframe.",
+				"parameters": map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"title": map[string]any{
+							"type":        "string",
+							"description": "Short title displayed in the widget card header.",
+						},
+						"html": map[string]any{
+							"type":        "string",
+							"description": "Self-contained HTML/CSS/SVG/JS fragment or document to render inside the sandboxed dark-theme widget container.",
+						},
+						"height": map[string]any{
+							"type":        "integer",
+							"description": "Optional initial height in pixels (default 320, auto-resizes to fit content).",
+						},
+					},
+					"required": []string{"title", "html"},
+				},
+			},
+			"parameters": map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"title": map[string]any{
+						"type":        "string",
+						"description": "Short title displayed in the widget card header.",
+					},
+					"html": map[string]any{
+						"type":        "string",
+						"description": "Self-contained HTML/CSS/SVG/JS fragment or document to render inside the sandboxed dark-theme widget container.",
+					},
+					"height": map[string]any{
+						"type":        "integer",
+						"description": "Optional initial height in pixels (default 320, auto-resizes to fit content).",
+					},
+				},
+				"required": []string{"title", "html"},
+			},
+		},
+		{
+			"type":        "function",
 			"name":        "ast_outline",
 			"description": "Extract the structural AST outline (functions, methods, classes, structs, interfaces, and exact start-end line numbers) of a file without reading the entire file.",
 			"function": map[string]any{
@@ -2292,9 +2337,10 @@ var coreListedToolNames = map[string]bool{
 	"run_command":     true,
 	"git_status":      true,
 	"git_diff":        true,
-	"todo_write":      true,
-	"invoke_subagent": true,
-	"tool_search":     true,
+	"todo_write":       true,
+	"invoke_subagent":  true,
+	"tool_search":      true,
+	"render_ui_widget": true,
 }
 
 // ListedToolDefinitions returns the lean active tool definitions for a turn, dynamically including deferred tools
@@ -2303,6 +2349,26 @@ func ListedToolDefinitions(turnMode string, prompt string, hasImages bool, unloc
 	allDefs := CoreToolDefinitions()
 	lowerPrompt := strings.ToLower(prompt)
 	modeLower := strings.ToLower(strings.TrimSpace(turnMode))
+
+	if modeLower == "chat" {
+		chatAllow := map[string]bool{
+			"web_search":    true,
+			"read_url":      true,
+			"browser_use":   true,
+			"view_image":    true,
+			"memory_save":      true,
+			"memory_recall":    true,
+			"render_ui_widget": true,
+		}
+		listed := make([]map[string]any, 0, len(chatAllow))
+		for _, d := range allDefs {
+			name, _ := d["name"].(string)
+			if chatAllow[name] {
+				listed = append(listed, d)
+			}
+		}
+		return listed
+	}
 
 	allow := make(map[string]bool, len(coreListedToolNames)+8)
 	for k, v := range coreListedToolNames {
@@ -2314,7 +2380,7 @@ func ListedToolDefinitions(turnMode string, prompt string, hasImages bool, unloc
 		}
 	}
 
-	if modeLower == "plan" {
+	if modeLower == "plan" || modeLower == "coding" || modeLower == "autonomous" || modeLower == "" {
 		allow["propose_plan"] = true
 		allow["ask_question"] = true
 	}
@@ -2692,8 +2758,10 @@ func NormalizeToolCall(name string, args map[string]any) (string, map[string]any
 }
 
 var (
-	xmlToolCallRe    = regexp.MustCompile(`(?s)<tool_call>\s*(\{.*?\})\s*</tool_call>`)
-	fencedToolJSONRe = regexp.MustCompile("(?s)```(?:json|tool_call)?\\s*(\\{\\s*\"(?:name|tool|function)\"\\s*:.*?\\})\\s*```")
+	xmlToolCallRe     = regexp.MustCompile(`(?s)<tool_call>\s*(\{.*?\})\s*</tool_call>`)
+	fencedToolJSONRe  = regexp.MustCompile("(?s)```(?:json|tool_call)?\\s*(\\{\\s*\"(?:name|tool|function)\"\\s*:.*?\\})\\s*```")
+	bareToolJSONRe    = regexp.MustCompile(`(?s)(?:^|\bcall\b|\n)\s*(\{\s*"(?:name|tool|function)"\s*:\s*"[^"]+"\s*,\s*"(?:arguments|parameters)"\s*:\s*\{.*?\}\s*\})`)
+	imitatedSummaryRe = regexp.MustCompile(`(?m)^[-•*]\s*(web_search|read_url|browser_use|memory_save|memory_recall)\(([^)\n]+)\)\s*(?:->|→)`)
 )
 
 // ExtractedToolCall represents a tool call recovered from assistant text output.
@@ -2702,7 +2770,7 @@ type ExtractedToolCall struct {
 	Arguments map[string]any
 }
 
-// ExtractToolCallsFromText recovers structured tool calls when a flash/local model emits them inside XML tags or JSON blocks instead of native tool_calls.
+// ExtractToolCallsFromText recovers structured tool calls when a flash/local model emits them inside XML tags, `call\n{...}`, or JSON blocks instead of native tool_calls.
 func ExtractToolCallsFromText(text string) []ExtractedToolCall {
 	trimmed := strings.TrimSpace(text)
 	if trimmed == "" {
@@ -2720,6 +2788,31 @@ func ExtractToolCallsFromText(text string) []ExtractedToolCall {
 		for _, m := range fencedToolJSONRe.FindAllStringSubmatch(trimmed, -1) {
 			if len(m) > 1 {
 				rawBlocks = append(rawBlocks, m[1])
+			}
+		}
+	}
+	if len(rawBlocks) == 0 {
+		for _, m := range bareToolJSONRe.FindAllStringSubmatch(trimmed, -1) {
+			if len(m) > 1 {
+				rawBlocks = append(rawBlocks, m[1])
+			}
+		}
+	}
+	if len(rawBlocks) == 0 {
+		for _, m := range imitatedSummaryRe.FindAllStringSubmatch(trimmed, -1) {
+			if len(m) >= 3 {
+				tName := strings.TrimSpace(m[1])
+				argVal := strings.Trim(strings.TrimSpace(m[2]), `"'`)
+				if argVal != "" {
+					switch tName {
+					case "read_url":
+						calls = append(calls, ExtractedToolCall{Name: "read_url", Arguments: map[string]any{"url": argVal}})
+					case "web_search":
+						calls = append(calls, ExtractedToolCall{Name: "web_search", Arguments: map[string]any{"query": argVal}})
+					case "memory_recall":
+						calls = append(calls, ExtractedToolCall{Name: "memory_recall", Arguments: map[string]any{"query": argVal}})
+					}
+				}
 			}
 		}
 	}
@@ -2890,6 +2983,8 @@ func (t *ToolExecutor) ExecuteWithoutRecording(ctx context.Context, name string,
 		return t.executeBrowserUse(ctx, args)
 	case "manage_unjess":
 		return t.executeManageUnjess(args)
+	case "render_ui_widget":
+		return t.executeRenderUIWidget(args)
 	default:
 		out, found, err := frontier.ExecuteCustomTool(ctx, t.WorkspacePath, name, args)
 		if found {
@@ -2902,6 +2997,7 @@ func (t *ToolExecutor) ExecuteWithoutRecording(ctx context.Context, name string,
 	}
 }
 
+// executeTodoWrite updates the structured checklist for the current agent turn.
 func (t *ToolExecutor) executeTodoWrite(args map[string]any) (string, bool) {
 	rawList, ok := args["todos"].([]any)
 	if !ok {
@@ -5661,7 +5757,7 @@ func parseDuckDuckGoHTML(htmlContent string, maxResults int) []webSearchResult {
 	reSnippet := regexp.MustCompile(`(?is)<(?:a|div)[^>]*class="[^"]*result__snippet[^"]*"[^>]*>(.*?)</(?:a|div)>`)
 	reStripTag := regexp.MustCompile(`<[^>]+>`)
 
-	for _, b := range blocks {
+	for i, b := range blocks {
 		if len(results) >= maxResults {
 			break
 		}
@@ -5698,6 +5794,17 @@ func parseDuckDuckGoHTML(htmlContent string, maxResults int) []webSearchResult {
 				URL:     rawURL,
 				Snippet: snippet,
 			})
+		}
+		_ = i
+	}
+
+	// Enrich any missing snippets directly from full htmlContent (since inner </div> tags can truncate reBlock before result__snippet)
+	if len(results) > 0 {
+		allSnippets := reSnippet.FindAllStringSubmatch(htmlContent, -1)
+		for i := range results {
+			if results[i].Snippet == "" && i < len(allSnippets) && len(allSnippets[i]) >= 2 {
+				results[i].Snippet = html.UnescapeString(strings.TrimSpace(reStripTag.ReplaceAllString(allSnippets[i][1], "")))
+			}
 		}
 	}
 
@@ -5746,7 +5853,8 @@ func parseDuckDuckGoHTML(htmlContent string, maxResults int) []webSearchResult {
 	// Pattern 3: direct regex search for result__a if neither block pattern worked
 	if len(results) == 0 {
 		linkMatches := reLink.FindAllStringSubmatch(htmlContent, -1)
-		for _, lm := range linkMatches {
+		allSnippets := reSnippet.FindAllStringSubmatch(htmlContent, -1)
+		for i, lm := range linkMatches {
 			if len(results) >= maxResults {
 				break
 			}
@@ -5764,10 +5872,15 @@ func parseDuckDuckGoHTML(htmlContent string, maxResults int) []webSearchResult {
 				rawURL = "https:" + rawURL
 			}
 			title := html.UnescapeString(strings.TrimSpace(reStripTag.ReplaceAllString(lm[2], "")))
+			snippet := ""
+			if i < len(allSnippets) && len(allSnippets[i]) >= 2 {
+				snippet = html.UnescapeString(strings.TrimSpace(reStripTag.ReplaceAllString(allSnippets[i][1], "")))
+			}
 			if rawURL != "" && title != "" {
 				results = append(results, webSearchResult{
-					Title: title,
-					URL:   rawURL,
+					Title:   title,
+					URL:     rawURL,
+					Snippet: snippet,
 				})
 			}
 		}
@@ -5899,6 +6012,9 @@ func (t *ToolExecutor) executeWebSearch(ctx context.Context, args map[string]any
 
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("### Web Search Results for: %s\n\n", query))
+	if liveWeather := fetchLiveWeatherIfWeatherQuery(searchCtx, client, query); liveWeather != "" {
+		sb.WriteString(liveWeather + "\n\n")
+	}
 	for i, r := range results {
 		sb.WriteString(fmt.Sprintf("%d. [%s](%s)\n", i+1, r.Title, r.URL))
 		if r.Snippet != "" {
@@ -5909,6 +6025,96 @@ func (t *ToolExecutor) executeWebSearch(ctx context.Context, args map[string]any
 	}
 
 	return strings.TrimSpace(sb.String()), true
+}
+
+// fetchLiveWeatherIfWeatherQuery detects weather queries (English or Slovenian) and fetches real-time weather telemetry via wttr.in.
+func fetchLiveWeatherIfWeatherQuery(ctx context.Context, client *http.Client, query string) string {
+	lower := strings.ToLower(strings.TrimSpace(query))
+	isWeather := strings.Contains(lower, "vreme") || strings.Contains(lower, "weather") ||
+		strings.Contains(lower, "temperatura") || strings.Contains(lower, "temperature") ||
+		strings.Contains(lower, "forecast") || strings.Contains(lower, "napoved")
+	if !isWeather {
+		return ""
+	}
+	// Strip common weather stop-words (including basic Slovenian locative endings) to isolate location
+	stopWords := map[string]bool{
+		"vreme": true, "weather": true, "temperatura": true, "temperature": true,
+		"forecast": true, "napoved": true, "danes": true, "today": true, "jutri": true,
+		"tomorrow": true, "trenutno": true, "current": true, "now": true, "zdaj": true,
+		"v": true, "in": true, "za": true, "for": true, "na": true, "po": true, "urah": true,
+		"kakšno": true, "kaksno": true, "je": true,
+	}
+	var locTokens []string
+	for _, rawTok := range strings.FieldsFunc(query, func(r rune) bool {
+		return r == ' ' || r == ',' || r == '?' || r == '!' || r == '.' || r == ':' || r == ';'
+	}) {
+		tl := strings.ToLower(strings.TrimSpace(rawTok))
+		if tl == "" || stopWords[tl] {
+			continue
+		}
+		// Normalize common Slovenian locative forms (e.g. Kopru -> Koper, Ljubljani -> Ljubljana, Mariboru -> Maribor, Celju -> Celje, Kranju -> Kranj)
+		switch tl {
+		case "kopru":
+			rawTok = "Koper"
+		case "ljubljani":
+			rawTok = "Ljubljana"
+		case "mariboru":
+			rawTok = "Maribor"
+		case "celju":
+			rawTok = "Celje"
+		case "kranju":
+			rawTok = "Kranj"
+		case "portorožu", "portorozu":
+			rawTok = "Portoroz"
+		case "piranu":
+			rawTok = "Piran"
+		case "izoli":
+			rawTok = "Izola"
+		case "bled", "bledu":
+			rawTok = "Bled"
+		case "novem":
+			rawTok = "Novo"
+		case "mestu":
+			rawTok = "mesto"
+		case "gorici":
+			rawTok = "Gorica"
+		case "velenju":
+			rawTok = "Velenje"
+		case "ptuju":
+			rawTok = "Ptuj"
+		case "kamniku":
+			rawTok = "Kamnik"
+		case "domžalah", "domzalah":
+			rawTok = "Domzale"
+		}
+		locTokens = append(locTokens, rawTok)
+	}
+	if len(locTokens) == 0 {
+		return ""
+	}
+	location := strings.Join(locTokens, " ")
+	wCtx, cancel := context.WithTimeout(ctx, 4*time.Second)
+	defer cancel()
+	wURL := fmt.Sprintf("https://wttr.in/%s?format=%%l:+%%C,+temperatura+%%t+(obcutek+%%f),+veter+%%w,+vlaga+%%h,+padavine+%%p&lang=sl", url.PathEscape(location))
+	req, err := http.NewRequestWithContext(wCtx, "GET", wURL, nil)
+	if err != nil {
+		return ""
+	}
+	req.Header.Set("User-Agent", "curl/8.0")
+	resp, err := client.Do(req)
+	if err != nil || resp == nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return ""
+	}
+	b, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+	line := strings.TrimSpace(string(b))
+	if line == "" || strings.Contains(strings.ToLower(line), "unknown location") || strings.HasPrefix(line, "<") {
+		return ""
+	}
+	return fmt.Sprintf("**[Trenutno vreme v živo / Live Weather (%s)]**: %s", location, line)
 }
 
 func cleanHTMLContent(htmlStr string, maxChars int) string {
@@ -6696,4 +6902,17 @@ func (t *ToolExecutor) executeManageUnjess(args map[string]any) (string, bool) {
 	default:
 		return fmt.Sprintf("Error: unknown manage_unjess action '%s'. Supported actions: add_provider, remove_provider, list_providers, add_mcp, remove_mcp, save_skill, install_skill_github, delete_skill.", action), false
 	}
+}
+
+// executeRenderUIWidget validates and records an inline sandboxed HTML/CSS/JS UI widget for the chat feed.
+func (t *ToolExecutor) executeRenderUIWidget(args map[string]any) (string, bool) {
+	html := strings.TrimSpace(getString(args, "html", "content", "markup"))
+	if html == "" {
+		return "Error: 'html' is required for render_ui_widget.", false
+	}
+	title := strings.TrimSpace(getString(args, "title", "name"))
+	if title == "" {
+		title = "Interactive Widget"
+	}
+	return fmt.Sprintf("Rendered interactive UI widget '%s' inline in the chat feed.", title), true
 }

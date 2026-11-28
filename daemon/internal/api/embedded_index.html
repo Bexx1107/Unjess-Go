@@ -14,6 +14,12 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Rich Markdown, Sanitizer, Syntax Highlighting & Mermaid Diagrams -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/common.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
 
   <script>
     tailwind.config = {
@@ -104,6 +110,63 @@
     .switch-track { transition: background-color 0.2s; }
     .switch-thumb { transition: transform 0.2s; }
 
+    .markdown-body {
+      font-size: 13px;
+      line-height: 1.65;
+      color: #e4e4e7;
+    }
+    .markdown-body > *:first-child { margin-top: 0 !important; }
+    .markdown-body > *:last-child { margin-bottom: 0 !important; }
+    .markdown-body h1, .markdown-body h2 {
+      color: #fafafa;
+      font-weight: 700;
+      margin: 1rem 0 0.5rem;
+      padding-bottom: 0.3rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .markdown-body h1 { font-size: 1.15rem; }
+    .markdown-body h2 { font-size: 1.02rem; }
+    .markdown-body h3 { color: #f4f4f5; font-weight: 600; font-size: 0.92rem; margin: 0.85rem 0 0.35rem; }
+    .markdown-body h4 { color: #d4d4d8; font-weight: 600; font-size: 0.85rem; margin: 0.7rem 0 0.25rem; }
+    .markdown-body p { margin: 0.45rem 0; }
+    .markdown-body ul, .markdown-body ol { margin: 0.45rem 0; padding-left: 1.35rem; }
+    .markdown-body ul { list-style-type: disc; }
+    .markdown-body ol { list-style-type: decimal; }
+    .markdown-body li { margin: 0.2rem 0; }
+    .markdown-body blockquote {
+      margin: 0.65rem 0;
+      padding: 0.5rem 0.85rem;
+      border-left: 3px solid rgba(125, 211, 252, 0.55);
+      background: rgba(12, 74, 110, 0.14);
+      border-radius: 0 0.5rem 0.5rem 0;
+      color: #cbd5e1;
+    }
+    .markdown-body hr {
+      margin: 0.9rem 0;
+      border: 0;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .markdown-body table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .markdown-body th {
+      padding: 0.5rem 0.75rem;
+      font-weight: 600;
+      color: #f4f4f5;
+      background: rgba(24, 24, 27, 0.95);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      text-align: left;
+    }
+    .markdown-body td {
+      padding: 0.45rem 0.75rem;
+      color: #d4d4d8;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      vertical-align: top;
+    }
+    .markdown-body tbody tr:nth-child(even) { background: rgba(255, 255, 255, 0.015); }
+    .markdown-body tbody tr:hover { background: rgba(255, 255, 255, 0.04); }
     .markdown-body pre {
       background-color: #09090b;
       border: 1px solid rgba(255, 255, 255, 0.08);
@@ -111,19 +174,26 @@
       padding: 0.75rem;
       overflow-x: auto;
       font-family: 'JetBrains Mono', monospace;
-      font-size: 11px;
+      font-size: 11.5px;
+      line-height: 1.5;
       margin: 0.5rem 0;
     }
     .markdown-body code {
       font-family: 'JetBrains Mono', monospace;
-      background-color: rgba(255, 255, 255, 0.07);
-      padding: 0.1rem 0.3rem;
+      background-color: rgba(255, 255, 255, 0.08);
+      color: #7dd3fc;
+      padding: 0.1rem 0.35rem;
       border-radius: 0.25rem;
-      font-size: 11px;
+      font-size: 11.5px;
     }
     .markdown-body pre code {
       background-color: transparent;
+      color: inherit;
       padding: 0;
+    }
+    .markdown-body .hljs {
+      background: transparent !important;
+      padding: 0 !important;
     }
 
     /* Never allow strikethrough / line-through on any text in the UI */
@@ -159,7 +229,7 @@
       </div>
       <button id="btn-header-version" type="button" class="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono bg-zinc-900/90 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700/60 transition cursor-pointer select-none" title="Unjess Version & Updates (Click to check)">
         <span id="header-version-dot" class="hidden w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
-        <span id="header-version-text">v3.1.3</span>
+        <span id="header-version-text">v3.1.4</span>
       </button>
       <span id="backend-status-pill" class="hidden">
         <span id="backend-status-dot"></span>
@@ -431,21 +501,13 @@
             <div class="max-w-4xl mx-auto mb-1.5 flex flex-wrap items-center justify-between gap-1.5 px-1 text-xs select-none">
               <div class="flex items-center space-x-1.5 overflow-x-auto no-scrollbar py-0.5 max-w-full">
                 <div id="chat-mode-selector" class="inline-flex items-center p-0.5 rounded-lg bg-zinc-950/80 border border-white/10 text-[11px] font-mono space-x-0.5 flex-shrink-0">
-                  <button type="button" data-agent-mode="Autonomous" onclick="setAgentMode('Autonomous')" title="Autonomous Mode (plans, tools, code & commands)" class="agent-mode-pill px-2 py-0.5 rounded-md transition font-medium flex items-center space-x-1 text-zinc-400 hover:text-white">
-                    <i data-lucide="zap" class="w-3 h-3"></i>
-                    <span>Auto</span>
+                  <button type="button" data-agent-mode="Coding" onclick="setAgentMode('Coding')" title="Coding Mode (Hybrid Plan → Auto: plans & clarifies on initial messages, then switches to full autonomous coding)" class="agent-mode-pill px-2.5 py-0.5 rounded-md transition font-medium flex items-center space-x-1 text-zinc-400 hover:text-white">
+                    <i data-lucide="code-2" class="w-3 h-3"></i>
+                    <span>Coding</span>
                   </button>
-                  <button type="button" data-agent-mode="Plan" onclick="setAgentMode('Plan')" title="Plan Mode (Read-only architectural planning)" class="agent-mode-pill px-2 py-0.5 rounded-md transition font-medium flex items-center space-x-1 text-zinc-400 hover:text-white">
-                    <i data-lucide="map" class="w-3 h-3"></i>
-                    <span>Plan</span>
-                  </button>
-                  <button type="button" data-agent-mode="Supervised" onclick="setAgentMode('Supervised')" title="Supervised Mode (Requires confirmation for shell commands)" class="agent-mode-pill px-2 py-0.5 rounded-md transition font-medium flex items-center space-x-1 text-zinc-400 hover:text-white">
-                    <i data-lucide="shield" class="w-3 h-3"></i>
-                    <span>Supervised</span>
-                  </button>
-                  <button type="button" data-agent-mode="Duel" onclick="setAgentMode('Duel')" title="Red Team vs. White Team Autonomous Pentesting & Auto-Remediation Duel" class="agent-mode-pill px-2 py-0.5 rounded-md transition font-medium flex items-center space-x-1 text-zinc-400 hover:text-white">
-                    <i data-lucide="swords" class="w-3 h-3"></i>
-                    <span>Duel</span>
+                  <button type="button" data-agent-mode="Chat" onclick="setAgentMode('Chat')" title="Chat Mode (Conversational assistant with basic web search, URL reading & memory tools)" class="agent-mode-pill px-2.5 py-0.5 rounded-md transition font-medium flex items-center space-x-1 text-zinc-400 hover:text-white">
+                    <i data-lucide="message-circle" class="w-3 h-3"></i>
+                    <span>Chat</span>
                   </button>
                 </div>
               </div>
@@ -624,7 +686,7 @@
 
         <!-- COLUMN 3: RIGHT INSPECTOR / SIDEBAR BROWSER / CONTEXT PANEL (Hidden by default) -->
         <aside id="right-inspector" class="hidden w-[280px] lg:w-[340px] bg-unjessSidebar border-l border-unjessBorder flex flex-col flex-shrink-0 overflow-hidden text-xs">
-          <!-- Top Bar Header with 3-Segment Switcher: Diffs | Browser | Controls -->
+          <!-- Top Bar Header with 2-Segment Switcher: Diffs | Browser -->
           <div class="p-2.5 border-b border-unjessBorder flex items-center justify-between gap-2 flex-shrink-0 bg-unjessSidebar">
             <div class="inline-flex items-center bg-zinc-950 border border-unjessBorder rounded-lg p-0.5 text-[10.5px] font-mono flex-1 min-w-0">
               <button type="button" id="inspector-tab-diffs" onclick="toggleInspectorView('diffs')" class="flex-1 px-2 py-1 rounded-md bg-unjessCard text-white font-semibold transition flex items-center justify-center space-x-1 truncate" title="Code Changes & Unified Diffs">
@@ -636,10 +698,6 @@
                 <i data-lucide="globe" class="w-3 h-3 text-unjessCyan flex-shrink-0"></i>
                 <span class="truncate">Browser</span>
                 <span id="inspector-browser-agent-dot" class="hidden w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse flex-shrink-0"></span>
-              </button>
-              <button type="button" id="inspector-tab-controls" onclick="toggleInspectorView('controls')" class="flex-1 px-2 py-1 rounded-md text-zinc-400 hover:text-white transition flex items-center justify-center space-x-1 truncate" title="Agent Mode, Sandbox, Active Tools & Model">
-                <i data-lucide="sliders" class="w-3 h-3 flex-shrink-0"></i>
-                <span id="btn-toggle-inspector-label" class="truncate">Controls</span>
               </button>
             </div>
             <span id="inspector-header-title" class="hidden">Changes & Diffs</span>
@@ -1808,7 +1866,7 @@
                   <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-unjessBorder pb-4">
                     <div class="space-y-1">
                       <div class="flex items-center space-x-2.5">
-                        <span id="update-current-version-title" class="text-sm font-bold text-white tracking-tight">Unjess v3.1.3</span>
+                        <span id="update-current-version-title" class="text-sm font-bold text-white tracking-tight">Unjess v3.1.4</span>
                         <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-900 text-zinc-300 border border-zinc-700/60">
                           Go + Rust Native Engine • unjess.si
                         </span>
@@ -1820,7 +1878,7 @@
                       <!-- Status Pill -->
                       <span id="update-check-status-badge" class="px-2.5 py-1 rounded-full text-[11px] font-mono flex items-center space-x-1.5 bg-zinc-900 border border-zinc-700/60 text-zinc-300">
                         <span id="update-status-badge-dot" class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                        <span id="update-status-badge-text">Up to date (v3.1.3)</span>
+                        <span id="update-status-badge-text">Up to date (v3.1.4)</span>
                       </span>
 
                       <!-- Check for Updates Button -->
@@ -2657,7 +2715,7 @@
       activeWorkspaceName: 'unjess',
       selectedModel: '',
       reasoningEffort: localStorage.getItem('unjess_reasoning_effort') || 'high',
-      agentMode: 'Autonomous',
+      agentMode: localStorage.getItem('unjess_agent_mode') === 'Chat' ? 'Chat' : 'Coding',
       cavemanMode: localStorage.getItem('unjess_caveman_mode') === 'true',
       ponytailMode: localStorage.getItem('unjess_ponytail_mode') === 'true',
       ollamaUrl: 'http://localhost:11434',
@@ -3296,24 +3354,333 @@
       return out.join('');
     }
 
-    function renderMarkdownText(md) {
-      if (!md) return '';
-      let html = escapeHtml(md);
-      const codeBlocks = [];
-      // Extract fenced code blocks first so their contents are untouched by block/inline markdown
-      html = html.replace(/```([a-zA-Z0-9_+-]*)\r?\n([\s\S]*?)```/g, (_, lang, code) => {
-        const token = `\x00PRE_${codeBlocks.length}\x00`;
-        const langBadge = lang ? `<div class="px-2.5 py-1 text-[10px] font-mono text-zinc-400 bg-zinc-900/90 border-b border-white/5 flex items-center justify-between"><span>${lang}</span></div>` : '';
-        codeBlocks.push(`<div class="my-2 rounded-lg overflow-hidden border border-white/10 bg-zinc-950/90">${langBadge}<pre class="!my-0 !border-0 !rounded-none p-2.5 overflow-x-auto text-[11px] font-mono text-zinc-200"><code>${code.trim()}</code></pre></div>`);
-        return token;
+    window._unjessWidgetStore = window._unjessWidgetStore || new Map();
+
+    if (!window._unjessWidgetResizeBound) {
+      window._unjessWidgetResizeBound = true;
+      window.addEventListener('message', (ev) => {
+        const data = ev && ev.data;
+        if (!data || data.type !== 'unjess-widget-resize' || !data.id) return;
+        const iframe = document.querySelector(`iframe[data-widget-id="${CSS.escape(String(data.id))}"]`);
+        if (!iframe) return;
+        const nextH = Math.max(120, Math.min(760, Number(data.height) || 320));
+        if (Math.abs((parseInt(iframe.style.height, 10) || 0) - nextH) > 4) {
+          iframe.style.height = nextH + 'px';
+        }
+      });
+    }
+
+    function hashWidgetString(str) {
+      let h = 2166136261;
+      for (let i = 0; i < str.length; i++) {
+        h ^= str.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+      }
+      return (h >>> 0).toString(36);
+    }
+
+    function buildWidgetSrcdoc(rawHtml, widgetId) {
+      const safeId = String(widgetId || '').replace(/[^a-zA-Z0-9_-]/g, '');
+      const hasFullDoc = /<\s*html[\s>]/i.test(rawHtml) || /<!doctype\s+html/i.test(rawHtml);
+      const baseStyles = `
+        <style>
+          *, *::before, *::after { box-sizing: border-box; }
+          :root { color-scheme: dark; }
+          html, body {
+            margin: 0;
+            padding: 14px;
+            background: #09090b;
+            color: #e4e4e7;
+            font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-size: 13px;
+            line-height: 1.55;
+            overflow-x: auto;
+          }
+          a { color: #7dd3fc; }
+          table { width: 100%; border-collapse: collapse; font-size: 12px; }
+          th, td { padding: 7px 10px; border-bottom: 1px solid rgba(255,255,255,0.08); text-align: left; }
+          th { background: rgba(255,255,255,0.04); color: #fafafa; font-weight: 600; }
+          tr:hover td { background: rgba(255,255,255,0.025); }
+          button, input, select {
+            font-family: inherit;
+            background: #18181b;
+            color: #f4f4f5;
+            border: 1px solid rgba(255,255,255,0.14);
+            border-radius: 6px;
+            padding: 5px 10px;
+            font-size: 12px;
+          }
+          button { cursor: pointer; }
+          button:hover { background: #27272a; border-color: rgba(125,211,252,0.45); }
+          ::-webkit-scrollbar { width: 5px; height: 5px; }
+          ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 9999px; }
+        </style>
+      `;
+      const resizeScript = `
+        <script>
+          (function(){
+            var id = "${safeId}";
+            function notify(){
+              try {
+                var h = Math.max(document.body ? document.body.scrollHeight : 0, document.documentElement ? document.documentElement.scrollHeight : 0);
+                if (h > 0 && window.parent) {
+                  window.parent.postMessage({ type: "unjess-widget-resize", id: id, height: h + 8 }, "*");
+                }
+              } catch(e){}
+            }
+            window.addEventListener("load", notify);
+            if (typeof ResizeObserver !== "undefined") {
+              new ResizeObserver(notify).observe(document.documentElement);
+            }
+            setTimeout(notify, 60);
+            setTimeout(notify, 300);
+          })();
+        <\/script>
+      `;
+      if (hasFullDoc) {
+        if (/<\/body>/i.test(rawHtml)) {
+          return rawHtml.replace(/<\/body>/i, resizeScript + '</body>');
+        }
+        return rawHtml + resizeScript;
+      }
+      return `<!DOCTYPE html><html lang="en" class="dark"><head><meta charset="UTF-8">${baseStyles}</head><body>${rawHtml}${resizeScript}</body></html>`;
+    }
+
+    function buildWidgetCardHtml(title, rawHtml, initialHeight, widgetId) {
+      const cleanTitle = String(title || 'Interactive UI').trim() || 'Interactive UI';
+      const id = widgetId || ('w_' + hashWidgetString(cleanTitle + '\n' + rawHtml));
+      const existing = window._unjessWidgetStore.get(id);
+      if (!existing || !existing.rawLen || rawHtml.length >= existing.rawLen) {
+        const srcdoc = buildWidgetSrcdoc(rawHtml, id);
+        if (existing && existing.blobUrl) {
+          try { URL.revokeObjectURL(existing.blobUrl); } catch (_) {}
+        }
+        window._unjessWidgetStore.set(id, { title: cleanTitle, srcdoc, rawLen: rawHtml.length });
+      }
+      const h = Math.max(140, Math.min(720, Number(initialHeight) || 300));
+      return `
+        <div class="my-2.5 rounded-xl border border-sky-500/20 bg-[#0b0b0e] overflow-hidden shadow-lg" data-widget-card="${escapeHtml(id)}">
+          <div class="px-3 py-1.5 bg-zinc-900/90 border-b border-white/10 flex items-center justify-between text-[11px] font-mono">
+            <div class="flex items-center space-x-2 min-w-0">
+              <span class="w-2 h-2 rounded-full bg-sky-400 flex-shrink-0"></span>
+              <span class="text-zinc-100 font-semibold truncate">${escapeHtml(cleanTitle)}</span>
+              <span class="px-1.5 py-0.2 rounded bg-sky-950/70 text-sky-300 border border-sky-500/30 text-[9.5px]">UI Widget</span>
+            </div>
+            <div class="flex items-center space-x-1.5 flex-shrink-0">
+              <button type="button" onclick="openWidgetPopout('${escapeHtml(id)}')" class="px-1.5 py-0.5 rounded text-zinc-400 hover:text-white hover:bg-white/10 transition text-[10px]" title="Open widget in new window">Popout</button>
+            </div>
+          </div>
+          <iframe
+            data-widget-id="${escapeHtml(id)}"
+            sandbox="allow-scripts"
+            class="w-full border-0 bg-[#09090b] block"
+            style="height: ${h}px;"
+          ></iframe>
+        </div>
+      `;
+    }
+
+    function openWidgetPopout(widgetId) {
+      const entry = window._unjessWidgetStore && window._unjessWidgetStore.get(widgetId);
+      if (!entry) return;
+      const win = window.open('', '_blank', 'width=960,height=720');
+      if (win) {
+        win.document.open();
+        win.document.write(entry.srcdoc);
+        win.document.close();
+      }
+    }
+
+    function toggleCodeBlockCollapse(btn) {
+      const card = btn.closest('.md-code-card');
+      if (!card) return;
+      const pre = card.querySelector('pre');
+      if (!pre) return;
+      const collapsed = pre.classList.toggle('max-h-40');
+      pre.classList.toggle('overflow-y-hidden', collapsed);
+      btn.textContent = collapsed ? 'Expand' : 'Collapse';
+    }
+
+    function copyCodeCardText(btn) {
+      const card = btn.closest('.md-code-card');
+      const codeEl = card && card.querySelector('pre code');
+      if (!codeEl) return;
+      copyTextToClipboard(codeEl.textContent || '');
+      const prev = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = prev || 'Copy'; }, 1400);
+    }
+
+    function hydrateRichContent(rootEl) {
+      if (!rootEl) return;
+      rootEl.querySelectorAll('iframe[data-widget-id]').forEach((iframe) => {
+        const id = iframe.getAttribute('data-widget-id');
+        if (!id || iframe.dataset.widgetHydrated === id) return;
+        const entry = window._unjessWidgetStore && window._unjessWidgetStore.get(id);
+        if (entry && entry.srcdoc) {
+          iframe.dataset.widgetHydrated = id;
+          if (!entry.blobUrl) {
+            entry.blobUrl = URL.createObjectURL(new Blob([entry.srcdoc], { type: 'text/html;charset=utf-8' }));
+          }
+          requestAnimationFrame(() => {
+            if (iframe.isConnected) {
+              iframe.src = entry.blobUrl;
+            }
+          });
+        }
+      });
+      if (typeof mermaid !== 'undefined') {
+        const pending = rootEl.querySelectorAll('.mermaid-pending');
+        if (pending.length > 0) {
+          try {
+            if (!window._unjessMermaidInit) {
+              window._unjessMermaidInit = true;
+              mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'strict' });
+            }
+            pending.forEach((el) => { el.classList.remove('mermaid-pending'); el.classList.add('mermaid'); });
+            mermaid.run({ nodes: pending }).catch(() => {});
+          } catch (e) {}
+        }
+      }
+    }
+
+    function enhanceMarkdownHtml(rawHtml) {
+      const container = document.createElement('div');
+      container.innerHTML = rawHtml;
+
+      // 1. Links: file:// opens in viewer, http(s):// opens in new tab
+      container.querySelectorAll('a').forEach((a) => {
+        const href = a.getAttribute('href') || '';
+        if (href.startsWith('file://')) {
+          const localPath = decodeURIComponent(href.replace(/^file:\/\/\/?/, '')).replace(/#L\d+(?:-L?\d+)?$/, '');
+          a.setAttribute('href', 'javascript:void(0)');
+          a.setAttribute('onclick', `openFileInViewer('${localPath.replace(/\\/g, '/').replace(/'/g, "\\'")}')`);
+          a.className = 'inline-flex items-center space-x-1 px-1.5 py-0.2 rounded bg-sky-950/60 hover:bg-sky-900/70 text-sky-300 border border-sky-500/30 font-mono text-[11px] transition no-underline';
+          a.title = localPath;
+        } else if (/^https?:\/\//i.test(href)) {
+          a.setAttribute('target', '_blank');
+          a.setAttribute('rel', 'noopener noreferrer');
+          a.className = 'text-sky-400 hover:text-sky-300 underline underline-offset-2';
+        }
       });
 
-      const segments = html.split(/(\x00PRE_\d+\x00)/g);
-      return segments.map(seg => {
-        const m = seg.match(/^\x00PRE_(\d+)\x00$/);
-        if (m) return codeBlocks[Number(m[1])] || '';
-        return renderMarkdownBlockSegment(seg);
-      }).join('');
+      // 2. GitHub-style Callout Alerts (> [!NOTE], [!TIP], [!IMPORTANT], [!WARNING], [!CAUTION])
+      const alertStyles = {
+        NOTE: { border: 'border-sky-500/50', bg: 'bg-sky-950/20', text: 'text-sky-300', label: 'Note' },
+        TIP: { border: 'border-emerald-500/50', bg: 'bg-emerald-950/20', text: 'text-emerald-300', label: 'Tip' },
+        IMPORTANT: { border: 'border-purple-500/50', bg: 'bg-purple-950/20', text: 'text-purple-300', label: 'Important' },
+        WARNING: { border: 'border-amber-500/50', bg: 'bg-amber-950/20', text: 'text-amber-300', label: 'Warning' },
+        CAUTION: { border: 'border-red-500/50', bg: 'bg-red-950/20', text: 'text-red-300', label: 'Caution' },
+      };
+      container.querySelectorAll('blockquote').forEach((bq) => {
+        const firstP = bq.querySelector('p');
+        if (!firstP) return;
+        const m = (firstP.innerHTML || '').match(/^\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*(?:<br\s*\/?>)?\s*/i);
+        if (!m) return;
+        const kind = m[1].toUpperCase();
+        const st = alertStyles[kind] || alertStyles.NOTE;
+        firstP.innerHTML = firstP.innerHTML.slice(m[0].length);
+        bq.className = `my-2.5 px-3.5 py-2.5 rounded-r-lg border-l-[3px] ${st.border} ${st.bg} text-slate-200`;
+        const badge = document.createElement('div');
+        badge.className = `text-[11px] font-semibold uppercase tracking-wider mb-1 ${st.text}`;
+        badge.textContent = st.label;
+        bq.insertBefore(badge, bq.firstChild);
+      });
+
+      // 3. Wrap tables in responsive scroll card
+      container.querySelectorAll('table').forEach((tbl) => {
+        if (tbl.parentElement && tbl.parentElement.classList.contains('md-table-wrap')) return;
+        const wrap = document.createElement('div');
+        wrap.className = 'md-table-wrap my-2.5 overflow-x-auto rounded-lg border border-white/10 bg-zinc-950/70';
+        tbl.parentNode.insertBefore(wrap, tbl);
+        wrap.appendChild(tbl);
+      });
+
+      // 4. Upgrade <pre><code> with highlight.js, Copy button, and Collapse for long blocks
+      container.querySelectorAll('pre').forEach((pre) => {
+        const codeEl = pre.querySelector('code');
+        const rawCode = codeEl ? codeEl.textContent || '' : pre.textContent || '';
+        const langClass = codeEl ? (codeEl.className.match(/language-([a-zA-Z0-9_+-]+)/) || [])[1] || '' : '';
+        if (codeEl && typeof hljs !== 'undefined') {
+          try { hljs.highlightElement(codeEl); } catch (e) {}
+        }
+        const lineCount = rawCode.split('\n').length;
+        const isLong = lineCount > 16;
+        const card = document.createElement('div');
+        card.className = 'md-code-card my-2.5 rounded-lg overflow-hidden border border-white/10 bg-[#09090b]';
+        const header = document.createElement('div');
+        header.className = 'px-3 py-1 bg-zinc-900/90 border-b border-white/5 flex items-center justify-between text-[10px] font-mono text-zinc-400';
+        header.innerHTML = `
+          <span>${escapeHtml(langClass || 'code')}${isLong ? ` <span class="text-zinc-600">(${lineCount} lines)</span>` : ''}</span>
+          <div class="flex items-center space-x-1.5">
+            ${isLong ? `<button type="button" onclick="toggleCodeBlockCollapse(this)" class="hover:text-white px-1.5 py-0.5 rounded hover:bg-white/10 transition">Collapse</button>` : ''}
+            <button type="button" onclick="copyCodeCardText(this)" class="hover:text-white px-1.5 py-0.5 rounded hover:bg-white/10 transition">Copy</button>
+          </div>
+        `;
+        pre.className = '!my-0 !border-0 !rounded-none p-3 overflow-x-auto text-[11.5px] font-mono text-zinc-200';
+        pre.parentNode.insertBefore(card, pre);
+        card.appendChild(header);
+        card.appendChild(pre);
+      });
+
+      return container.innerHTML;
+    }
+
+    function renderMarkdownText(md) {
+      if (!md) return '';
+      const raw = String(md);
+      const specialBlocks = [];
+
+      // Extract ```widget / ```html-widget / ```ui and ```mermaid blocks before Markdown parsing
+      const tokenized = raw.replace(/```(widget|html-widget|ui|mermaid)\r?\n([\s\S]*?)```/gi, (_, kind, body) => {
+        const idx = specialBlocks.length;
+        const k = kind.toLowerCase();
+        if (k === 'mermaid') {
+          specialBlocks.push(`<div class="my-2.5 p-3 rounded-xl border border-white/10 bg-[#09090b] overflow-x-auto"><div class="mermaid-pending">${escapeHtml(body.trim())}</div></div>`);
+        } else {
+          specialBlocks.push(buildWidgetCardHtml('Interactive UI', body.trim(), 300));
+        }
+        return `\n\nUNJESS_SPECIAL_BLOCK_${idx}_END\n\n`;
+      });
+
+      let renderedHtml = '';
+      if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+        try {
+          const parsed = marked.parse(tokenized, { gfm: true, breaks: true });
+          const clean = DOMPurify.sanitize(parsed, {
+            ADD_ATTR: ['target', 'rel'],
+            FORBID_TAGS: ['style', 'script', 'iframe', 'object', 'embed'],
+          });
+          renderedHtml = enhanceMarkdownHtml(clean);
+        } catch (e) {
+          renderedHtml = '';
+        }
+      }
+
+      if (!renderedHtml) {
+        // Offline / fallback path using built-in safe renderer
+        let html = escapeHtml(tokenized);
+        const codeBlocks = [];
+        html = html.replace(/```([a-zA-Z0-9_+-]*)\r?\n([\s\S]*?)```/g, (_, lang, code) => {
+          const token = `\x00PRE_${codeBlocks.length}\x00`;
+          const langBadge = `<div class="px-2.5 py-1 text-[10px] font-mono text-zinc-400 bg-zinc-900/90 border-b border-white/5 flex items-center justify-between"><span>${lang || 'code'}</span><button type="button" onclick="copyCodeCardText(this)" class="hover:text-white px-1.5 py-0.5 rounded hover:bg-white/10 transition">Copy</button></div>`;
+          codeBlocks.push(`<div class="md-code-card my-2 rounded-lg overflow-hidden border border-white/10 bg-zinc-950/90">${langBadge}<pre class="!my-0 !border-0 !rounded-none p-2.5 overflow-x-auto text-[11px] font-mono text-zinc-200"><code>${code.trim()}</code></pre></div>`);
+          return token;
+        });
+        const segments = html.split(/(\x00PRE_\d+\x00)/g);
+        renderedHtml = segments.map(seg => {
+          const m = seg.match(/^\x00PRE_(\d+)\x00$/);
+          if (m) return codeBlocks[Number(m[1])] || '';
+          return renderMarkdownBlockSegment(seg);
+        }).join('');
+      }
+
+      // Restore special widget / mermaid blocks
+      renderedHtml = renderedHtml.replace(/(?:<p>\s*)?UNJESS_SPECIAL_BLOCK_(\d+)_END(?:\s*<\/p>)?/g, (_, idx) => {
+        return specialBlocks[Number(idx)] || '';
+      });
+
+      return renderedHtml;
     }
 
     function formatRelativeTime(ts) {
@@ -4928,8 +5295,11 @@
             const dur = (typeof step.duration_s === 'number' && step.duration_s >= 0) ? step.duration_s : null;
             const durText = dur !== null ? (dur < 10 ? dur.toFixed(1) + 's' : Math.round(dur) + 's') : '';
             const isRunning = step.status === 'running';
+            const content = step.detail || '';
+            if (!isRunning && !content.trim()) {
+              return;
+            }
             const title = isRunning ? `Thinking...${durText ? ' (' + durText + ')' : ''}` : `Thought for ${durText || 'a moment'}`;
-            const content = step.detail || turn.thinking || '';
             items.push({
               id: step.id || `think_${sIdx}`,
               type: 'thinking',
@@ -5314,10 +5684,21 @@
         `;
       }
 
+      // 1b. Inline Sandboxed UI Widgets (render_ui_widget tool calls)
+      let widgetsHtml = '';
+      const widgetCalls = (Array.isArray(turn.toolCalls) ? turn.toolCalls : []).filter(tc => tc && tc.name === 'render_ui_widget' && tc.arguments && tc.arguments.html);
+      if (widgetCalls.length > 0) {
+        widgetsHtml = widgetCalls.map((tc, wIdx) => {
+          const args = tc.arguments || {};
+          const wId = (tc.id || `tw_${turnIdx}_${wIdx}`).replace(/[^a-zA-Z0-9_-]/g, '');
+          return buildWidgetCardHtml(args.title || 'Interactive UI', String(args.html || ''), args.height || 320, wId);
+        }).join('');
+      }
+
       // 2. Assistant Markdown Text
       let textHtml = '';
       if (turn.text) {
-        textHtml = `<div class="pl-2 pt-1 text-slate-200 leading-relaxed text-xs markdown-body">${renderMarkdownText(turn.text)}</div>`;
+        textHtml = `<div class="pl-2 pt-1 text-slate-200 leading-relaxed text-[13px] markdown-body">${renderMarkdownText(turn.text)}</div>`;
       }
 
       return `
@@ -5344,6 +5725,7 @@
           </div>
         </div>
         ${activityHtml}
+        <div class="turn-widgets-wrapper">${widgetsHtml}</div>
         <div class="turn-markdown-wrapper">${textHtml}</div>
       `;
     }
@@ -5688,6 +6070,7 @@
 
       updateRunningSubagentsBar();
       lucide.createIcons({ root: container });
+      hydrateRichContent(container);
       if (shouldStick) {
         scrollMessagesToBottom(container);
       } else {
@@ -5801,8 +6184,9 @@
         const mdWrapper = liveCard.querySelector('.turn-markdown-wrapper');
         if (mdWrapper) {
           mdWrapper.innerHTML = pendingTurn.text
-            ? `<div class="pl-2 pt-1 text-slate-200 leading-relaxed text-xs markdown-body">${renderMarkdownText(pendingTurn.text)}</div>`
+            ? `<div class="pl-2 pt-1 text-slate-200 leading-relaxed text-[13px] markdown-body">${renderMarkdownText(pendingTurn.text)}</div>`
             : '';
+          hydrateRichContent(mdWrapper);
         }
         liveCard._lastContentSig = currentContentSig;
         if (shouldStick) {
@@ -5845,6 +6229,7 @@
       if (window.lucide && typeof lucide.createIcons === 'function') {
         lucide.createIcons({ root: liveCard });
       }
+      hydrateRichContent(liveCard);
 
       if (shouldStick) {
         scrollMessagesToBottom(container);
@@ -6084,29 +6469,27 @@
       const controlsPanel = document.getElementById('inspector-controls-panel');
       const tabDiffs = document.getElementById('inspector-tab-diffs');
       const tabBrowser = document.getElementById('inspector-tab-browser');
-      const tabControls = document.getElementById('inspector-tab-controls');
       const headerTitle = document.getElementById('inspector-header-title');
-      if (!diffsPanel || !controlsPanel) return;
+      if (!diffsPanel) return;
 
       let nextView = forceView;
-      if (!nextView) {
-        if (state.inspectorView === 'diffs') nextView = 'controls';
+      if (!nextView || nextView === 'controls') {
+        if (state.inspectorView === 'diffs' && !forceView) nextView = 'browser';
         else nextView = 'diffs';
       }
       state.inspectorView = nextView;
 
       diffsPanel.classList.toggle('hidden', nextView !== 'diffs');
       if (browserPanel) browserPanel.classList.toggle('hidden', nextView !== 'browser');
-      controlsPanel.classList.toggle('hidden', nextView !== 'controls');
+      if (controlsPanel) controlsPanel.classList.add('hidden');
 
       const activeCls = 'flex-1 px-2 py-1 rounded-md bg-unjessCard text-white font-semibold transition flex items-center justify-center space-x-1 truncate border border-white/10';
       const idleCls = 'flex-1 px-2 py-1 rounded-md text-zinc-400 hover:text-white transition flex items-center justify-center space-x-1 truncate';
       if (tabDiffs) tabDiffs.className = nextView === 'diffs' ? activeCls : idleCls;
       if (tabBrowser) tabBrowser.className = nextView === 'browser' ? activeCls : idleCls;
-      if (tabControls) tabControls.className = nextView === 'controls' ? activeCls : idleCls;
 
       if (headerTitle) {
-        headerTitle.textContent = nextView === 'browser' ? 'Sidebar Browser' : (nextView === 'controls' ? 'Controls & Tools' : 'Changes & Diffs');
+        headerTitle.textContent = nextView === 'browser' ? 'Sidebar Browser' : 'Changes & Diffs';
       }
 
       // Widen right inspector comfortably when opening Sidebar Browser so sites render naturally
@@ -9522,14 +9905,10 @@ function openNewChatModal(initialMode = 'quick') {
     // 8c. SUPERVISED COMMAND APPROVAL ENGINE & AGENT MODE PERSISTENCE
     // -------------------------------------------------------------------------
     function applyAgentModeUI(mode, syncBackend = true) {
-      if (/^plan$/i.test(mode)) {
-        state.agentMode = 'Plan';
-      } else if (/^supervised$/i.test(mode)) {
-        state.agentMode = 'Supervised';
-      } else if (/^duel$/i.test(mode)) {
-        state.agentMode = 'Duel';
+      if (/^chat$/i.test(mode)) {
+        state.agentMode = 'Chat';
       } else {
-        state.agentMode = 'Autonomous';
+        state.agentMode = 'Coding';
       }
 
       try {
@@ -9549,7 +9928,7 @@ function openNewChatModal(initialMode = 'quick') {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            agent_mode: state.agentMode || 'Autonomous',
+            agent_mode: state.agentMode || 'Coding',
             caveman_mode: Boolean(state.cavemanMode),
             ponytail_mode: Boolean(state.ponytailMode)
           })
@@ -9562,69 +9941,40 @@ function openNewChatModal(initialMode = 'quick') {
     }
 
     function syncAgentModeUI() {
-      const mode = state.agentMode || 'Autonomous';
+      const mode = (state.agentMode === 'Chat') ? 'Chat' : 'Coding';
 
-      // 1. Update settings checkbox if present
-      const confirmCmdEl = document.getElementById('settings-confirm-commands');
-      if (confirmCmdEl) confirmCmdEl.checked = (mode === 'Supervised');
-
-      // 2. Active button classes
-      const standardActive = 'agent-mode-pill py-1.5 px-2 rounded-lg font-semibold transition flex items-center justify-center space-x-1 bg-zinc-100 text-zinc-950 border border-white/20 shadow';
-      const duelActive = 'agent-mode-pill py-1.5 px-2 rounded-lg font-semibold transition flex items-center justify-center space-x-1 bg-red-950/80 text-red-200 border border-red-500/60 shadow';
-      const standardInactive = 'agent-mode-pill py-1.5 px-2 rounded-lg font-medium transition flex items-center justify-center space-x-1 text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent';
+      // Active button classes
+      const standardActive = 'agent-mode-pill py-1 px-2.5 rounded-md font-semibold transition flex items-center justify-center space-x-1 bg-zinc-100 text-zinc-950 border border-white/20 shadow';
+      const standardInactive = 'agent-mode-pill py-1 px-2.5 rounded-md font-medium transition flex items-center justify-center space-x-1 text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent';
 
       // Update all mode selector buttons with data-agent-mode
       document.querySelectorAll('[data-agent-mode]').forEach(btn => {
         const btnMode = btn.getAttribute('data-agent-mode');
         const isMatch = (btnMode && btnMode.toLowerCase() === mode.toLowerCase());
-        if (isMatch) {
-          btn.className = (mode === 'Duel') ? duelActive : standardActive;
-        } else {
-          btn.className = standardInactive;
-        }
+        btn.className = isMatch ? standardActive : standardInactive;
       });
 
-      // Explicit fallback for known IDs
-      const btnAuto = document.getElementById('mode-btn-autonomous');
-      const btnPlan = document.getElementById('mode-btn-plan');
-      const btnSup = document.getElementById('mode-btn-supervised');
-      const btnDuel = document.getElementById('mode-btn-duel');
-      if (btnAuto) btnAuto.className = (mode === 'Autonomous') ? standardActive : standardInactive;
-      if (btnPlan) btnPlan.className = (mode === 'Plan') ? standardActive : standardInactive;
-      if (btnSup) btnSup.className = (mode === 'Supervised') ? standardActive : standardInactive;
-      if (btnDuel) btnDuel.className = (mode === 'Duel') ? duelActive : standardInactive;
-
-      // 3. Update descriptions & placeholders
+      // Update descriptions & placeholders
       const inspectorTitle = document.getElementById('inspector-mode-title');
       const badgeText = document.getElementById('badge-mode-text');
       const badgeEl = document.getElementById('badge-agent-mode');
       const inspectorDesc = document.getElementById('inspector-mode-desc');
       const chatInput = document.getElementById('chat-input-textarea');
 
-      if (mode === 'Duel') {
-        if (inspectorTitle) inspectorTitle.textContent = 'Security Duel';
-        if (badgeText) badgeText.textContent = 'Duel';
-        if (inspectorDesc) inspectorDesc.textContent = 'Security Duel mode: Pit autonomous Red Team attacker against White Team AST remediator for pentesting & auto-patching.';
-        if (chatInput) chatInput.placeholder = 'Security Duel Mode: Describe target module/API or type /duel to launch Red Team vs. White Team audit...';
-      } else if (mode === 'Plan') {
-        if (inspectorTitle) inspectorTitle.textContent = 'Plan Mode';
-        if (badgeText) badgeText.textContent = 'Plan Mode';
-        if (inspectorDesc) inspectorDesc.textContent = 'Plan mode: explores workspace, asks clarifying questions, and proposes a structured plan with open questions before editing files.';
-        if (chatInput) chatInput.placeholder = 'Plan Mode: Describe feature or goal to inspect repo, generate plan, and clarify questions...';
-      } else if (mode === 'Supervised') {
-        if (inspectorTitle) inspectorTitle.textContent = 'Supervised';
-        if (badgeText) badgeText.textContent = 'Supervised';
-        if (inspectorDesc) inspectorDesc.textContent = 'Supervised mode: asks for your approval before executing shell commands.';
-        if (chatInput) chatInput.placeholder = 'Supervised Mode: Describe coding task (shell commands require approval)...';
+      if (mode === 'Chat') {
+        if (inspectorTitle) inspectorTitle.textContent = 'Chat Mode';
+        if (badgeText) badgeText.textContent = 'Chat';
+        if (inspectorDesc) inspectorDesc.textContent = 'Chat mode: Conversational chatbot with basic web search, URL reading, and memory tools.';
+        if (chatInput) chatInput.placeholder = 'Chat with Unjess... Ask questions, search the web, or talk naturally';
       } else {
-        if (inspectorTitle) inspectorTitle.textContent = 'Autonomous';
-        if (badgeText) badgeText.textContent = 'Agentic';
-        if (inspectorDesc) inspectorDesc.textContent = 'Autonomous mode: plans, reads/writes disk files, and runs commands until the task is complete.';
-        if (chatInput) chatInput.placeholder = 'Ask Unjess to code, plan, debug, or run tools... (type / for commands, @ for files/git)';
+        if (inspectorTitle) inspectorTitle.textContent = 'Coding Mode';
+        if (badgeText) badgeText.textContent = 'Coding';
+        if (inspectorDesc) inspectorDesc.textContent = 'Hybrid Coding mode: plans & clarifies on initial messages, then automatically switches to autonomous execution.';
+        if (chatInput) chatInput.placeholder = 'Coding Mode (Plan → Auto): Describe what to plan, build, or debug... (tell agent "go in duel mode" for security duel)';
       }
 
       if (badgeEl) {
-        const iconName = (mode === 'Plan') ? 'map' : (mode === 'Supervised' ? 'shield' : (mode === 'Duel' ? 'swords' : 'zap'));
+        const iconName = (mode === 'Chat') ? 'message-circle' : 'code-2';
         const iconEl = badgeEl.querySelector('[data-lucide]');
         if (iconEl) {
           iconEl.setAttribute('data-lucide', iconName);
@@ -9632,10 +9982,6 @@ function openNewChatModal(initialMode = 'quick') {
             lucide.createIcons({ root: badgeEl });
           }
         }
-      }
-
-      if (mode !== 'Supervised') {
-        hideCommandApprovalCard();
       }
     }
 
@@ -9696,11 +10042,7 @@ function openNewChatModal(initialMode = 'quick') {
     }
 
     function cycleAgentMode() {
-      let nextMode = 'Autonomous';
-      if (state.agentMode === 'Autonomous') nextMode = 'Plan';
-      else if (state.agentMode === 'Plan') nextMode = 'Supervised';
-      else if (state.agentMode === 'Supervised') nextMode = 'Duel';
-      else nextMode = 'Autonomous';
+      const nextMode = (state.agentMode === 'Chat') ? 'Coding' : 'Chat';
       applyAgentModeUI(nextMode);
     }
 
@@ -12029,10 +12371,20 @@ function openNewChatModal(initialMode = 'quick') {
       if (!Array.isArray(changelog) || changelog.length === 0) {
         changelog = [
           {
+            version: "3.1.4",
+            date: "2026-11-28",
+            title: "Unjess v3.1.4 - Rich Markdown, Syntax Highlighting, Mermaid & Sandboxed HTML UI Widgets",
+            tag: "LATEST",
+            changes: [
+              "Upgraded chat response renderer to GFM Markdown (marked + DOMPurify) with Highlight.js syntax highlighting, Copy & Collapse buttons on code blocks, GitHub-style Callout Alerts, and Mermaid.js diagrams",
+              "Added render_ui_widget tool and fenced widget block renderer to display rich interactive HTML/CSS/SVG/JS cards safely inside auto-resizing sandboxed iframes"
+            ]
+          },
+          {
             version: "3.1.3",
             date: "2026-11-26",
             title: "Unjess v3.1.3 - Project Removal with Confirmation Dialog & Hidden-by-Default Right Sidebar",
-            tag: "LATEST",
+            tag: "UPDATE",
             changes: [
               "Added project removal button (trash icon) on project folders in the left sidebar and workspace switcher dropdown with a dedicated confirmation modal before removing the project and its chat sessions",
               "Changed the Right Inspector sidebar (Diffs | Browser | Controls) to start hidden by default on startup for a cleaner, distraction-free chat workspace (still opens on demand or when toggling Browser / Inspector)"
@@ -12445,7 +12797,7 @@ function openNewChatModal(initialMode = 'quick') {
         if (resp && resp.ok) {
           const data = await resp.json();
           state.updates = data;
-          const currentVer = data.current_version || '3.1.3';
+          const currentVer = data.current_version || '3.1.4';
           const latestVer = data.latest_version || currentVer;
           const isAvailable = Boolean(data.update_available);
           state.updateAvailable = isAvailable;

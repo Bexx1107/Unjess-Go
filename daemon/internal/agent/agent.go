@@ -725,8 +725,12 @@ func compactArgsMap(args map[string]any) map[string]any {
 	for k, v := range args {
 		switch val := v.(type) {
 		case string:
-			if len(val) > 300 {
-				out[k] = val[:300] + "..."
+			maxLen := 300
+			if k == "html" {
+				maxLen = 64000
+			}
+			if len(val) > maxLen {
+				out[k] = val[:maxLen] + "..."
 			} else {
 				out[k] = val
 			}
@@ -1311,12 +1315,16 @@ func buildPromptModifiersBlock(cavemanMode, ponytailMode bool) string {
 	return b.String()
 }
 
-// SetAgentMode switches the live and persistent agent mode between "Autonomous", "Supervised", "Plan", and "Duel".
-// When switching to Autonomous or Duel, any pending command approval or plan approval in the live turn is immediately approved and unblocked.
+// SetAgentMode switches the live and persistent agent mode between "Coding", "Chat", "Autonomous", "Supervised", "Plan", and "Duel".
+// When switching to Coding, Autonomous, or Duel, any pending command approval or plan approval in the live turn is immediately approved and unblocked.
 func (hm *HarnessManager) SetAgentMode(mode string) map[string]any {
 	var normalized string
 	m := strings.TrimSpace(mode)
-	if strings.EqualFold(m, "supervised") {
+	if strings.EqualFold(m, "chat") {
+		normalized = "Chat"
+	} else if strings.EqualFold(m, "coding") {
+		normalized = "Coding"
+	} else if strings.EqualFold(m, "supervised") {
 		normalized = "Supervised"
 	} else if strings.EqualFold(m, "plan") {
 		normalized = "Plan"
@@ -1329,22 +1337,28 @@ func (hm *HarnessManager) SetAgentMode(mode string) map[string]any {
 	hm.mu.Lock()
 	hm.agentMode = normalized
 	if hm.settings != nil {
-		hm.settings.ConfirmCommands = (normalized == "Supervised")
-		_ = config.SaveConfig(hm.settings)
+		if normalized == "Supervised" {
+			hm.settings.ConfirmCommands = true
+			_ = config.SaveConfig(hm.settings)
+		} else if normalized == "Autonomous" {
+			hm.settings.ConfirmCommands = false
+			_ = config.SaveConfig(hm.settings)
+		}
 	}
+	confirmCmds := hm.settings != nil && hm.settings.ConfirmCommands
 	hm.mu.Unlock()
 
 	hm.liveMu.Lock()
 	if hm.liveTurn != nil {
 		hm.liveTurn.AgentMode = normalized
-		if (normalized == "Autonomous" || normalized == "Duel") && hm.liveTurn.PendingCommandApproval != nil && hm.liveTurn.CommandApprovalCh != nil {
+		if (normalized == "Autonomous" || normalized == "Coding" || normalized == "Duel") && hm.liveTurn.PendingCommandApproval != nil && hm.liveTurn.CommandApprovalCh != nil {
 			select {
 			case hm.liveTurn.CommandApprovalCh <- true:
 			default:
 			}
 			hm.liveTurn.PendingCommandApproval = nil
 		}
-		if (normalized == "Autonomous" || normalized == "Duel") && hm.liveTurn.PendingPlan != nil && hm.liveTurn.PlanApprovalCh != nil {
+		if (normalized == "Autonomous" || normalized == "Coding" || normalized == "Duel") && hm.liveTurn.PendingPlan != nil && hm.liveTurn.PlanApprovalCh != nil {
 			select {
 			case hm.liveTurn.PlanApprovalCh <- map[string]any{"approved": true, "feedback": "Switched to " + normalized + " mode"}:
 			default:
@@ -1358,7 +1372,7 @@ func (hm *HarnessManager) SetAgentMode(mode string) map[string]any {
 	return map[string]any{
 		"status":           "ok",
 		"agent_mode":       normalized,
-		"confirm_commands": normalized == "Supervised",
+		"confirm_commands": confirmCmds,
 	}
 }
 
@@ -4774,7 +4788,11 @@ func buildWorkspaceOverviewPrompt(wsPath string) string {
 	return sb.String()
 }
 
-func buildConversationHistoryMessages(conv map[string]any, currentPrompt string, currentImages []llm.ImageAttachment) []llm.Message {
+func buildConversationHistoryMessages(conv map[string]any, currentPrompt string, currentImages []llm.ImageAttachment, includeToolSummaries ...bool) []llm.Message {
+	withToolSummary := true
+	if len(includeToolSummaries) > 0 {
+		withToolSummary = includeToolSummaries[0]
+	}
 	var histMessages []llm.Message
 	rawTurns, _ := conv["turns"].([]any)
 	var histTurns []any
@@ -4966,10 +4984,39 @@ func buildConversationHistoryMessages(conv map[string]any, currentPrompt string,
 			}
 
 			var assistantContent string
-			if len(summaryParts) > 0 {
-				assistantContent = "[Turn Execution Summary]\n" + strings.Join(summaryParts, "\n") + "\n\n"
+			rawText := strings.TrimSpace(fmt.Sprint(tm["text"]))
+			// Strip any accidentally echoed [Turn Execution Summary] block from prior turns so models never imitate it
+			if strings.HasPrefix(rawText, "[Turn Execution Summary]") {
+				if splitIdx := strings.Index(rawText, "\n\n"); splitIdx != -1 {
+					rawText = strings.TrimSpace(rawText[splitIdx+2:])
+				}
 			}
-			assistantContent += strings.TrimSpace(fmt.Sprint(tm["text"]))
+			if withToolSummary && len(summaryParts) > 0 {
+				assistantContent = "[Turn Execution Summary]\n" + strings.Join(summaryParts, "\n") + "\n\n"
+			} else if !withToolSummary && len(rawTools) > 0 {
+				// For text-tool models (like Cvetka in Chat mode), preserve the <tool_call> -> [Rezultat orodja] -> final answer
+				// pattern in history so the model sees that prior live answers came from <tool_call>, not from guessing!
+				if tmMap, ok := rawTools[len(rawTools)-1].(map[string]any); ok {
+					tName := fmt.Sprint(tmMap["name"])
+					tArgs, _ := tmMap["arguments"].(map[string]any)
+					tRes := truncateStr(strings.TrimSpace(fmt.Sprint(tmMap["result"])), 600)
+					callBytes, _ := json.Marshal(map[string]any{
+						"name":      tName,
+						"arguments": tArgs,
+					})
+					histMessages = append(histMessages,
+						llm.Message{
+							Role:    "assistant",
+							Content: "<tool_call>" + string(callBytes) + "</tool_call>",
+						},
+						llm.Message{
+							Role:    "user",
+							Content: fmt.Sprintf("[Rezultat orodja %s]:\n%s", tName, tRes),
+						},
+					)
+				}
+			}
+			assistantContent += rawText
 			assistantContent = strings.TrimSpace(assistantContent)
 			if assistantContent != "" {
 				histMessages = append(histMessages, llm.Message{
@@ -5313,16 +5360,21 @@ func (hm *HarnessManager) RunAgentTurn(ctx context.Context, req ChatTurnRequest)
 	matchedSkills := skills.Match(allSkills, effectivePrompt)
 
 	var turnMode string
+	isNaturalDuel := isNaturalLanguageDuelRequest(cleanPrompt)
 	if isPlanSlash {
 		turnMode = "Plan"
-	} else if isDuelSlash || strings.EqualFold(req.AgentMode, "duel") || strings.EqualFold(hm.agentMode, "Duel") {
+	} else if isDuelSlash || isNaturalDuel || strings.EqualFold(req.AgentMode, "duel") {
 		turnMode = "Duel"
 		hm.mu.Lock()
 		hm.agentMode = turnMode
 		hm.mu.Unlock()
 	} else if strings.TrimSpace(req.AgentMode) != "" {
 		m := strings.TrimSpace(req.AgentMode)
-		if strings.EqualFold(m, "plan") {
+		if strings.EqualFold(m, "chat") {
+			turnMode = "Chat"
+		} else if strings.EqualFold(m, "coding") {
+			turnMode = "Coding"
+		} else if strings.EqualFold(m, "plan") {
 			turnMode = "Plan"
 		} else if strings.EqualFold(m, "supervised") {
 			turnMode = "Supervised"
@@ -5334,7 +5386,11 @@ func (hm *HarnessManager) RunAgentTurn(ctx context.Context, req ChatTurnRequest)
 		hm.mu.Lock()
 		hm.agentMode = turnMode
 		if hm.settings != nil {
-			hm.settings.ConfirmCommands = (turnMode == "Supervised")
+			if turnMode == "Supervised" {
+				hm.settings.ConfirmCommands = true
+			} else if turnMode == "Autonomous" {
+				hm.settings.ConfirmCommands = false
+			}
 		}
 		hm.mu.Unlock()
 	} else {
@@ -5344,12 +5400,13 @@ func (hm *HarnessManager) RunAgentTurn(ctx context.Context, req ChatTurnRequest)
 		} else if hm.settings != nil && hm.settings.ConfirmCommands {
 			turnMode = "Supervised"
 		} else {
-			turnMode = "Autonomous"
+			turnMode = "Coding"
 		}
 		hm.mu.RUnlock()
 	}
 
-	isSupervised := strings.EqualFold(turnMode, "Supervised")
+	isChatMode := strings.EqualFold(turnMode, "Chat")
+	isSupervised := strings.EqualFold(turnMode, "Supervised") || (!isChatMode && strings.EqualFold(turnMode, "Coding") && hm.settings != nil && hm.settings.ConfirmCommands)
 	disabledTools := make(map[string]bool)
 
 	if req.Tools != nil {
@@ -5373,8 +5430,6 @@ func (hm *HarnessManager) RunAgentTurn(ctx context.Context, req ChatTurnRequest)
 		}
 	}
 
-	toolDefs := buildActiveToolDefinitions(turnMode, effectivePrompt, len(llmImages) > 0, nil, mcpTools, disabledTools)
-
 	model := req.Model
 	if model == "" && hm.settings != nil {
 		model = hm.settings.Model
@@ -5384,6 +5439,17 @@ func (hm *HarnessManager) RunAgentTurn(ctx context.Context, req ChatTurnRequest)
 		provider = hm.settings.Provider
 	}
 	provider = llm.DetectProvider(model, provider)
+	isCvetkaModel := strings.Contains(strings.ToLower(model), "cvetka")
+
+	var toolDefs []map[string]any
+	if isCvetkaModel {
+		// Cvetka-R1-27B's official Jinja chat template rejects requests containing tools.
+		toolDefs = nil
+	} else if isChatMode {
+		toolDefs = buildActiveToolDefinitions("Chat", effectivePrompt, len(llmImages) > 0, nil, nil, disabledTools)
+	} else {
+		toolDefs = buildActiveToolDefinitions(turnMode, effectivePrompt, len(llmImages) > 0, nil, mcpTools, disabledTools)
+	}
 
 	activeEffort := "high"
 	if hm.settings != nil && hm.settings.ReasoningEffort != "" {
@@ -5397,87 +5463,94 @@ func (hm *HarnessManager) RunAgentTurn(ctx context.Context, req ChatTurnRequest)
 	}
 	nativeThinkingActive := llm.SupportsReasoningEffort(model, provider) && activeEffort != "none"
 
+	var systemPrompt string
 	var sysBuilder strings.Builder
-	sysBuilder.WriteString(fmt.Sprintf("You are Unjess v%s (Native Go Daemon + Rust Desktop Harness), an autonomous expert coding agent with direct access to local development tools.\n", version.Current))
-	sysBuilder.WriteString(fmt.Sprintf("Workspace root: %s\n", wsPath))
-	if runtime.GOOS == "windows" {
-		sysBuilder.WriteString("Tool execution environment: Windows PowerShell (powershell.exe). Use PowerShell syntax for commands (prefer `@'...'@` single-quoted here-strings for multiline literals, pass `-Depth` to `ConvertTo-Json`, and do not pipe slow commands into `Select-Object -First` when full output is needed).\n")
+	if isChatMode {
+		if (provider == "llamacpp" || isCvetkaModel) && isCvetkaModel {
+			systemPrompt = "Si Cvetka v Unjess agentu. Pogovarjaj se z uporabnikom.\nImaš dostop do interneta in osnovnih orodij. Če uporabnik vpraša po trenutnih informacijah, vremenu, novicah, spletnih straneh ali dejstvih na spletu, pokliči orodje tako, da izpišeš SAMO:\n<tool_call>{\"name\": \"web_search\", \"arguments\": {\"query\": \"iskalni niz\"}}</tool_call>\nRazpoložljiva orodja: web_search (argument: query), read_url (argument: url), browser_use (argumenti: action, url), memory_save (argumenti: key, content), memory_recall (argument: query). Ko prejmeš rezultat orodja, uporabniku prijazno in naravno odgovori v slovenščini."
+		} else {
+			systemPrompt = "You are Unjess, a chat bot. Answer users questions and talk to them. You have access to basic tools including live internet search (web_search), reading web pages (read_url), interactive web browsing (browser_use), viewing images (view_image), and saving/recalling memories (memory_save, memory_recall). Use web_search or read_url whenever the user asks about current events, weather, live facts, or URLs."
+		}
 	} else {
-		sysBuilder.WriteString("Tool execution environment: bash / sh shell.\n")
-	}
-	sysBuilder.WriteString("Always inspect existing code before making edits. Keep edits minimal, precise, and verified.\n\n")
+		sysBuilder.WriteString(fmt.Sprintf("You are Unjess v%s (Native Go Daemon + Rust Desktop Harness), an autonomous expert coding agent with direct access to local development tools.\n", version.Current))
+		sysBuilder.WriteString(fmt.Sprintf("Workspace root: %s\n", wsPath))
+		if runtime.GOOS == "windows" {
+			sysBuilder.WriteString("Tool execution environment: Windows PowerShell (powershell.exe). Use PowerShell syntax for commands (prefer `@'...'@` single-quoted here-strings for multiline literals, pass `-Depth` to `ConvertTo-Json`, and do not pipe slow commands into `Select-Object -First` when full output is needed).\n")
+		} else {
+			sysBuilder.WriteString("Tool execution environment: bash / sh shell.\n")
+		}
+		sysBuilder.WriteString("Always inspect existing code before making edits. Keep edits minimal, precise, and verified.\n\n")
 
-	sysBuilder.WriteString("### Mandatory Tool Usage, Efficiency & File Editing Policy:\n")
-	sysBuilder.WriteString("1. Dedicated File Tools: Always use `read_file` to inspect code and `edit_file` to modify existing code. Strictly avoid shell commands (`cat`, `head`, `tail`, `grep`, `sed`, `awk`, `echo >`) for reading or editing source files.\n")
-	sysBuilder.WriteString("2. Surgical File Edits: Always use `edit_file` (exact string replacement) rather than overwriting entire files with `write_file`. Keep `old_string` minimal (1-4 lines, just enough to be unique). Only use `write_file` when creating brand new files or when completely rewriting very short files (<50 lines).\n")
-	sysBuilder.WriteString("3. Exact Matching & No Line-Number Prefixes: When calling `edit_file`, ensure `old_string` matches exact lines from `read_file`, including exact indentation, whitespace, and newlines. NEVER include the `123: ` line-number prefix from `read_file` in `old_string` or `new_string`. Do NOT re-read a file immediately after `edit_file` just to verify — `edit_file` errors if the replacement failed.\n")
-	sysBuilder.WriteString("4. Work Efficiently & Batch Operations (No 50-Step Wild Goose Chases): Batch independent reads, searches, and checks into as few turns as possible. In the shell, combine related inspection checks into a single command rather than running 15 separate one-line commands. When a working reference implementation or config already exists in the workspace or sibling folders, inspect and follow its proven pattern instead of reverse-engineering packed binaries or guessing formats.\n")
-	sysBuilder.WriteString("5. Respect the User's Live Desktop (No Unsolicited GUI / Input Hijacking): NEVER kill the user's running desktop apps (e.g., Workbench, editors, browsers, games), launch full-screen games, or run `SetForegroundWindow` / `SendKeys` / `mouse_event` input-injection scripts that hijack the user's physical mouse and keyboard unless the user explicitly asks you to control their desktop GUI. When the user asks a question (e.g. 'how do I test this?', 'can't I test in Workbench?', 'what works right now?'), do at most 1-2 quick read-only checks on disk and answer directly.\n")
-	sysBuilder.WriteString("6. Pre-Exit Syntax & Build Verification: Before completing a coding task where you modified source code, verify that edited code files compile/parse cleanly without syntax errors. Clean up any temporary scratch files you created.\n")
-	sysBuilder.WriteString("7. Autonomous Action & Task Continuity Invariant: When the user asks you to build or fix something, do not output transitional narration without invoking the tool in the same turn. If the user's project has a `PLAN.md`, check what `PLAN.md` specifies versus what is actually implemented on disk so you never confuse partial progress (e.g. static props) with the full planned feature set (e.g. interactive scripts/UI).\n")
-	sysBuilder.WriteString("8. Task Specification & Protected Files: If the task prompt explicitly instructs not to modify certain files (e.g. 'Do not modify /app/run_pretrain.sh'), respect this negative constraint strictly.\n\n")
+		sysBuilder.WriteString("### Mandatory Tool Usage, Efficiency & File Editing Policy:\n")
+		sysBuilder.WriteString("1. Dedicated File Tools: Always use `read_file` to inspect code and `edit_file` to modify existing code. Strictly avoid shell commands (`cat`, `head`, `tail`, `grep`, `sed`, `awk`, `echo >`) for reading or editing source files.\n")
+		sysBuilder.WriteString("2. Surgical File Edits: Always use `edit_file` (exact string replacement) rather than overwriting entire files with `write_file`. Keep `old_string` minimal (1-4 lines, just enough to be unique). Only use `write_file` when creating brand new files or when completely rewriting very short files (<50 lines).\n")
+		sysBuilder.WriteString("3. Exact Matching & No Line-Number Prefixes: When calling `edit_file`, ensure `old_string` matches exact lines from `read_file`, including exact indentation, whitespace, and newlines. NEVER include the `123: ` line-number prefix from `read_file` in `old_string` or `new_string`. Do NOT re-read a file immediately after `edit_file` just to verify — `edit_file` errors if the replacement failed.\n")
+		sysBuilder.WriteString("4. Work Efficiently & Batch Operations (No 50-Step Wild Goose Chases): Batch independent reads, searches, and checks into as few turns as possible. In the shell, combine related inspection checks into a single command rather than running 15 separate one-line commands. When a working reference implementation or config already exists in the workspace or sibling folders, inspect and follow its proven pattern instead of reverse-engineering packed binaries or guessing formats.\n")
+		sysBuilder.WriteString("5. Respect the User's Live Desktop (No Unsolicited GUI / Input Hijacking): NEVER kill the user's running desktop apps (e.g., Workbench, editors, browsers, games), launch full-screen games, or run `SetForegroundWindow` / `SendKeys` / `mouse_event` input-injection scripts that hijack the user's physical mouse and keyboard unless the user explicitly asks you to control their desktop GUI. When the user asks a question (e.g. 'how do I test this?', 'can't I test in Workbench?', 'what works right now?'), do at most 1-2 quick read-only checks on disk and answer directly.\n")
+		sysBuilder.WriteString("6. Pre-Exit Syntax & Build Verification: Before completing a coding task where you modified source code, verify that edited code files compile/parse cleanly without syntax errors. Clean up any temporary scratch files you created.\n")
+		sysBuilder.WriteString("7. Autonomous Action & Task Continuity Invariant: When the user asks you to build or fix something, do not output transitional narration without invoking the tool in the same turn. If the user's project has a `PLAN.md`, check what `PLAN.md` specifies versus what is actually implemented on disk so you never confuse partial progress (e.g. static props) with the full planned feature set (e.g. interactive scripts/UI).\n")
+		sysBuilder.WriteString("8. Task Specification & Protected Files: If the task prompt explicitly instructs not to modify certain files (e.g. 'Do not modify /app/run_pretrain.sh'), respect this negative constraint strictly.\n\n")
 
-	sysBuilder.WriteString("### Communication Style & Response Clarity (Antigravity / OpenCode Standard):\n")
-	sysBuilder.WriteString("- Lead With the Direct Answer: Answer the user's exact question or confirm the outcome in the very first 1-2 sentences. Do NOT dump 10 tangential topics with the real answer buried in the middle.\n")
-	sysBuilder.WriteString("- Logical, Human-Friendly Structure: When explaining project status or how to test/use something, structure your reply clearly:\n")
-	sysBuilder.WriteString("  1. **Direct Answer / Immediate Action**: The exact 1-3 steps, buttons, or keys the user needs right now (e.g., `Option 1: In Workbench (Fastest)` vs `Option 2: In-Game`).\n")
-	sysBuilder.WriteString("  2. **What Works Now vs. What Is Not Built Yet**: Explicitly and honestly separate **what works right now** from **what is not implemented yet** (especially compared to `PLAN.md`), in plain human language rather than cryptic engine jargon.\n")
-	sysBuilder.WriteString("  3. **Next Step**: One concise sentence offering the concrete next action.\n")
-	sysBuilder.WriteString("- Ground-Truth Consistency (No Self-Contradiction): Before claiming a file, component, or script is 'missing', check `[Turn Execution Summary]` from prior turns and current disk files. Never tell the user a component or file is missing if you already created or verified it earlier in the session.\n")
-	sysBuilder.WriteString("- Zero Internal Harness Leakage: NEVER mention internal harness mechanics, pre-exit checks, sanity checks, sandbox filters, command-line escaping retries, or scratch-file cleanup in your user-facing reply (never start a reply with 'Sanity check je vztrajal...' or 'Verifikacija zdaj teče čisto, vzrok napake ni bil test sam...'). Keep internal verification and self-healing 100% invisible to the user.\n")
-	sysBuilder.WriteString("- Match the user's language naturally and keep formatting clean (use numbered steps, concise bullet points, and inline `code` spans; avoid raw ASCII box diagrams when a clean numbered list is clearer).\n\n")
+		sysBuilder.WriteString("### Communication Style & Response Clarity (Antigravity / OpenCode Standard):\n")
+		sysBuilder.WriteString("- Lead With the Direct Answer: Answer the user's exact question or confirm the outcome in the very first 1-2 sentences. Do NOT dump 10 tangential topics with the real answer buried in the middle.\n")
+		sysBuilder.WriteString("- Logical, Human-Friendly Structure: When explaining project status or how to test/use something, structure your reply clearly:\n")
+		sysBuilder.WriteString("  1. **Direct Answer / Immediate Action**: The exact 1-3 steps, buttons, or keys the user needs right now (e.g., `Option 1: In Workbench (Fastest)` vs `Option 2: In-Game`).\n")
+		sysBuilder.WriteString("  2. **What Works Now vs. What Is Not Built Yet**: Explicitly and honestly separate **what works right now** from **what is not implemented yet** (especially compared to `PLAN.md`), in plain human language rather than cryptic engine jargon.\n")
+		sysBuilder.WriteString("  3. **Next Step**: One concise sentence offering the concrete next action.\n")
+		sysBuilder.WriteString("- Ground-Truth Consistency (No Self-Contradiction): Before claiming a file, component, or script is 'missing', check `[Turn Execution Summary]` from prior turns and current disk files. Never tell the user a component or file is missing if you already created or verified it earlier in the session.\n")
+		sysBuilder.WriteString("- Zero Internal Harness Leakage: NEVER mention internal harness mechanics, pre-exit checks, sanity checks, sandbox filters, command-line escaping retries, or scratch-file cleanup in your user-facing reply (never start a reply with 'Sanity check je vztrajal...' or 'Verifikacija zdaj teče čisto, vzrok napake ni bil test sam...'). Keep internal verification and self-healing 100% invisible to the user.\n")
+		sysBuilder.WriteString("- Match the user's language naturally and keep formatting clean (use numbered steps, concise bullet points, and inline `code` spans; avoid raw ASCII box diagrams when a clean numbered list is clearer).\n\n")
 
-	sysBuilder.WriteString("### Core Invariant — Epistemic Discipline:\n")
-	sysBuilder.WriteString("- Distinguish strictly between what you have verified via tool outputs and what you have inferred. Never guess function signatures, CLI flags, config keys, or file paths when a quick `read_file` or `grep_search` can confirm them.\n")
-	sysBuilder.WriteString("- Act Don't Rederive: Once a file range is already in your context from `read_file`, do not re-read the exact same lines repeatedly.\n")
-	sysBuilder.WriteString("- Checklist & Deferred Tools: For complex multi-step implementation tasks (3+ steps), use `todo_write` to track progress. If you need specialized AST, security, browser, or memory tools, call `tool_search` to unlock them.\n")
-	if shouldInjectBenchmarkInvariants(effectivePrompt) {
-		sysBuilder.WriteString("- Execution-Surface Verification Doctrine: Pick the smallest path that makes your changed code actually execute. Before declaring a benchmark task done, run an independent verification command testing boundary conditions, expected exit codes, and output schema constraints.\n")
-		sysBuilder.WriteString("- High-Precision Engineering Invariants (Benchmark Verifier Edge Cases):\n")
-		sysBuilder.WriteString("  * Symbolic / Mathematical Graders: Handle set unions (\\cup), indefinite integration constants (+ C), piecewise expressions, units stripping, boxed LaTeX extraction, and tuple/vector structures.\n")
-		sysBuilder.WriteString("  * Domain Rules & Classification: Double-check rule ordering, exclusion semantics, strict vs non-strict inequalities (> vs >=), and OCR reconciliation.\n")
-		sysBuilder.WriteString("  * Data Corruption & Shard Repair: Inspect for `.parity`, `.chk`, `.fec`, XOR parity stripes, Reed-Solomon ECC, WAL logs, or backup mirrors to reconstruct exact bitstreams rather than synthetic samples.\n")
-		sysBuilder.WriteString("  * Stiff / Chaotic PDEs: Use Fourier pseudo-spectral spatial discretization (`FFTW` / 3/2 Orszag de-aliasing) and `ETDRK4` / `IF-RK4` for tight tolerances (Rel-MSE <= 1e-7).\n")
-		sysBuilder.WriteString("  * Polyphonic Audio & DSP: Combine high frequency-resolution (4096) and high time-resolution (512) windows with spectral flux / dip detection.\n")
-		sysBuilder.WriteString("  * Privilege-Dropped Workers & `/tmp`: Use `0777`/`0666` permissions in `/tmp` so unprivileged workers (`nobody`/`worker`) never fail with `EACCES`.\n")
-		sysBuilder.WriteString("  * Next.js App Router: Wrap slow fetches in `<Suspense>`, lazy-load interaction-only client modules with `next/dynamic(..., { ssr: false })`, and defer non-blocking side effects with `after()`.\n")
-	}
-	sysBuilder.WriteString("\n")
-	if (provider == "ollama" || provider == "ollama-api" || provider == "lmstudio" || provider == "llamacpp") && !nativeThinkingActive {
-		sysBuilder.WriteString("Before invoking any tool (such as write_file, edit_file, or run_command), emit a concise <think>...</think> reasoning block explaining what you are analyzing and what action you are about to take next so the user sees your live thought process.\n")
-	}
-	sysBuilder.WriteString("When building multi-file applications (such as a CMS, dashboard, or full-stack app), write modular files one by one (keeping each write_file call focused and under ~400 lines) rather than generating one massive monolithic file in a single tool call.\n\n")
+		sysBuilder.WriteString("### Core Invariant — Epistemic Discipline:\n")
+		sysBuilder.WriteString("- Distinguish strictly between what you have verified via tool outputs and what you have inferred. Never guess function signatures, CLI flags, config keys, or file paths when a quick `read_file` or `grep_search` can confirm them.\n")
+		sysBuilder.WriteString("- Act Don't Rederive: Once a file range is already in your context from `read_file`, do not re-read the exact same lines repeatedly.\n")
+		sysBuilder.WriteString("- Checklist & Deferred Tools: For complex multi-step implementation tasks (3+ steps), use `todo_write` to track progress. If you need specialized AST, security, browser, or memory tools, call `tool_search` to unlock them.\n")
+		if shouldInjectBenchmarkInvariants(effectivePrompt) {
+			sysBuilder.WriteString("- Execution-Surface Verification Doctrine: Pick the smallest path that makes your changed code actually execute. Before declaring a benchmark task done, run an independent verification command testing boundary conditions, expected exit codes, and output schema constraints.\n")
+			sysBuilder.WriteString("- High-Precision Engineering Invariants (Benchmark Verifier Edge Cases):\n")
+			sysBuilder.WriteString("  * Symbolic / Mathematical Graders: Handle set unions (\\cup), indefinite integration constants (+ C), piecewise expressions, units stripping, boxed LaTeX extraction, and tuple/vector structures.\n")
+			sysBuilder.WriteString("  * Domain Rules & Classification: Double-check rule ordering, exclusion semantics, strict vs non-strict inequalities (> vs >=), and OCR reconciliation.\n")
+			sysBuilder.WriteString("  * Data Corruption & Shard Repair: Inspect for `.parity`, `.chk`, `.fec`, XOR parity stripes, Reed-Solomon ECC, WAL logs, or backup mirrors to reconstruct exact bitstreams rather than synthetic samples.\n")
+			sysBuilder.WriteString("  * Stiff / Chaotic PDEs: Use Fourier pseudo-spectral spatial discretization (`FFTW` / 3/2 Orszag de-aliasing) and `ETDRK4` / `IF-RK4` for tight tolerances (Rel-MSE <= 1e-7).\n")
+			sysBuilder.WriteString("  * Polyphonic Audio & DSP: Combine high frequency-resolution (4096) and high time-resolution (512) windows with spectral flux / dip detection.\n")
+			sysBuilder.WriteString("  * Privilege-Dropped Workers & `/tmp`: Use `0777`/`0666` permissions in `/tmp` so unprivileged workers (`nobody`/`worker`) never fail with `EACCES`.\n")
+			sysBuilder.WriteString("  * Next.js App Router: Wrap slow fetches in `<Suspense>`, lazy-load interaction-only client modules with `next/dynamic(..., { ssr: false })`, and defer non-blocking side effects with `after()`.\n")
+		}
+		sysBuilder.WriteString("\n")
+		if (provider == "ollama" || provider == "ollama-api" || provider == "lmstudio" || provider == "llamacpp") && !nativeThinkingActive {
+			sysBuilder.WriteString("Before invoking any tool (such as write_file, edit_file, or run_command), emit a concise <think>...</think> reasoning block explaining what you are analyzing and what action you are about to take next so the user sees your live thought process.\n")
+		}
+		sysBuilder.WriteString("When building multi-file applications (such as a CMS, dashboard, or full-stack app), write modular files one by one (keeping each write_file call focused and under ~400 lines) rather than generating one massive monolithic file in a single tool call.\n\n")
 
-	if modBlock := buildPromptModifiersBlock(activeCaveman, activePonytail); modBlock != "" {
-		sysBuilder.WriteString(modBlock + "\n")
-	}
+		if modBlock := buildPromptModifiersBlock(activeCaveman, activePonytail); modBlock != "" {
+			sysBuilder.WriteString(modBlock + "\n")
+		}
 
-	if turnMode == "Duel" {
-		sysBuilder.WriteString("<red_white_duel_playbook>\n")
-		sysBuilder.WriteString("ACTIVE MODE: RED vs. WHITE SECURITY DUEL (PentAGI & OWASP Red-Teaming Architecture).\n")
-		sysBuilder.WriteString("You are acting as an autonomous dual-role security harness combining the Red Team Pentester, White Team Developer, Recon Enricher, and Security Memorist.\n\n")
-		sysBuilder.WriteString("### PentAGI 4-Phase Autonomous Pentesting Flow:\n")
-		sysBuilder.WriteString("1. Phase 1 — Recon & Enricher: Map all external attack surfaces, routes, headers, taint sinks, and supply-chain dependencies using `sec_attack_surface`, `sec_taint_scan`, and `sec_supply_chain_audit`.\n")
-		sysBuilder.WriteString("2. Phase 2 — Red Team Pentester (Exploit & PoC): Verify exploitable paths (Auth bypass, IDOR/BOLA, SSRF, SQLi/NoSQLi, Command Injection, Path Traversal, Prototype Pollution, missing OWASP Secure Headers) with concrete PoC tests and run `run_security_duel`.\n")
-		sysBuilder.WriteString("3. Phase 3 — White Team Developer (Surgical Patch & Regression Test): Apply minimal, robust patches at the root cause (parameterized queries, filepath.Clean + prefix bounds check, constant-time compare, strict OWASP headers) and add permanent automated regression tests.\n")
-		sysBuilder.WriteString("4. Phase 4 — Memorist (Episodic Security Memory): Save discovered vulnerability signatures, bypass techniques, and architectural hardening lessons to cross-session memory (`memory_save`) so future sessions retain them.\n\n")
-		sysBuilder.WriteString("### Red Team Offensive Playbook (mantvydasb/RedTeaming-Tactics-and-Techniques & Web Pentesting):\n")
-		sysBuilder.WriteString("- Recon & Attack Surface: unauthenticated mutating routes (POST/PUT/DELETE lacking auth), shadow/debug endpoints (`/debug`, `/pprof`, `/metrics`, `/env`), IDOR / BOLA object ID manipulation.\n")
-		sysBuilder.WriteString("- Injection & Execution: Command Injection (`exec`, `powershell -enc`, shell metacharacters), SQLi / NoSQLi, SSRF (cloud metadata `169.254.169.254`, localhost port scanning), Path Traversal (`../`, symlink/junction escape), Prototype Pollution / Deserialization, XSS & DOM clobbering.\n")
-		sysBuilder.WriteString("- Auth, Session & Crypto: JWT `alg:none` or weak HMAC secret, timing attacks on token comparison, privilege escalation, race conditions (TOCTOU).\n\n")
-		sysBuilder.WriteString("### White Team Defensive & OWASP Hardening Playbook (OWASP/secure-headers-project):\n")
-		sysBuilder.WriteString("- Enforce parameterized queries, strict path sandboxing (`filepath.Clean` + prefix verification), `crypto/subtle.ConstantTimeCompare`, context timeouts, and input allowlists.\n")
-		sysBuilder.WriteString("- Audit and enforce OWASP Secure Headers: `Strict-Transport-Security: max-age=31536000; includeSubDomains`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Content-Security-Policy`, `Referrer-Policy: no-referrer`, `Permissions-Policy`, `Cross-Origin-Opener-Policy: same-origin`.\n")
-		sysBuilder.WriteString("- Strip or disable information-leaking headers (`X-Powered-By`, `Server`, `X-AspNet-Version`).\n")
-		sysBuilder.WriteString("</red_white_duel_playbook>\n\n")
-	}
-	sysBuilder.WriteString(hm.buildHarnessConfigPrompt(model, provider, turnMode) + "\n\n")
-	sysBuilder.WriteString(buildWorkspaceOverviewPrompt(wsPath) + "\n\n")
-	sysBuilder.WriteString("Capabilities: You have full workspace file/shell/git tools, live internet access via web_search and read_url, interactive browser automation & Set-of-Mark visual browsing via browser_use, visual UI inspection via visual_qa_screenshot and view_image, native multimodal Vision inspection of local image files (.jpg, .png, .webp, .gif) via view_image and read_file, parallel subagent delegation via invoke_subagent, and persistent workspace-scoped memory across sessions (defaults to active workspace; use scope='global' only for user-wide preferences) via memory_save and memory_recall.\n\n")
-	sysBuilder.WriteString("Vision & Image Inspection: You CAN directly view and inspect local image files (.jpg, .jpeg, .png, .webp, .gif, .bmp) on disk at any time by calling the `view_image` tool (pass `path` for one image or `paths` array for up to 6 images) or `read_file`, and you can render and screenshot HTML files or live URLs using `visual_qa_screenshot`. Never claim you cannot see local image files on disk — call `view_image` to inspect them directly.\n\n")
-	sysBuilder.WriteString("Subagent Delegation: You can call the invoke_subagent tool with an array of subagents to delegate tasks in parallel (e.g. researching, building multiple packages/files concurrently, or running tests). Each subagent runs in its own parallel worker and returns its result to you.\n\n")
+		if turnMode == "Duel" {
+			sysBuilder.WriteString("<red_white_duel_playbook>\n")
+			sysBuilder.WriteString("ACTIVE MODE: RED vs. WHITE SECURITY DUEL (PentAGI & OWASP Red-Teaming Architecture).\n")
+			sysBuilder.WriteString("You are acting as an autonomous dual-role security harness combining the Red Team Pentester, White Team Developer, Recon Enricher, and Security Memorist.\n\n")
+			sysBuilder.WriteString("### PentAGI 4-Phase Autonomous Pentesting Flow:\n")
+			sysBuilder.WriteString("1. Phase 1 — Recon & Enricher: Map all external attack surfaces, routes, headers, taint sinks, and supply-chain dependencies using `sec_attack_surface`, `sec_taint_scan`, and `sec_supply_chain_audit`.\n")
+			sysBuilder.WriteString("2. Phase 2 — Red Team Pentester (Exploit & PoC): Verify exploitable paths (Auth bypass, IDOR/BOLA, SSRF, SQLi/NoSQLi, Command Injection, Path Traversal, Prototype Pollution, missing OWASP Secure Headers) with concrete PoC tests and run `run_security_duel`.\n")
+			sysBuilder.WriteString("3. Phase 3 — White Team Developer (Surgical Patch & Regression Test): Apply minimal, robust patches at the root cause (parameterized queries, filepath.Clean + prefix bounds check, constant-time compare, strict OWASP headers) and add permanent automated regression tests.\n")
+			sysBuilder.WriteString("4. Phase 4 — Memorist (Episodic Security Memory): Save discovered vulnerability signatures, bypass techniques, and architectural hardening lessons to cross-session memory (`memory_save`) so future sessions retain them.\n\n")
+			sysBuilder.WriteString("### Red Team Offensive Playbook (mantvydasb/RedTeaming-Tactics-and-Techniques & Web Pentesting):\n")
+			sysBuilder.WriteString("- Recon & Attack Surface: unauthenticated mutating routes (POST/PUT/DELETE lacking auth), shadow/debug endpoints (`/debug`, `/pprof`, `/metrics`, `/env`), IDOR / BOLA object ID manipulation.\n")
+			sysBuilder.WriteString("- Injection & Execution: Command Injection (`exec`, `powershell -enc`, shell metacharacters), SQLi / NoSQLi, SSRF (cloud metadata `169.254.169.254`, localhost port scanning), Path Traversal (`../`, symlink/junction escape), Prototype Pollution / Deserialization, XSS & DOM clobbering.\n")
+			sysBuilder.WriteString("- Auth, Session & Crypto: JWT `alg:none` or weak HMAC secret, timing attacks on token comparison, privilege escalation, race conditions (TOCTOU).\n\n")
+			sysBuilder.WriteString("### White Team Defensive & OWASP Hardening Playbook (OWASP/secure-headers-project):\n")
+			sysBuilder.WriteString("- Enforce parameterized queries, strict path sandboxing (`filepath.Clean` + prefix verification), `crypto/subtle.ConstantTimeCompare`, context timeouts, and input allowlists.\n")
+			sysBuilder.WriteString("- Audit and enforce OWASP Secure Headers: `Strict-Transport-Security: max-age=31536000; includeSubDomains`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Content-Security-Policy`, `Referrer-Policy: no-referrer`, `Permissions-Policy`, `Cross-Origin-Opener-Policy: same-origin`.\n")
+			sysBuilder.WriteString("- Strip or disable information-leaking headers (`X-Powered-By`, `Server`, `X-AspNet-Version`).\n")
+			sysBuilder.WriteString("</red_white_duel_playbook>\n\n")
+		}
+		sysBuilder.WriteString(hm.buildHarnessConfigPrompt(model, provider, turnMode) + "\n\n")
+		sysBuilder.WriteString(buildWorkspaceOverviewPrompt(wsPath) + "\n\n")
+		sysBuilder.WriteString("Capabilities: You have full workspace file/shell/git tools, live internet access via web_search and read_url, interactive browser automation & Set-of-Mark visual browsing via browser_use, visual UI inspection via visual_qa_screenshot and view_image, native multimodal Vision inspection of local image files (.jpg, .png, .webp, .gif) via view_image and read_file, parallel subagent delegation via invoke_subagent, rich inline HTML/CSS/SVG/JS UI widgets via `render_ui_widget` (or ```widget fenced blocks), and persistent workspace-scoped memory across sessions (defaults to active workspace; use scope='global' only for user-wide preferences) via memory_save and memory_recall.\n\n")
+		sysBuilder.WriteString("Vision & Image Inspection: You CAN directly view and inspect local image files (.jpg, .jpeg, .png, .webp, .gif, .bmp) on disk at any time by calling the `view_image` tool (pass `path` for one image or `paths` array for up to 6 images) or `read_file`, and you can render and screenshot HTML files or live URLs using `visual_qa_screenshot`. Never claim you cannot see local image files on disk — call `view_image` to inspect them directly.\n\n")
+		sysBuilder.WriteString("Subagent Delegation: You can call the invoke_subagent tool with an array of subagents to delegate tasks in parallel (e.g. researching, building multiple packages/files concurrently, or running tests). Each subagent runs in its own parallel worker and returns its result to you.\n\n")
 
-	if turnMode == "Plan" || turnMode == "Supervised" || strings.Contains(strings.ToLower(effectivePrompt), "propose_plan") || strings.Contains(strings.ToLower(effectivePrompt), "ask_question") {
 		var planProto strings.Builder
 		planProto.WriteString("<planning_and_clarification_protocol>\n")
 		planProto.WriteString("Interactive Clarifications (`ask_question`):\n")
@@ -5494,100 +5567,103 @@ func (hm *HarnessManager) RunAgentTurn(ctx context.Context, req ChatTurnRequest)
 			planProto.WriteString("- Calling `propose_plan` automatically writes PLAN.md to the workspace root and displays an interactive Plan Approval review card with 'Approve Plan' and 'Provide Feedback' buttons.\n")
 			planProto.WriteString("- Once the user clicks 'Approve Plan', file modifications will unlock and you may begin implementing.\n")
 		} else {
-			planProto.WriteString("Plan Proposal (`propose_plan`):\n")
-			planProto.WriteString("- For large features, refactors, or multi-step operations, you can call `propose_plan` anytime to present your plan to the user for formal approval before making modifications.\n")
+			planProto.WriteString("Hybrid Coding Mode (Plan-First -> Autonomous Execution):\n")
+			planProto.WriteString("- In Coding Mode, you operate as a smart hybrid between Plan Mode and Autonomous Mode:\n")
+			planProto.WriteString("  1. **Initial Messages / Discussion & Planning Phase**: On the first 1-2 messages of a new idea or feature discussion (before implementation begins), behave like Plan Mode — inspect the workspace with read-only tools (`read_file`, `list_dir`, `grep_search`), answer questions directly without running 20+ unnecessary commands, clarify ambiguities with `ask_question`, or call `propose_plan` to present a structured plan (`PLAN.md`).\n")
+			planProto.WriteString("  2. **Autonomous Execution Phase**: Once the plan/approach is agreed upon — or whenever the user directly asks you to build, implement, fix, edit, or run code — automatically operate in full Autonomous Mode (`edit_file`, `write_file`, `run_command`) and complete the work end-to-end.\n")
+			planProto.WriteString("  3. **Natural-Language Duel Mode**: If the user asks you to enter Duel Mode (e.g. 'go in duel mode'), immediately execute the Red vs. White Security Duel (`run_security_duel`).\n")
 		}
 		planProto.WriteString("</planning_and_clarification_protocol>\n\n")
 		sysBuilder.WriteString(planProto.String())
-	}
 
-	if shouldInjectSubagentModelCatalog(effectivePrompt) {
-		var availModelsBlock strings.Builder
-		availModelsBlock.WriteString("<available_subagent_models>\n")
-		disc := config.DiscoverModels(hm.settings, "", "")
-		if mList, ok := disc["models"].([]map[string]any); ok && len(mList) > 0 {
-			limit := 25
-			if len(mList) < limit {
-				limit = len(mList)
-			}
-			byProv := make(map[string][]string)
-			var provOrder []string
-			for _, m := range mList[:limit] {
-				mID := strings.TrimSpace(fmt.Sprint(m["id"]))
-				prov := strings.TrimSpace(fmt.Sprint(m["provider"]))
-				if mID != "" && mID != "<nil>" {
-					if prov == "" || prov == "<nil>" {
-						prov = "Ollama"
+		if shouldInjectSubagentModelCatalog(effectivePrompt) {
+			var availModelsBlock strings.Builder
+			availModelsBlock.WriteString("<available_subagent_models>\n")
+			disc := config.DiscoverModels(hm.settings, "", "")
+			if mList, ok := disc["models"].([]map[string]any); ok && len(mList) > 0 {
+				limit := 25
+				if len(mList) < limit {
+					limit = len(mList)
+				}
+				byProv := make(map[string][]string)
+				var provOrder []string
+				for _, m := range mList[:limit] {
+					mID := strings.TrimSpace(fmt.Sprint(m["id"]))
+					prov := strings.TrimSpace(fmt.Sprint(m["provider"]))
+					if mID != "" && mID != "<nil>" {
+						if prov == "" || prov == "<nil>" {
+							prov = "Ollama"
+						}
+						if _, exists := byProv[prov]; !exists {
+							provOrder = append(provOrder, prov)
+						}
+						byProv[prov] = append(byProv[prov], mID)
 					}
-					if _, exists := byProv[prov]; !exists {
-						provOrder = append(provOrder, prov)
-					}
-					byProv[prov] = append(byProv[prov], mID)
+				}
+				for _, prov := range provOrder {
+					availModelsBlock.WriteString(fmt.Sprintf("- %s: %s\n", prov, strings.Join(byProv[prov], ", ")))
 				}
 			}
-			for _, prov := range provOrder {
-				availModelsBlock.WriteString(fmt.Sprintf("- %s: %s\n", prov, strings.Join(byProv[prov], ", ")))
+			availModelsBlock.WriteString("When calling invoke_subagent, each subagent item in 'subagents' accepts a 'model' parameter. You can pass 'inherit' to use the default subagent model, OR pass any specific model ID from <available_subagent_models> (for example, when the user asks you to use a local model for a simple task, or orchestrate multiple Ollama Cloud / Gemini / Anthropic / OpenAI models in parallel).\n")
+			availModelsBlock.WriteString("</available_subagent_models>\n\n")
+			sysBuilder.WriteString(availModelsBlock.String())
+		}
+
+		if len(serverToolsMap) > 0 {
+			var mcpPromptBlock strings.Builder
+			mcpPromptBlock.WriteString("<connected_mcp_servers>\n")
+			mcpPromptBlock.WriteString("Currently connected MCP servers and their tools:\n")
+			var sNames []string
+			for sn := range serverToolsMap {
+				sNames = append(sNames, sn)
+			}
+			sort.Strings(sNames)
+			for _, sn := range sNames {
+				mcpPromptBlock.WriteString(fmt.Sprintf("- %s (tools: %s)\n", sn, strings.Join(serverToolsMap[sn], ", ")))
+			}
+			mcpPromptBlock.WriteString("You can also call the mcp_status tool anytime to inspect MCP status.\n")
+			mcpPromptBlock.WriteString("</connected_mcp_servers>\n\n")
+			sysBuilder.WriteString(mcpPromptBlock.String())
+		}
+		sysBuilder.WriteString(memory.FormatForSystemPrompt(wsPath, 30) + "\n")
+		if recSummary := hm.buildRecentSessionsSummary(convID, wsPath, 5); recSummary != "" {
+			sysBuilder.WriteString(recSummary)
+		}
+
+		if req.WorkflowID != "" {
+			for _, wf := range hm.ListWorkflows() {
+				if wf["id"] == req.WorkflowID {
+					sysBuilder.WriteString(fmt.Sprintf("Active Workflow: %s\n%s\n\n", wf["title"], wf["prompt"]))
+					break
+				}
 			}
 		}
-		availModelsBlock.WriteString("When calling invoke_subagent, each subagent item in 'subagents' accepts a 'model' parameter. You can pass 'inherit' to use the default subagent model, OR pass any specific model ID from <available_subagent_models> (for example, when the user asks you to use a local model for a simple task, or orchestrate multiple Ollama Cloud / Gemini / Anthropic / OpenAI models in parallel).\n")
-		availModelsBlock.WriteString("</available_subagent_models>\n\n")
-		sysBuilder.WriteString(availModelsBlock.String())
-	}
 
-	if len(serverToolsMap) > 0 {
-		var mcpPromptBlock strings.Builder
-		mcpPromptBlock.WriteString("<connected_mcp_servers>\n")
-		mcpPromptBlock.WriteString("Currently connected MCP servers and their tools:\n")
-		var sNames []string
-		for sn := range serverToolsMap {
-			sNames = append(sNames, sn)
-		}
-		sort.Strings(sNames)
-		for _, sn := range sNames {
-			mcpPromptBlock.WriteString(fmt.Sprintf("- %s (tools: %s)\n", sn, strings.Join(serverToolsMap[sn], ", ")))
-		}
-		mcpPromptBlock.WriteString("You can also call the mcp_status tool anytime to inspect MCP status.\n")
-		mcpPromptBlock.WriteString("</connected_mcp_servers>\n\n")
-		sysBuilder.WriteString(mcpPromptBlock.String())
-	}
-	sysBuilder.WriteString(memory.FormatForSystemPrompt(wsPath, 30) + "\n")
-	if recSummary := hm.buildRecentSessionsSummary(convID, wsPath, 5); recSummary != "" {
-		sysBuilder.WriteString(recSummary)
-	}
-
-	if req.WorkflowID != "" {
-		for _, wf := range hm.ListWorkflows() {
-			if wf["id"] == req.WorkflowID {
-				sysBuilder.WriteString(fmt.Sprintf("Active Workflow: %s\n%s\n\n", wf["title"], wf["prompt"]))
-				break
+		if req.AgentID != "" {
+			for _, ag := range hm.ListAgents() {
+				if ag["id"] == req.AgentID {
+					sysBuilder.WriteString(fmt.Sprintf("Subagent Role Instructions (%s):\n%s\n\n", ag["name"], ag["system_prompt"]))
+					break
+				}
 			}
 		}
-	}
 
-	if req.AgentID != "" {
-		for _, ag := range hm.ListAgents() {
-			if ag["id"] == req.AgentID {
-				sysBuilder.WriteString(fmt.Sprintf("Subagent Role Instructions (%s):\n%s\n\n", ag["name"], ag["system_prompt"]))
-				break
+		if len(matchedSkills) > 0 {
+			sysBuilder.WriteString("Matched Skill Instructions:\n")
+			for _, sk := range matchedSkills {
+				sysBuilder.WriteString(fmt.Sprintf("### Skill: %s\n%s\n\n", sk.Name, sk.Instructions))
 			}
 		}
-	}
 
-	if len(matchedSkills) > 0 {
-		sysBuilder.WriteString("Matched Skill Instructions:\n")
-		for _, sk := range matchedSkills {
-			sysBuilder.WriteString(fmt.Sprintf("### Skill: %s\n%s\n\n", sk.Name, sk.Instructions))
+		catalog := skills.CatalogForPrompt(allSkills)
+		if catalog != "" {
+			sysBuilder.WriteString(catalog + "\n")
 		}
+		if modBlock := buildPromptModifiersBlock(activeCaveman, activePonytail); modBlock != "" {
+			sysBuilder.WriteString("\nREMINDER — VOICE AND CODING TOGGLE OVERRIDES:\n" + modBlock + "\n")
+		}
+		systemPrompt = sysBuilder.String()
 	}
-
-	catalog := skills.CatalogForPrompt(allSkills)
-	if catalog != "" {
-		sysBuilder.WriteString(catalog + "\n")
-	}
-	if modBlock := buildPromptModifiersBlock(activeCaveman, activePonytail); modBlock != "" {
-		sysBuilder.WriteString("\nREMINDER — VOICE AND CODING TOGGLE OVERRIDES:\n" + modBlock + "\n")
-	}
-	systemPrompt := sysBuilder.String()
 
 	cmdTimeout := 120
 	if hm.settings != nil && hm.settings.CommandTimeout > 0 {
@@ -5596,14 +5672,16 @@ func (hm *HarnessManager) RunAgentTurn(ctx context.Context, req ChatTurnRequest)
 	executor := tools.NewToolExecutor(wsPath, cmdTimeout)
 	executor.EnforceReadBeforeEdit = true
 	executor.StrictWorkspaceSandbox = hm.settings != nil && hm.settings.StrictWorkspaceSandbox
-	if protected := extractProtectedPathsFromPrompt(req.Prompt); len(protected) > 0 {
-		executor.SetProtectedPaths(protected)
-		sysBuilder.WriteString("\n### LOCKED / PROTECTED FILES (Task Specification Constraint):\nThe following files are strictly read-only and MUST NOT be edited, overwritten, or modified:\n")
-		for _, p := range protected {
-			sysBuilder.WriteString(fmt.Sprintf("- `%s`\n", p))
+	if !isChatMode {
+		if protected := extractProtectedPathsFromPrompt(req.Prompt); len(protected) > 0 {
+			executor.SetProtectedPaths(protected)
+			sysBuilder.WriteString("\n### LOCKED / PROTECTED FILES (Task Specification Constraint):\nThe following files are strictly read-only and MUST NOT be edited, overwritten, or modified:\n")
+			for _, p := range protected {
+				sysBuilder.WriteString(fmt.Sprintf("- `%s`\n", p))
+			}
+			sysBuilder.WriteString("Any attempt to modify these files will be rejected with PermissionDenied.\n\n")
+			systemPrompt = sysBuilder.String()
 		}
-		sysBuilder.WriteString("Any attempt to modify these files will be rejected with PermissionDenied.\n\n")
-		systemPrompt = sysBuilder.String()
 	}
 
 	turnCtx, cancelFunc := context.WithCancel(ctx)
@@ -5638,7 +5716,7 @@ func (hm *HarnessManager) RunAgentTurn(ctx context.Context, req ChatTurnRequest)
 		hm.liveMu.Unlock()
 	}()
 
-	messages := buildConversationHistoryMessages(conv, effectivePrompt, llmImages)
+	messages := buildConversationHistoryMessages(conv, effectivePrompt, llmImages, !isChatMode && !isCvetkaModel)
 
 	maxIter := 200
 	if hm.settings != nil && hm.settings.MaxIterations > 0 {
@@ -5676,7 +5754,7 @@ func (hm *HarnessManager) RunAgentTurn(ctx context.Context, req ChatTurnRequest)
 		}
 
 		// Refresh active tool surface if deferred tools were unlocked via tool_search
-		if len(executor.UnlockedDeferredTools) > 0 {
+		if !isChatMode && !isCvetkaModel && len(executor.UnlockedDeferredTools) > 0 {
 			toolDefs = buildActiveToolDefinitions(turnMode, effectivePrompt, len(llmImages) > 0, executor.UnlockedDeferredTools, mcpTools, disabledTools)
 		}
 
@@ -5784,9 +5862,8 @@ func (hm *HarnessManager) RunAgentTurn(ctx context.Context, req ChatTurnRequest)
 				if thinkStepIdx >= 0 && thinkStepIdx < len(live.PlanningSteps) {
 					if iterThinking == "" {
 						if firstLine := firstNonEmptyLine(iterText); firstLine != "" {
-							live.PlanningSteps[thinkStepIdx]["text"] = fmt.Sprintf("Analyzing: %s", truncateStr(firstLine, 88))
+							live.PlanningSteps[thinkStepIdx]["text"] = fmt.Sprintf("Responding: %s", truncateStr(firstLine, 88))
 						}
-						live.PlanningSteps[thinkStepIdx]["detail"] = strings.TrimSpace(iterText)
 					}
 				}
 				hm.liveMu.Unlock()
@@ -5890,7 +5967,9 @@ func (hm *HarnessManager) RunAgentTurn(ctx context.Context, req ChatTurnRequest)
 					live.PlanningSteps[thinkStepIdx]["text"] = fmt.Sprintf("Thought for %.1fs — %s", thinkDur, truncateStr(summary, 92))
 					live.PlanningSteps[thinkStepIdx]["detail"] = thoughtContent
 				} else {
-					live.PlanningSteps[thinkStepIdx]["text"] = fmt.Sprintf("Thought for %.1fs — formulated response", thinkDur)
+					// Model generated a direct answer without chain-of-thought: remove the empty thinking placeholder step
+					// so the UI doesn't display an empty "Thought for Xs" row with no thinking content inside.
+					live.PlanningSteps = append(live.PlanningSteps[:thinkStepIdx], live.PlanningSteps[thinkStepIdx+1:]...)
 				}
 			} else {
 				summary := firstNonEmptyLine(thoughtContent)
@@ -5935,6 +6014,42 @@ func (hm *HarnessManager) RunAgentTurn(ctx context.Context, req ChatTurnRequest)
 						Arguments: ext.Arguments,
 					})
 				}
+				// Strip raw <tool_call>...</tool_call>, `call\n{...}`, or imitated [Turn Execution Summary] from live.Text and res.Content
+				hm.liveMu.Lock()
+				if idx := strings.Index(live.Text, "<tool_call>"); idx != -1 {
+					live.Text = strings.TrimSpace(live.Text[:idx])
+				} else {
+					live.Text = ""
+				}
+				if thinkStepIdx >= 0 && thinkStepIdx < len(live.PlanningSteps) {
+					live.PlanningSteps[thinkStepIdx]["text"] = fmt.Sprintf("Planned %d tool call(s) (%.1fs)", len(res.ToolCalls), thinkDur)
+				}
+				hm.liveMu.Unlock()
+				res.Content = ""
+				commentaryContent = ""
+			}
+		}
+
+		if len(res.ToolCalls) == 0 {
+			// Guard against URL guessing in Chat mode / local models:
+			// If the user explicitly provided an http(s):// URL in their prompt and the model tried to guess what the site is without calling read_url,
+			// automatically trigger read_url on the first URL so the answer is grounded in the real site!
+			if iter == 0 && len(executor.ToolCalls) == 0 && (isChatMode || isCvetkaModel) && !disabledTools["read_url"] {
+				if explicitURL := extractFirstHTTPURL(req.Prompt); explicitURL != "" {
+					res.ToolCalls = append(res.ToolCalls, llm.ToolCall{
+						ID:        "call_auto_url_0",
+						Name:      "read_url",
+						Arguments: map[string]any{"url": explicitURL},
+					})
+					hm.liveMu.Lock()
+					live.Text = ""
+					if thinkStepIdx >= 0 && thinkStepIdx < len(live.PlanningSteps) {
+						live.PlanningSteps[thinkStepIdx]["text"] = fmt.Sprintf("Reading %s...", explicitURL)
+					}
+					hm.liveMu.Unlock()
+					res.Content = ""
+					commentaryContent = ""
+				}
 			}
 		}
 
@@ -5955,7 +6070,7 @@ func (hm *HarnessManager) RunAgentTurn(ctx context.Context, req ChatTurnRequest)
 
 			// Pre-Exit Syntax Sanity Check (Claude Code Parity Standard):
 			// If files were modified in this turn, verify they don't contain fatal syntax errors before allowing exit.
-			if preExitCheckCount < 3 && len(executor.FilesTouched) > 0 && iter < maxIter-1 {
+			if !isChatMode && preExitCheckCount < 3 && len(executor.FilesTouched) > 0 && iter < maxIter-1 {
 				preExitCheckCount++
 				var syntaxErrors []string
 				for _, ft := range executor.FilesTouched {
@@ -5983,7 +6098,7 @@ func (hm *HarnessManager) RunAgentTurn(ctx context.Context, req ChatTurnRequest)
 			// Autonomous Continuation Invariant:
 			// If the model emitted intermediate narration without calling tools or stopped on an empty turn,
 			// nudge the model autonomously instead of prematurely breaking the loop.
-			if iter < maxIter-1 && consecutiveTextNudges < 2 {
+			if !isChatMode && !isCvetkaModel && iter < maxIter-1 && consecutiveTextNudges < 2 {
 				isTransitional := isTransitionalNarration(res.Content)
 				isEmptyTurn := strings.TrimSpace(res.Content) == "" && strings.TrimSpace(thoughtContent) != ""
 
@@ -6886,6 +7001,42 @@ func (hm *HarnessManager) RunAgentTurn(ctx context.Context, req ChatTurnRequest)
 		"git_info":        workspace.GetGitInfo(wsPath),
 		"stats":           stats,
 	}, nil
+}
+
+var explicitHTTPURLRe = regexp.MustCompile(`https?://[^\s"'<>)\]]+`)
+
+func extractFirstHTTPURL(prompt string) string {
+	m := explicitHTTPURLRe.FindString(prompt)
+	return strings.TrimRight(m, ".,;:!?")
+}
+
+// isNaturalLanguageDuelRequest returns true when the user asks in natural language to enter Duel Mode
+// (e.g. "go in duel mode", "switch to duel mode", "run a security duel").
+func isNaturalLanguageDuelRequest(prompt string) bool {
+	lower := strings.ToLower(strings.TrimSpace(prompt))
+	if lower == "" {
+		return false
+	}
+	duelPhrases := []string{
+		"go in duel mode",
+		"go into duel mode",
+		"switch to duel mode",
+		"enter duel mode",
+		"start duel mode",
+		"use duel mode",
+		"activate duel mode",
+		"turn on duel mode",
+		"in duel mode",
+		"security duel",
+		"red vs white duel",
+		"red vs. white duel",
+	}
+	for _, phrase := range duelPhrases {
+		if strings.Contains(lower, phrase) {
+			return true
+		}
+	}
+	return false
 }
 
 // extractProtectedPathsFromPrompt extracts negative file constraints (e.g., "Do not modify /app/run_pretrain.sh")

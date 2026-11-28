@@ -1,33 +1,43 @@
 {
-    "version":  "3.1.3",
-    "published_at":  "2026-11-26",
+    "version":  "3.1.4",
+    "published_at":  "2026-11-28",
     "channel":  "stable",
-    "download_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.3/Unjess.exe",
-    "installer_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.3/Unjess-Setup.exe",
-    "portable_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.3/Unjess-Portable-win64.zip",
-    "webview2_loader_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.3/WebView2Loader.dll",
-    "daemon_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.3/unjessd.exe",
-    "cli_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.3/unjess-cli.exe",
-    "desktop_linux_amd64_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.3/unjess-linux-desktop-amd64",
+    "download_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.4/Unjess.exe",
+    "installer_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.4/Unjess-Setup.exe",
+    "portable_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.4/Unjess-Portable-win64.zip",
+    "webview2_loader_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.4/WebView2Loader.dll",
+    "daemon_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.4/unjessd.exe",
+    "cli_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.4/unjess-cli.exe",
+    "desktop_linux_amd64_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.4/unjess-linux-desktop-amd64",
     "desktop_linux_amd64_sha256":  "f416e6d8cdc45c60a6b5bc396410ee56fb99c4229f209d3eb532ce09fbe4209c",
-    "cli_linux_amd64_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.3/unjess-linux-amd64",
-    "cli_linux_arm64_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.3/unjess-linux-arm64",
-    "daemon_linux_amd64_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.3/unjessd-linux-amd64",
-    "daemon_linux_arm64_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.3/unjessd-linux-arm64",
-    "sha256":  "fc76acd8c38791bc4ac268a9c9dc4d2ef423382e20c1e057a57aae8a8d66bfd7",
-    "installer_sha256":  "3883a5746051f5ae7570c3bb0645d63eac7e7a51df274e389126da9bbc9d777d",
-    "portable_sha256":  "cb218f062197d1d94a61eea21e2a2c8f799beeda70c84eceafe8b6f7635433ae",
-    "daemon_sha256":  "2a06934af946386658fbb88de9480667c8b95e5b103fadf67021b5b0f40825d9",
-    "cli_sha256":  "7e0efe2b1e8d37dc8cc02c3559ef09d8b2e1510417d72bbe34c6d985b587728e",
-    "desktop_sha256":  "fc76acd8c38791bc4ac268a9c9dc4d2ef423382e20c1e057a57aae8a8d66bfd7",
+    "cli_linux_amd64_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.4/unjess-linux-amd64",
+    "cli_linux_arm64_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.4/unjess-linux-arm64",
+    "daemon_linux_amd64_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.4/unjessd-linux-amd64",
+    "daemon_linux_arm64_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.4/unjessd-linux-arm64",
+    "sha256":  "85df702195db03fd0a551c59f877faf70254bf7e98e4b347cd5f83abfc466658",
+    "installer_sha256":  "86ab827772fc909c2cd89d4dc305e94efbcf0af8dfd396282b8a9ee7a7af26a5",
+    "portable_sha256":  "7f6058e738fbe44c6281910ff683e49d839cfe64caff97f11d758234bc202509",
+    "daemon_sha256":  "f3503733e546794347717744206fc8fdb84e73795560ca20856090b14a67bd84",
+    "cli_sha256":  "12c91fde41a5623a7540b096af7301d58dc9def6bfc2c853aaed50fea7dd2e18",
+    "desktop_sha256":  "85df702195db03fd0a551c59f877faf70254bf7e98e4b347cd5f83abfc466658",
     "webview2_loader_sha256":  "86545b66cdb0603bc26b626fb9ad610cb6e71f28d468f5ea66df23b03dda96d5",
-    "notes":  "Unjess v3.1.3 - Project Removal with Confirmation Dialog \u0026 Hidden-by-Default Right Inspector Sidebar.",
+    "notes":  "Unjess v3.1.4 - Rich Markdown, Syntax Highlighting, Mermaid \u0026 Sandboxed HTML UI Widgets.",
     "changelog":  [
+                      {
+                          "version":  "3.1.4",
+                          "date":  "2026-11-28",
+                          "title":  "Unjess v3.1.4 - Rich Markdown, Syntax Highlighting, Mermaid \u0026 Sandboxed HTML UI Widgets",
+                          "tag":  "LATEST",
+                          "changes":  [
+                                          "Upgraded chat response renderer to GFM Markdown (marked + DOMPurify) with Highlight.js syntax highlighting, Copy \u0026 Collapse buttons on code blocks, GitHub-style Callout Alerts, and Mermaid.js diagrams",
+                                          "Added render_ui_widget tool and fenced widget block renderer to display rich interactive HTML/CSS/SVG/JS cards safely inside auto-resizing sandboxed iframes"
+                                      ]
+                      },
                       {
                           "version":  "3.1.3",
                           "date":  "2026-11-26",
                           "title":  "Unjess v3.1.3 - Project Removal with Confirmation Dialog \u0026 Hidden-by-Default Right Sidebar",
-                          "tag":  "LATEST",
+                          "tag":  "UPDATE",
                           "changes":  [
                                           "Added project removal button (trash icon) on project folders in the left sidebar and workspace switcher dropdown with a dedicated confirmation modal before removing the project and its chat sessions",
                                           "Changed the Right Inspector sidebar (Diffs | Browser | Controls) to start hidden by default on startup for a cleaner, distraction-free chat workspace (still opens on demand or when toggling Browser / Inspector)"
@@ -160,11 +170,11 @@
                                       ]
                       }
                   ],
-    "cli_linux_amd64_sha256":  "9269fbb23f3b9a5f6a54156ce237f0eed0b8a7a5122832e4273a786a0bad51b8",
-    "cli_linux_arm64_sha256":  "0dc3d021b0eb04af64858caa6c530bb0be5d560ff836d8534f7e8b10182bf465",
-    "daemon_linux_amd64_sha256":  "bbfcd1465a2b6094d630fedc9429a27cc0a01e07b10176cf17c48a430642dedc",
-    "daemon_linux_arm64_sha256":  "8a9d4f723835a019739cbbbc46667d2c99062950739977d9e1619ac9b8e003de",
-    "cli_windows_amd64_sha256":  "7e0efe2b1e8d37dc8cc02c3559ef09d8b2e1510417d72bbe34c6d985b587728e",
-    "daemon_windows_amd64_sha256":  "2a06934af946386658fbb88de9480667c8b95e5b103fadf67021b5b0f40825d9",
-    "setup_windows_amd64_sha256":  "3883a5746051f5ae7570c3bb0645d63eac7e7a51df274e389126da9bbc9d777d"
+    "cli_linux_amd64_sha256":  "d89869f3594c84b627d28ded8f20db74ad146df529bbefa6e62c44f20d621ec0",
+    "cli_linux_arm64_sha256":  "bc644c1085cc4556b952811b469f025f3efe128e0f228fe590f90d6f701f451d",
+    "daemon_linux_amd64_sha256":  "38bc270a7b277cb472c09d16c80aa7853f72a1a951fa46ff6944782e950d2a88",
+    "daemon_linux_arm64_sha256":  "4ff8d2a6483deb7980aee521d46f12b2fc2951a66e921675bd85d2c3d9b73f24",
+    "cli_windows_amd64_sha256":  "12c91fde41a5623a7540b096af7301d58dc9def6bfc2c853aaed50fea7dd2e18",
+    "daemon_windows_amd64_sha256":  "f3503733e546794347717744206fc8fdb84e73795560ca20856090b14a67bd84",
+    "setup_windows_amd64_sha256":  "86ab827772fc909c2cd89d4dc305e94efbcf0af8dfd396282b8a9ee7a7af26a5"
 }
