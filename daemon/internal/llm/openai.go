@@ -74,6 +74,7 @@ func getOpenAIAPIKey(opts ChatOptions, provider string) string {
 
 func prepareOpenAIMessages(opts ChatOptions) []map[string]any {
 	var prepared []map[string]any
+	noNativeTools := len(opts.Tools) == 0
 
 	if opts.SystemPrompt != "" {
 		prepared = append(prepared, map[string]any{
@@ -85,41 +86,77 @@ func prepareOpenAIMessages(opts ChatOptions) []map[string]any {
 	for _, msg := range opts.Messages {
 		switch msg.Role {
 		case "assistant":
+			content := msg.Content
+			if noNativeTools && strings.TrimSpace(content) == "" && len(msg.ToolCalls) > 0 {
+				var parts []string
+				for _, tc := range msg.ToolCalls {
+					b, _ := json.Marshal(map[string]any{
+						"name":      tc.Name,
+						"arguments": tc.Arguments,
+					})
+					parts = append(parts, "<tool_call>"+string(b)+"</tool_call>")
+				}
+				content = strings.Join(parts, "\n")
+			}
 			entry := map[string]any{
 				"role":    "assistant",
-				"content": msg.Content,
+				"content": content,
 			}
-			// DeepSeek R1/V3.2 and Kimi k2.5/k3 thinking models require reasoning_content on assistant tool-call turns
-			if len(msg.ToolCalls) > 0 {
-				if msg.Thinking != "" {
-					entry["reasoning_content"] = msg.Thinking
-				} else if opts.Provider == "kimi" {
-					entry["reasoning_content"] = "Analyzing context and invoking tool."
+			if !noNativeTools {
+				// DeepSeek R1/V3.2 and Kimi k2.5/k3 thinking models require reasoning_content on assistant tool-call turns
+				if len(msg.ToolCalls) > 0 {
+					if msg.Thinking != "" {
+						entry["reasoning_content"] = msg.Thinking
+					} else if opts.Provider == "kimi" {
+						entry["reasoning_content"] = "Analyzing context and invoking tool."
+					}
 				}
-			}
-			if len(msg.ToolCalls) > 0 {
-				var tcs []map[string]any
-				for _, tc := range msg.ToolCalls {
-					argBytes, _ := json.Marshal(tc.Arguments)
-					tcs = append(tcs, map[string]any{
-						"id":   tc.ID,
-						"type": "function",
-						"function": map[string]any{
-							"name":      tc.Name,
-							"arguments": string(argBytes),
-						},
-					})
+				if len(msg.ToolCalls) > 0 {
+					var tcs []map[string]any
+					for _, tc := range msg.ToolCalls {
+						argsForLLM := tc.Arguments
+						if tc.Name == "render_ui_widget" && argsForLLM != nil {
+							if htmlStr, ok := argsForLLM["html"].(string); ok && len(htmlStr) > 240 {
+								slim := make(map[string]any, len(argsForLLM))
+								for k, v := range argsForLLM {
+									slim[k] = v
+								}
+								slim["html"] = fmt.Sprintf("[HTML widget rendered inline (%d chars)]", len(htmlStr))
+								argsForLLM = slim
+							}
+						}
+						argBytes, _ := json.Marshal(argsForLLM)
+						tcs = append(tcs, map[string]any{
+							"id":   tc.ID,
+							"type": "function",
+							"function": map[string]any{
+								"name":      tc.Name,
+								"arguments": string(argBytes),
+							},
+						})
+					}
+					entry["tool_calls"] = tcs
 				}
-				entry["tool_calls"] = tcs
 			}
 			prepared = append(prepared, entry)
 
 		case "tool":
-			prepared = append(prepared, map[string]any{
-				"role":         "tool",
-				"tool_call_id": msg.ToolCallID,
-				"content":      msg.Content,
-			})
+			if noNativeTools {
+				toolLabel := msg.ToolName
+				if toolLabel == "" {
+					toolLabel = "tool"
+				}
+				prepared = append(prepared, map[string]any{
+					"role":    "user",
+					"content": fmt.Sprintf("[Rezultat orodja %s / Tool Result]:\n%s\n\nČe zgornji rezultati že vsebujejo odgovor (npr. povzetke ali trenutne podatke), uporabniku takoj konkretno odgovori v slovenščini. Če pa moraš za podrobnosti prebrati določeno spletno stran z zgornjega seznama, lahko pokličeš <tool_call>{\"name\": \"read_url\", \"arguments\": {\"url\": \"...\"}}</tool_call>.", toolLabel, msg.Content),
+				})
+			} else {
+				prepared = append(prepared, map[string]any{
+					"role":         "tool",
+					"tool_call_id": msg.ToolCallID,
+					"content":      msg.Content,
+				})
+			}
 
 		default: // "user"
 			if len(msg.Images) > 0 {
@@ -205,8 +242,11 @@ func streamOpenAICompat(ctx context.Context, opts ChatOptions, cb StreamCallback
 			"include_usage": true,
 		}
 	}
-	if len(preparedTools) > 0 {
-		payload["tools"] = preparedTools
+	if opts.Provider == "llamacpp" {
+		payload["stop"] = []string{"\nuser\n", "\nmodel\n", "\nsystem\n", "⸢/TURN⸥", "⸢TURN⸥", "<end_of_turn>"}
+		payload["temperature"] = 0.2
+	} else if opts.Provider == "lmstudio" {
+		payload["temperature"] = 0.2
 	}
 	if opts.MaxTokens > 0 {
 		lowerModel := strings.ToLower(opts.Model)
@@ -219,11 +259,20 @@ func streamOpenAICompat(ctx context.Context, opts ChatOptions, cb StreamCallback
 
 	effort := NormalizeEffort(opts.ReasoningEffort)
 	supportsEffort := SupportsReasoningEffort(opts.Model, opts.Provider)
+	hasTools := len(preparedTools) > 0
 
-	buildOpenAIPayload := func(includeEffort bool) ([]byte, error) {
-		p := make(map[string]any, len(payload)+3)
+	buildOpenAIPayload := func(includeEffort bool, includeTools bool) ([]byte, error) {
+		p := make(map[string]any, len(payload)+4)
 		for k, v := range payload {
 			p[k] = v
+		}
+		if includeTools && len(preparedTools) > 0 {
+			p["tools"] = preparedTools
+		}
+		if opts.Provider == "llamacpp" || opts.Provider == "lmstudio" {
+			p["chat_template_kwargs"] = map[string]any{
+				"enable_thinking": effort != "none",
+			}
 		}
 		if includeEffort && supportsEffort {
 			if opts.Provider == "qwen" {
@@ -256,8 +305,8 @@ func streamOpenAICompat(ctx context.Context, opts ChatOptions, cb StreamCallback
 		return json.Marshal(p)
 	}
 
-	doReq := func(ep string, includeEffort bool) (*http.Response, error) {
-		bodyBytes, err := buildOpenAIPayload(includeEffort)
+	doReq := func(ep string, includeEffort bool, includeTools bool) (*http.Response, error) {
+		bodyBytes, err := buildOpenAIPayload(includeEffort, includeTools)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal openai payload: %w", err)
 		}
@@ -274,7 +323,7 @@ func streamOpenAICompat(ctx context.Context, opts ChatOptions, cb StreamCallback
 	}
 
 	activeEndpoint := endpoint
-	resp, err := doReq(activeEndpoint, supportsEffort)
+	resp, err := doReq(activeEndpoint, supportsEffort, hasTools)
 	if err != nil {
 		return nil, fmt.Errorf("cannot connect to %s at %s: %w", opts.Provider, activeEndpoint, err)
 	}
@@ -296,7 +345,7 @@ func streamOpenAICompat(ctx context.Context, opts ChatOptions, cb StreamCallback
 			}
 		}
 		if altEndpoint != "" {
-			if altResp, altErr := doReq(altEndpoint, supportsEffort); altErr == nil {
+			if altResp, altErr := doReq(altEndpoint, supportsEffort, hasTools); altErr == nil {
 				if altResp.StatusCode == http.StatusOK || altResp.StatusCode == http.StatusBadRequest {
 					_ = resp.Body.Close()
 					resp = altResp
@@ -311,9 +360,27 @@ func streamOpenAICompat(ctx context.Context, opts ChatOptions, cb StreamCallback
 	// Automatic fallback without effort/thinking params if a model rejects them with 400
 	if resp.StatusCode == http.StatusBadRequest && supportsEffort {
 		_ = resp.Body.Close()
-		resp, err = doReq(activeEndpoint, false)
+		resp, err = doReq(activeEndpoint, false, hasTools)
 		if err != nil {
 			return nil, fmt.Errorf("cannot connect to %s at %s: %w", opts.Provider, activeEndpoint, err)
+		}
+	}
+
+	// Automatic fallback without tools if a model / llama.cpp Jinja chat template rejects tool calls (e.g. Cvetka-R1-27B)
+	if (resp.StatusCode == http.StatusBadRequest || resp.StatusCode == http.StatusInternalServerError || resp.StatusCode == http.StatusUnprocessableEntity) && hasTools {
+		errBytes, _ := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		errLower := strings.ToLower(string(errBytes))
+		if opts.Provider == "llamacpp" || opts.Provider == "lmstudio" ||
+			strings.Contains(errLower, "tool") || strings.Contains(errLower, "template") ||
+			strings.Contains(errLower, "jinja") || strings.Contains(errLower, "parser") ||
+			strings.Contains(errLower, "function") {
+			resp, err = doReq(activeEndpoint, false, false)
+			if err != nil {
+				return nil, fmt.Errorf("cannot connect to %s at %s: %w", opts.Provider, activeEndpoint, err)
+			}
+		} else {
+			return nil, fmt.Errorf("%s API error (%d): %s", opts.Provider, resp.StatusCode, string(errBytes))
 		}
 	}
 	defer resp.Body.Close()
@@ -357,6 +424,11 @@ func streamOpenAICompat(ctx context.Context, opts ChatOptions, cb StreamCallback
 			PromptTokens     int `json:"prompt_tokens"`
 			CompletionTokens int `json:"completion_tokens"`
 		} `json:"usage"`
+		Error *struct {
+			Code    any    `json:"code"`
+			Message string `json:"message"`
+			Type    string `json:"type"`
+		} `json:"error"`
 	}
 
 	scanner := bufio.NewScanner(resp.Body)
@@ -377,6 +449,10 @@ func streamOpenAICompat(ctx context.Context, opts ChatOptions, cb StreamCallback
 		var chunk openAIStreamChunk
 		if err := json.Unmarshal([]byte(dataStr), &chunk); err != nil {
 			continue
+		}
+
+		if chunk.Error != nil && chunk.Error.Message != "" {
+			return nil, fmt.Errorf("%s stream error (%v): %s", opts.Provider, chunk.Error.Code, chunk.Error.Message)
 		}
 
 		if chunk.Usage != nil {

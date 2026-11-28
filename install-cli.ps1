@@ -1,14 +1,14 @@
 # Unjess CLI Windows PowerShell One-Line Installer
 $ErrorActionPreference = 'Stop'
 Write-Host "══════════════════════════════════════════════════" -ForegroundColor Cyan
-Write-Host "  UNJESS CLI — Universal Agentic Coding Harness v3.1.4 " -ForegroundColor White
+Write-Host "  UNJESS CLI — Universal Agentic Coding Harness v3.1.5 " -ForegroundColor White
 Write-Host "══════════════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Downloading Unjess CLI from GitHub Releases..." -ForegroundColor Gray
 
-$cliUrl = "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.4/unjess-cli.exe"
+$cliUrl = "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.5/unjess-cli.exe"
 $targetDir = Join-Path $env:USERPROFILE ".unjess\bin"
-$expectedHash = "12c91fde41a5623a7540b096af7301d58dc9def6bfc2c853aaed50fea7dd2e18"
+$expectedHash = "a6e19d5b23180e7d00018591974da314fb7e58c912662e1c8ce9aaf9b528704a"
 
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
 
@@ -54,7 +54,7 @@ if (($env:PATH -split ";") -notcontains $targetDir) {
 }
 
 Write-Host ""
-Write-Host "✓ Unjess CLI v3.1.4 installed successfully!" -ForegroundColor Green
+Write-Host "✓ Unjess CLI v3.1.5 installed successfully!" -ForegroundColor Green
 Write-Host "  Location : $targetExe" -ForegroundColor Gray
 Write-Host "  Commands : 'unjess' or 'njss'" -ForegroundColor Cyan
 Write-Host ""

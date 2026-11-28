@@ -1,33 +1,43 @@
 {
-    "version":  "3.1.4",
+    "version":  "3.1.5",
     "published_at":  "2026-11-28",
     "channel":  "stable",
-    "download_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.4/Unjess.exe",
-    "installer_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.4/Unjess-Setup.exe",
-    "portable_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.4/Unjess-Portable-win64.zip",
-    "webview2_loader_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.4/WebView2Loader.dll",
-    "daemon_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.4/unjessd.exe",
-    "cli_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.4/unjess-cli.exe",
-    "desktop_linux_amd64_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.4/unjess-linux-desktop-amd64",
+    "download_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.5/Unjess.exe",
+    "installer_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.5/Unjess-Setup.exe",
+    "portable_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.5/Unjess-Portable-win64.zip",
+    "webview2_loader_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.5/WebView2Loader.dll",
+    "daemon_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.5/unjessd.exe",
+    "cli_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.5/unjess-cli.exe",
+    "desktop_linux_amd64_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.5/unjess-linux-desktop-amd64",
     "desktop_linux_amd64_sha256":  "f416e6d8cdc45c60a6b5bc396410ee56fb99c4229f209d3eb532ce09fbe4209c",
-    "cli_linux_amd64_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.4/unjess-linux-amd64",
-    "cli_linux_arm64_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.4/unjess-linux-arm64",
-    "daemon_linux_amd64_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.4/unjessd-linux-amd64",
-    "daemon_linux_arm64_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.4/unjessd-linux-arm64",
-    "sha256":  "85df702195db03fd0a551c59f877faf70254bf7e98e4b347cd5f83abfc466658",
-    "installer_sha256":  "86ab827772fc909c2cd89d4dc305e94efbcf0af8dfd396282b8a9ee7a7af26a5",
-    "portable_sha256":  "7f6058e738fbe44c6281910ff683e49d839cfe64caff97f11d758234bc202509",
-    "daemon_sha256":  "f3503733e546794347717744206fc8fdb84e73795560ca20856090b14a67bd84",
-    "cli_sha256":  "12c91fde41a5623a7540b096af7301d58dc9def6bfc2c853aaed50fea7dd2e18",
-    "desktop_sha256":  "85df702195db03fd0a551c59f877faf70254bf7e98e4b347cd5f83abfc466658",
+    "cli_linux_amd64_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.5/unjess-linux-amd64",
+    "cli_linux_arm64_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.5/unjess-linux-arm64",
+    "daemon_linux_amd64_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.5/unjessd-linux-amd64",
+    "daemon_linux_arm64_url":  "https://github.com/Bexx1107/Unjess-Go/releases/download/v3.1.5/unjessd-linux-arm64",
+    "sha256":  "71b91ad5ab509f629664ec162d345608433deb1cdc3689f0a45051b128b8e325",
+    "installer_sha256":  "6c55f2aa740832b4b0a57c8ef632f0746c82b759ac462ec49f53bcef1139abdc",
+    "portable_sha256":  "9d7c7480fa027390d00600506ecdbe9b7149f4aa0e7a0cfec6a1e75a38241134",
+    "daemon_sha256":  "e22357f88f54a10efba33de3f30989b944ea8c1ff0849be356f3f0c1d26737e2",
+    "cli_sha256":  "a6e19d5b23180e7d00018591974da314fb7e58c912662e1c8ce9aaf9b528704a",
+    "desktop_sha256":  "71b91ad5ab509f629664ec162d345608433deb1cdc3689f0a45051b128b8e325",
     "webview2_loader_sha256":  "86545b66cdb0603bc26b626fb9ad610cb6e71f28d468f5ea66df23b03dda96d5",
-    "notes":  "Unjess v3.1.4 - Rich Markdown, Syntax Highlighting, Mermaid \u0026 Sandboxed HTML UI Widgets.",
+    "notes":  "Unjess v3.1.5 - Clean Minimalist Header, Gemma 4 Native Tool Call Parser \u0026 Thinking Off Control.",
     "changelog":  [
+                      {
+                          "version":  "3.1.5",
+                          "date":  "2026-11-28",
+                          "title":  "Unjess v3.1.5 - Clean Minimalist Header, Gemma 4 Native Tool Call Parser \u0026 Thinking Off Control",
+                          "tag":  "LATEST",
+                          "changes":  [
+                                          "Removed top-bar and chat sub-header clutter (version/engine status pills, workspace dropdown, git badge, and secondary chat header bar) for a distraction-free chat view",
+                                          "Added native Gemma 4 \u003c|tool_call\u003ecall:NAME{...}\u003ctool_call|\u003e parser, chat_template_kwargs: {enable_thinking: false} when Thinking is set to Off, and automatic tool-call continuation in Chat mode"
+                                      ]
+                      },
                       {
                           "version":  "3.1.4",
                           "date":  "2026-11-28",
                           "title":  "Unjess v3.1.4 - Rich Markdown, Syntax Highlighting, Mermaid \u0026 Sandboxed HTML UI Widgets",
-                          "tag":  "LATEST",
+                          "tag":  "UPDATE",
                           "changes":  [
                                           "Upgraded chat response renderer to GFM Markdown (marked + DOMPurify) with Highlight.js syntax highlighting, Copy \u0026 Collapse buttons on code blocks, GitHub-style Callout Alerts, and Mermaid.js diagrams",
                                           "Added render_ui_widget tool and fenced widget block renderer to display rich interactive HTML/CSS/SVG/JS cards safely inside auto-resizing sandboxed iframes"
@@ -170,11 +180,11 @@
                                       ]
                       }
                   ],
-    "cli_linux_amd64_sha256":  "d89869f3594c84b627d28ded8f20db74ad146df529bbefa6e62c44f20d621ec0",
-    "cli_linux_arm64_sha256":  "bc644c1085cc4556b952811b469f025f3efe128e0f228fe590f90d6f701f451d",
-    "daemon_linux_amd64_sha256":  "38bc270a7b277cb472c09d16c80aa7853f72a1a951fa46ff6944782e950d2a88",
-    "daemon_linux_arm64_sha256":  "4ff8d2a6483deb7980aee521d46f12b2fc2951a66e921675bd85d2c3d9b73f24",
-    "cli_windows_amd64_sha256":  "12c91fde41a5623a7540b096af7301d58dc9def6bfc2c853aaed50fea7dd2e18",
-    "daemon_windows_amd64_sha256":  "f3503733e546794347717744206fc8fdb84e73795560ca20856090b14a67bd84",
-    "setup_windows_amd64_sha256":  "86ab827772fc909c2cd89d4dc305e94efbcf0af8dfd396282b8a9ee7a7af26a5"
+    "cli_linux_amd64_sha256":  "43d9e41f3a0a7f31269bd83bad2465e64bc4c8debe9c7984e9fcddcf16ec0667",
+    "cli_linux_arm64_sha256":  "e4a9737c6b0091ea6fedda142e39351fe71ed04b26b620295d46e974bbffcfc2",
+    "daemon_linux_amd64_sha256":  "bd38e1e18c71911de2360b92c7d75f5f05b0ccb1ee42ee36f4217a4304c024f6",
+    "daemon_linux_arm64_sha256":  "38f0c0fd807ce43f66bebf0f137cc78f1bb33adf55c9642fb1d77aafc5c162dd",
+    "cli_windows_amd64_sha256":  "a6e19d5b23180e7d00018591974da314fb7e58c912662e1c8ce9aaf9b528704a",
+    "daemon_windows_amd64_sha256":  "e22357f88f54a10efba33de3f30989b944ea8c1ff0849be356f3f0c1d26737e2",
+    "setup_windows_amd64_sha256":  "6c55f2aa740832b4b0a57c8ef632f0746c82b759ac462ec49f53bcef1139abdc"
 }

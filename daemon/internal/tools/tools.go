@@ -2759,10 +2759,250 @@ func NormalizeToolCall(name string, args map[string]any) (string, map[string]any
 
 var (
 	xmlToolCallRe     = regexp.MustCompile(`(?s)<tool_call>\s*(\{.*?\})\s*</tool_call>`)
+	gemma4BlockRe     = regexp.MustCompile(`(?s)<\|tool_call\|?>\s*(.*?)\s*<\|?/?tool_call\|?>`)
+	gemma4CallHeadRe  = regexp.MustCompile(`call:([a-zA-Z0-9_.-]+)\{`)
 	fencedToolJSONRe  = regexp.MustCompile("(?s)```(?:json|tool_call)?\\s*(\\{\\s*\"(?:name|tool|function)\"\\s*:.*?\\})\\s*```")
 	bareToolJSONRe    = regexp.MustCompile(`(?s)(?:^|\bcall\b|\n)\s*(\{\s*"(?:name|tool|function)"\s*:\s*"[^"]+"\s*,\s*"(?:arguments|parameters)"\s*:\s*\{.*?\}\s*\})`)
 	imitatedSummaryRe = regexp.MustCompile(`(?m)^[-•*]\s*(web_search|read_url|browser_use|memory_save|memory_recall)\(([^)\n]+)\)\s*(?:->|→)`)
 )
+
+// parseGemma4Args converts a Gemma 4 `{key:<|"|>val<|"|>,num:123}` argument body into a map[string]any.
+func parseGemma4Args(body string) map[string]any {
+	args := make(map[string]any)
+	s := strings.TrimSpace(body)
+	i := 0
+	n := len(s)
+	for i < n {
+		for i < n && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n' || s[i] == '\r' || s[i] == ',') {
+			i++
+		}
+		if i >= n {
+			break
+		}
+		// Parse key (optionally quoted or <|"|>quoted<|"|>)
+		var key string
+		if strings.HasPrefix(s[i:], `<|"|>`) {
+			i += 5
+			end := strings.Index(s[i:], `<|"|>`)
+			if end == -1 {
+				break
+			}
+			key = s[i : i+end]
+			i += end + 5
+		} else if s[i] == '"' || s[i] == '\'' {
+			q := s[i]
+			i++
+			start := i
+			for i < n && s[i] != q {
+				if s[i] == '\\' && i+1 < n {
+					i++
+				}
+				i++
+			}
+			key = s[start:i]
+			if i < n {
+				i++
+			}
+		} else {
+			start := i
+			for i < n && s[i] != ':' && s[i] != ' ' && s[i] != '\t' && s[i] != '\n' && s[i] != '\r' {
+				i++
+			}
+			key = strings.TrimSpace(s[start:i])
+		}
+		for i < n && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n' || s[i] == '\r') {
+			i++
+		}
+		if i >= n || s[i] != ':' {
+			break
+		}
+		i++ // skip ':'
+		for i < n && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n' || s[i] == '\r') {
+			i++
+		}
+		if i >= n {
+			break
+		}
+		// Parse value
+		if strings.HasPrefix(s[i:], `<|"|>`) {
+			i += 5
+			end := strings.Index(s[i:], `<|"|>`)
+			if end == -1 {
+				args[key] = s[i:]
+				break
+			}
+			args[key] = s[i : i+end]
+			i += end + 5
+		} else if s[i] == '"' {
+			start := i
+			i++
+			for i < n && s[i] != '"' {
+				if s[i] == '\\' && i+1 < n {
+					i++
+				}
+				i++
+			}
+			if i < n {
+				i++
+			}
+			var unq string
+			if err := json.Unmarshal([]byte(s[start:i]), &unq); err == nil {
+				args[key] = unq
+			} else {
+				args[key] = strings.Trim(s[start:i], `"`)
+			}
+		} else if s[i] == '[' || s[i] == '{' {
+			openCh := s[i]
+			closeCh := byte(']')
+			if openCh == '{' {
+				closeCh = '}'
+			}
+			depth := 0
+			start := i
+			for i < n {
+				if strings.HasPrefix(s[i:], `<|"|>`) {
+					i += 5
+					end := strings.Index(s[i:], `<|"|>`)
+					if end == -1 {
+						i = n
+						break
+					}
+					i += end + 5
+					continue
+				}
+				if s[i] == '"' {
+					i++
+					for i < n && s[i] != '"' {
+						if s[i] == '\\' && i+1 < n {
+							i++
+						}
+						i++
+					}
+					if i < n {
+						i++
+					}
+					continue
+				}
+				if s[i] == openCh {
+					depth++
+				} else if s[i] == closeCh {
+					depth--
+					if depth == 0 {
+						i++
+						break
+					}
+				}
+				i++
+			}
+			rawSub := strings.ReplaceAll(s[start:i], `<|"|>`, `"`)
+			var subVal any
+			if err := json.Unmarshal([]byte(rawSub), &subVal); err == nil {
+				args[key] = subVal
+			} else if openCh == '{' {
+				args[key] = parseGemma4Args(s[start+1 : i-1])
+			} else {
+				args[key] = rawSub
+			}
+		} else {
+			start := i
+			for i < n && s[i] != ',' && s[i] != '}' {
+				i++
+			}
+			valStr := strings.TrimSpace(s[start:i])
+			if valStr == "true" {
+				args[key] = true
+			} else if valStr == "false" {
+				args[key] = false
+			} else if iv, err := strconv.Atoi(valStr); err == nil {
+				args[key] = iv
+			} else if fv, err := strconv.ParseFloat(valStr, 64); err == nil {
+				args[key] = fv
+			} else {
+				args[key] = valStr
+			}
+		}
+	}
+	return args
+}
+
+// extractGemma4ToolCalls extracts one or more `call:NAME{...}` invocations from Gemma 4 `<|tool_call>...<tool_call|>` text.
+func extractGemma4ToolCalls(text string) []ExtractedToolCall {
+	if !strings.Contains(text, "call:") {
+		return nil
+	}
+	var results []ExtractedToolCall
+	var blocks []string
+	for _, m := range gemma4BlockRe.FindAllStringSubmatch(text, -1) {
+		if len(m) > 1 {
+			blocks = append(blocks, m[1])
+		}
+	}
+	if len(blocks) == 0 && strings.Contains(text, "<|tool_call") {
+		idx := strings.Index(text, "<|tool_call")
+		blocks = append(blocks, text[idx:])
+	}
+	for _, b := range blocks {
+		locs := gemma4CallHeadRe.FindAllStringSubmatchIndex(b, -1)
+		for _, loc := range locs {
+			tName := b[loc[2]:loc[3]]
+			braceStart := loc[1] - 1 // points at '{'
+			depth := 0
+			i := braceStart
+			n := len(b)
+			for i < n {
+				if strings.HasPrefix(b[i:], `<|"|>`) {
+					i += 5
+					end := strings.Index(b[i:], `<|"|>`)
+					if end == -1 {
+						i = n
+						break
+					}
+					i += end + 5
+					continue
+				}
+				if b[i] == '"' {
+					i++
+					for i < n && b[i] != '"' {
+						if b[i] == '\\' && i+1 < n {
+							i++
+						}
+						i++
+					}
+					if i < n {
+						i++
+					}
+					continue
+				}
+				if b[i] == '{' {
+					depth++
+				} else if b[i] == '}' {
+					depth--
+					if depth == 0 {
+						break
+					}
+				}
+				i++
+			}
+			endIdx := i
+			if endIdx > n {
+				endIdx = n
+			}
+			inner := ""
+			if endIdx > braceStart+1 {
+				inner = b[braceStart+1 : endIdx]
+			}
+			rawArgs := parseGemma4Args(inner)
+			normName, normArgs, normErr := NormalizeToolCall(tName, rawArgs)
+			if normErr == nil && normName != "" {
+				results = append(results, ExtractedToolCall{
+					Name:      normName,
+					Arguments: normArgs,
+				})
+			}
+		}
+	}
+	return results
+}
 
 // ExtractedToolCall represents a tool call recovered from assistant text output.
 type ExtractedToolCall struct {
@@ -2777,6 +3017,9 @@ func ExtractToolCallsFromText(text string) []ExtractedToolCall {
 		return nil
 	}
 	var calls []ExtractedToolCall
+	if gemmaCalls := extractGemma4ToolCalls(trimmed); len(gemmaCalls) > 0 {
+		return gemmaCalls
+	}
 	var rawBlocks []string
 
 	for _, m := range xmlToolCallRe.FindAllStringSubmatch(trimmed, -1) {

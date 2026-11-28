@@ -90,10 +90,20 @@ type VersionManifest struct {
 func BuiltinChangelog() []ChangelogEntry {
 	return []ChangelogEntry{
 		{
+			Version: "3.1.5",
+			Date:    "2026-11-28",
+			Title:   "Unjess v3.1.5 - Clean Minimalist Header, Gemma 4 Native Tool Call Parser & Thinking Off Control",
+			Tag:     "LATEST",
+			Changes: []string{
+				"Removed top-bar and chat sub-header clutter (version/engine status pills, workspace dropdown, git badge, and secondary chat header bar) for a distraction-free chat view",
+				"Added native Gemma 4 `<|tool_call>call:NAME{...}<tool_call|>` parser, `chat_template_kwargs: {enable_thinking: false}` when Thinking is set to Off, and automatic tool-call continuation in Chat mode",
+			},
+		},
+		{
 			Version: "3.1.4",
 			Date:    "2026-11-28",
 			Title:   "Unjess v3.1.4 - Rich Markdown, Syntax Highlighting, Mermaid & Sandboxed HTML UI Widgets",
-			Tag:     "LATEST",
+			Tag:     "UPDATE",
 			Changes: []string{
 				"Upgraded chat response renderer to GFM Markdown (marked + DOMPurify) with Highlight.js syntax highlighting, Copy & Collapse buttons on code blocks, GitHub-style Callout Alerts, and Mermaid.js diagrams",
 				"Added `render_ui_widget` tool and fenced ```widget block renderer to display rich interactive HTML/CSS/SVG/JS cards safely inside auto-resizing sandboxed iframes",

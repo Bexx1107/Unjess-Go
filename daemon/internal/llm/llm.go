@@ -94,9 +94,11 @@ func SupportsReasoningEffort(model string, provider string) bool {
 	case "xai":
 		return strings.Contains(low, "grok-3") || strings.Contains(low, "grok-4")
 	case "ollama", "ollama-api":
-		return strings.Contains(low, "deepseek") || strings.Contains(low, "kimi") || strings.Contains(low, "glm") || strings.Contains(low, "qwen3") || strings.Contains(low, "qwq") || strings.Contains(low, ":cloud")
+		return strings.Contains(low, "deepseek") || strings.Contains(low, "kimi") || strings.Contains(low, "glm") || strings.Contains(low, "qwen3") || strings.Contains(low, "qwq") || strings.Contains(low, "gemma-4") || strings.Contains(low, "gemma4") || strings.Contains(low, "cvetka") || strings.Contains(low, ":cloud")
+	case "llamacpp", "lmstudio":
+		return strings.Contains(low, "gemma-4") || strings.Contains(low, "gemma4") || strings.Contains(low, "cvetka") || strings.Contains(low, "deepseek") || strings.Contains(low, "qwen3") || strings.Contains(low, "qwq") || strings.Contains(low, "glm") || strings.Contains(low, "kimi") || strings.Contains(low, "reason") || strings.Contains(low, "thinking")
 	default:
-		return strings.Contains(low, "deepseek") || strings.Contains(low, "reason") || strings.Contains(low, "thinking") || strings.Contains(low, "qwq")
+		return strings.Contains(low, "deepseek") || strings.Contains(low, "gemma-4") || strings.Contains(low, "gemma4") || strings.Contains(low, "cvetka") || strings.Contains(low, "reason") || strings.Contains(low, "thinking") || strings.Contains(low, "qwq")
 	}
 }
 
@@ -203,12 +205,13 @@ func DetectProvider(model string, configuredProvider string) string {
 		}
 	}
 
-	// 2. Identify local file paths or GGUF files (e.g. E:\models\..., /home/..., model.gguf)
+	// 2. Identify local file paths, GGUF files, or local llama.cpp models like Cvetka (e.g. E:\models\..., /home/..., model.gguf, cvetka-r1-27b)
 	isWindowsPath := len(m) >= 2 && ((m[0] >= 'a' && m[0] <= 'z') || (m[0] >= 'A' && m[0] <= 'Z')) && m[1] == ':'
 	hasPathSep := strings.Contains(m, "\\") || strings.HasPrefix(m, "/") || strings.HasPrefix(m, "./") || strings.HasPrefix(m, "../")
 	isGGUF := strings.HasSuffix(lower, ".gguf") || strings.Contains(lower, ".gguf") || strings.HasSuffix(lower, ".bin")
+	isKnownLlamaCpp := strings.Contains(lower, "cvetka")
 
-	if isWindowsPath || hasPathSep || isGGUF {
+	if isWindowsPath || hasPathSep || isGGUF || isKnownLlamaCpp {
 		if normConfigured == "lmstudio" {
 			return "lmstudio"
 		}
@@ -575,12 +578,19 @@ func (p *ThinkStreamParser) FeedThinking(text string) {
 	}
 }
 
-// FeedContent feeds text content chunks, extracting any <think>...</think> blocks in real time.
+// FeedContent feeds text content chunks, extracting any <think>...</think> (or Cvetka ⸢CHANNEL⸥thought...⸢/CHANNEL⸥) blocks in real time.
 func (p *ThinkStreamParser) FeedContent(text string) {
 	if text == "" {
 		return
 	}
 	p.buf += text
+	if strings.Contains(p.buf, "⸢CHANNEL⸥thought") {
+		p.buf = strings.ReplaceAll(p.buf, "⸢CHANNEL⸥thought\n", openThinkTag)
+		p.buf = strings.ReplaceAll(p.buf, "⸢CHANNEL⸥thought", openThinkTag)
+	}
+	if strings.Contains(p.buf, "⸢/CHANNEL⸥") {
+		p.buf = strings.ReplaceAll(p.buf, "⸢/CHANNEL⸥", closeThinkTag)
+	}
 
 	for len(p.buf) > 0 {
 		if !p.inThink {

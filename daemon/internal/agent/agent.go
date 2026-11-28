@@ -5517,7 +5517,7 @@ func (hm *HarnessManager) RunAgentTurn(ctx context.Context, req ChatTurnRequest)
 			sysBuilder.WriteString("  * Next.js App Router: Wrap slow fetches in `<Suspense>`, lazy-load interaction-only client modules with `next/dynamic(..., { ssr: false })`, and defer non-blocking side effects with `after()`.\n")
 		}
 		sysBuilder.WriteString("\n")
-		if (provider == "ollama" || provider == "ollama-api" || provider == "lmstudio" || provider == "llamacpp") && !nativeThinkingActive {
+		if (provider == "ollama" || provider == "ollama-api" || provider == "lmstudio" || provider == "llamacpp") && !nativeThinkingActive && activeEffort != "none" {
 			sysBuilder.WriteString("Before invoking any tool (such as write_file, edit_file, or run_command), emit a concise <think>...</think> reasoning block explaining what you are analyzing and what action you are about to take next so the user sees your live thought process.\n")
 		}
 		sysBuilder.WriteString("When building multi-file applications (such as a CMS, dashboard, or full-stack app), write modular files one by one (keeping each write_file call focused and under ~400 lines) rather than generating one massive monolithic file in a single tool call.\n\n")
@@ -5857,12 +5857,24 @@ func (hm *HarnessManager) RunAgentTurn(ctx context.Context, req ChatTurnRequest)
 		callbacks := llm.StreamCallbacks{
 			OnText: func(chunk string) {
 				hm.liveMu.Lock()
-				live.Text += chunk
 				iterText += chunk
-				if thinkStepIdx >= 0 && thinkStepIdx < len(live.PlanningSteps) {
-					if iterThinking == "" {
-						if firstLine := firstNonEmptyLine(iterText); firstLine != "" {
-							live.PlanningSteps[thinkStepIdx]["text"] = fmt.Sprintf("Responding: %s", truncateStr(firstLine, 88))
+				if idx := strings.Index(iterText, "<|tool_call"); idx != -1 {
+					live.Text = strings.TrimSpace(iterText[:idx])
+					if thinkStepIdx >= 0 && thinkStepIdx < len(live.PlanningSteps) {
+						live.PlanningSteps[thinkStepIdx]["text"] = fmt.Sprintf("[STREAM] Generating tool call — %.1f KB streamed...", float64(len(iterText)-idx)/1024.0)
+					}
+				} else if idx := strings.Index(iterText, "<tool_call>"); idx != -1 {
+					live.Text = strings.TrimSpace(iterText[:idx])
+					if thinkStepIdx >= 0 && thinkStepIdx < len(live.PlanningSteps) {
+						live.PlanningSteps[thinkStepIdx]["text"] = fmt.Sprintf("[STREAM] Generating tool call — %.1f KB streamed...", float64(len(iterText)-idx)/1024.0)
+					}
+				} else {
+					live.Text += chunk
+					if thinkStepIdx >= 0 && thinkStepIdx < len(live.PlanningSteps) {
+						if iterThinking == "" {
+							if firstLine := firstNonEmptyLine(iterText); firstLine != "" {
+								live.PlanningSteps[thinkStepIdx]["text"] = fmt.Sprintf("Responding: %s", truncateStr(firstLine, 88))
+							}
 						}
 					}
 				}
@@ -6014,20 +6026,31 @@ func (hm *HarnessManager) RunAgentTurn(ctx context.Context, req ChatTurnRequest)
 						Arguments: ext.Arguments,
 					})
 				}
-				// Strip raw <tool_call>...</tool_call>, `call\n{...}`, or imitated [Turn Execution Summary] from live.Text and res.Content
-				hm.liveMu.Lock()
-				if idx := strings.Index(live.Text, "<tool_call>"); idx != -1 {
-					live.Text = strings.TrimSpace(live.Text[:idx])
-				} else {
-					live.Text = ""
-				}
 				if thinkStepIdx >= 0 && thinkStepIdx < len(live.PlanningSteps) {
+					hm.liveMu.Lock()
 					live.PlanningSteps[thinkStepIdx]["text"] = fmt.Sprintf("Planned %d tool call(s) (%.1fs)", len(res.ToolCalls), thinkDur)
+					hm.liveMu.Unlock()
 				}
-				hm.liveMu.Unlock()
-				res.Content = ""
-				commentaryContent = ""
 			}
+		}
+
+		// Always strip any raw <tool_call> or <|tool_call tokens leaked into live.Text / res.Content (even if native tool_calls were also emitted)
+		if strings.Contains(live.Text, "<|tool_call") || strings.Contains(live.Text, "<tool_call>") || strings.Contains(res.Content, "<|tool_call") || strings.Contains(res.Content, "<tool_call>") {
+			hm.liveMu.Lock()
+			if idx := strings.Index(live.Text, "<|tool_call"); idx != -1 {
+				live.Text = strings.TrimSpace(live.Text[:idx])
+			}
+			if idx := strings.Index(live.Text, "<tool_call>"); idx != -1 {
+				live.Text = strings.TrimSpace(live.Text[:idx])
+			}
+			hm.liveMu.Unlock()
+			if idx := strings.Index(res.Content, "<|tool_call"); idx != -1 {
+				res.Content = strings.TrimSpace(res.Content[:idx])
+			}
+			if idx := strings.Index(res.Content, "<tool_call>"); idx != -1 {
+				res.Content = strings.TrimSpace(res.Content[:idx])
+			}
+			commentaryContent = strings.TrimSpace(res.Content)
 		}
 
 		if len(res.ToolCalls) == 0 {
@@ -6096,21 +6119,22 @@ func (hm *HarnessManager) RunAgentTurn(ctx context.Context, req ChatTurnRequest)
 			}
 
 			// Autonomous Continuation Invariant:
-			// If the model emitted intermediate narration without calling tools or stopped on an empty turn,
-			// nudge the model autonomously instead of prematurely breaking the loop.
-			if !isChatMode && !isCvetkaModel && iter < maxIter-1 && consecutiveTextNudges < 2 {
-				isTransitional := isTransitionalNarration(res.Content)
+			// If the model emitted intermediate narration without calling tools or stopped on an empty turn (thinking-only),
+			// nudge the model autonomously instead of prematurely breaking the loop or dumping raw internal thoughts.
+			if iter < maxIter-1 && consecutiveTextNudges < 2 {
+				isTransitional := !isChatMode && !isCvetkaModel && isTransitionalNarration(res.Content)
 				isEmptyTurn := strings.TrimSpace(res.Content) == "" && strings.TrimSpace(thoughtContent) != ""
 
 				if isTransitional || isEmptyTurn {
 					consecutiveTextNudges++
 					nudgePrompt := fmt.Sprintf("[System Guidance]: You provided intermediate commentary without invoking any tools. In autonomous mode, you must not narrate your intent without acting. If you need to inspect files, execute commands, or edit code, CALL THE RELEVANT TOOL IMMEDIATELY now. If you are completely finished, provide your final response directly answering the user's request (%q) without mentioning this system guidance.", truncateStr(req.Prompt, 240))
 					if isEmptyTurn {
-						nudgePrompt = fmt.Sprintf("[System Guidance]: You completed your reasoning but did not invoke any tools or output a final answer. Please invoke the appropriate tool to proceed with the task or provide your final response directly answering the user's request (%q).", truncateStr(req.Prompt, 240))
+						nudgePrompt = fmt.Sprintf("[System Guidance]: You completed your reasoning but did not invoke any tools or output a final answer. Invoke the required tool (such as `web_search` or `read_url`) immediately now, or write your final user-facing response directly answering the user's request (%q).", truncateStr(req.Prompt, 240))
 					}
 					messages = append(messages, llm.Message{
-						Role:    "assistant",
-						Content: res.Content,
+						Role:     "assistant",
+						Content:  res.Content,
+						Thinking: thoughtContent,
 					})
 					messages = append(messages, llm.Message{
 						Role:    "user",
@@ -7430,9 +7454,12 @@ func isContextLengthError(err error) bool {
 	low := strings.ToLower(err.Error())
 	patterns := []string{
 		"context_length_exceeded",
+		"exceed_context_size_error",
+		"exceeds the available context size",
 		"maximum context length",
 		"context window",
 		"prompt is too long",
+		"tooManyTokens",
 		"too many tokens",
 		"exceeds the maximum",
 		"input length",
